@@ -745,10 +745,6 @@ class ProResVideoCompositor: NSObject {
             return
         }
 
-        // For now, use a hardcoded frame rate based on the provided frame rate
-        let timecodeFrameRate = frameRate == 25 ? "fps25" : "fps30"
-        print("📹 Using frame rate: \(timecodeFrameRate)")
-
         // Create TimecodeKit timecode object using the correct API
         let timecodeObject = try Timecode(
             .components(h: hours, m: minutes, s: seconds, f: frames), at: .fps25)
@@ -802,18 +798,6 @@ class ProResVideoCompositor: NSObject {
                 try? FileManager.default.removeItem(at: tempURL)
             }
         }
-    }
-
-
-
-    private func addTimecodeMetadata(to url: URL, timecode: String) async throws {
-        print("📹 Attempting to set timecode metadata for output file: \(timecode)")
-
-        // For now, we'll just log that the timecode should be set
-        // The actual timecode is already set correctly in the session start time
-        print("📹 Note: The output file session starts at timecode: \(timecode)")
-        print("📹 The timecode metadata writing requires specialized tools or manual verification")
-        print("📹 The output file timing is correct and starts at the base timecode")
     }
 
     func createGradedSegments(
