@@ -1,17 +1,7 @@
-//
-//  main.swift
-//  ProResWriter
-//
-//  Created by Francis Qureshi on 26/07/2025.
-//
-
-import Foundation
-
-print("Hello, ProRes!")
-
 import AVFoundation
 import CoreMedia
 import AppKit
+import TimecodeKit
 
 // MARK: - Data Models
 struct GradedSegment {
@@ -48,6 +38,7 @@ class ProResVideoCompositor: NSObject {
                     completionHandler?(.success(outputURL))
                 }
             } catch {
+                print("❌ Composition error: \(error)")
                 await MainActor.run {
                     completionHandler?(.failure(error))
                 }
@@ -58,12 +49,32 @@ class ProResVideoCompositor: NSObject {
     // MARK: - Core Processing
     private func processComposition(settings: CompositorSettings) async throws -> URL {
         
+        print("🔍 Starting composition process...")
+        
         // 1. Analyze base video to get properties
+        print("📹 Analyzing base video...")
         let baseAsset = AVURLAsset(url: settings.baseVideoURL)
         let baseTrack = try await getVideoTrack(from: baseAsset)
-        let baseProperties = try await getVideoProperties(from: baseTrack)
+        var baseProperties = try await getVideoProperties(from: baseTrack)
+        
+        // Override with known base timecode if extraction failed
+        if baseProperties.sourceTimecode == nil || baseProperties.sourceTimecode == "00:00:00:00" {
+            print("📹 Overriding base timecode with known value: 01:01:39:09")
+            baseProperties = VideoProperties(
+                width: baseProperties.width,
+                height: baseProperties.height,
+                frameRate: baseProperties.frameRate,
+                colorPrimaries: baseProperties.colorPrimaries,
+                transferFunction: baseProperties.transferFunction,
+                yCbCrMatrix: baseProperties.yCbCrMatrix,
+                sourceTimecode: "01:01:39:09"
+            )
+        }
+        
+        print("✅ Base video properties: \(baseProperties.width)x\(baseProperties.height) @ \(baseProperties.frameRate)fps")
         
         // 2. Setup output writer
+        print("📝 Setting up asset writer...")
         try setupAssetWriter(
             outputURL: settings.outputURL,
             properties: baseProperties,
@@ -71,9 +82,12 @@ class ProResVideoCompositor: NSObject {
         )
         
         // 3. Load and prepare graded segments
+        print("🎬 Preparing graded segments...")
         let segmentReaders = try await prepareSegmentReaders(settings.gradedSegments)
+        print("✅ Prepared \(settings.gradedSegments.count) segments")
         
         // 4. Start writing process
+        print("✍️ Starting writing process...")
         guard let assetWriter = assetWriter,
               let videoWriterInput = videoWriterInput,
               let pixelBufferAdaptor = pixelBufferAdaptor else {
@@ -81,7 +95,19 @@ class ProResVideoCompositor: NSObject {
         }
         
         assetWriter.startWriting()
-        assetWriter.startSession(atSourceTime: .zero)
+        
+        // Start the session at the base timecode instead of zero
+        let sessionStartTime: CMTime
+        if let sourceTimecode = baseProperties.sourceTimecode,
+           let timecodeTime = timecodeToCMTime(sourceTimecode, frameRate: baseProperties.frameRate) {
+            sessionStartTime = timecodeTime
+            print("📹 Starting output session at source timecode: \(sourceTimecode)")
+        } else {
+            sessionStartTime = .zero
+            print("📹 Starting output session at zero (no source timecode)")
+        }
+        
+        assetWriter.startSession(atSourceTime: sessionStartTime)
         
         // 5. Process frame by frame
         try await processFrames(
@@ -96,6 +122,11 @@ class ProResVideoCompositor: NSObject {
         // 6. Finalize
         videoWriterInput.markAsFinished()
         await assetWriter.finishWriting()
+        
+        // 7. Add timecode metadata using AVMutableMovie
+        if let sourceTimecode = baseProperties.sourceTimecode {
+            try await addTimecodeMetadataUsingAVMutableMovie(to: settings.outputURL, timecode: sourceTimecode, frameRate: baseProperties.frameRate)
+        }
         
         return settings.outputURL
     }
@@ -123,13 +154,16 @@ class ProResVideoCompositor: NSObject {
             ]
         ]
         
+        // Note: Timecode metadata will be added after composition using AVMutableMovie
+        print("📹 Timecode metadata will be added after composition")
+        
         // Create video input
         videoWriterInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         videoWriterInput?.expectsMediaDataInRealTime = false
         
-        // Create pixel buffer adaptor
+        // Create pixel buffer adaptor with more compatible format
         let pixelBufferAttributes: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_422YpCbCr8,
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: properties.width,
             kCVPixelBufferHeightKey as String: properties.height
         ]
@@ -163,14 +197,19 @@ class ProResVideoCompositor: NSObject {
         let totalDuration = try await baseAsset.load(.duration)
         let totalFrames = Int(totalDuration.seconds * Double(baseProperties.frameRate))
         
-        var currentTime = CMTime.zero
+        // Calculate the session start time (base timecode)
+        let sessionStartTime: CMTime
+        if let sourceTimecode = baseProperties.sourceTimecode,
+           let timecodeTime = timecodeToCMTime(sourceTimecode, frameRate: baseProperties.frameRate) {
+            sessionStartTime = timecodeTime
+        } else {
+            sessionStartTime = .zero
+        }
+        
+        var currentTime = sessionStartTime
         var frameIndex = 0
         
-        // Create base reader for fallback frames
-        let baseReader = try AVAssetReader(asset: baseAsset)
-        let baseOutput = AVAssetReaderVideoCompositionOutput(videoTracks: [try await getVideoTrack(from: baseAsset)], videoSettings: nil)
-        baseReader.add(baseOutput)
-        baseReader.startReading()
+        // We'll use AVAssetImageGenerator for base video frames too
         
         while frameIndex < totalFrames {
             
@@ -182,20 +221,25 @@ class ProResVideoCompositor: NSObject {
             // Determine which segment (if any) should be active at this time
             let activeSegment = findActiveSegment(at: currentTime, in: gradedSegments)
             
+            // Calculate frame number and timecode for logging
+            let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
+            let timecode = cmTimeToTimecode(currentTime, frameRate: baseProperties.frameRate)
+            
             var pixelBuffer: CVPixelBuffer?
             
             if let segment = activeSegment {
+                print("🎬 Frame \(frameNumber) (\(timecode)): Using graded segment - \(segment.url.lastPathComponent)")
                 // Use graded segment frame
                 pixelBuffer = try await getFrameFromSegment(
                     segment: segment,
                     atTime: currentTime,
                     from: segmentReaders
                 )
-            }
-            
-            // Fallback to base video frame if no graded segment available
-            if pixelBuffer == nil {
-                pixelBuffer = getNextFrameFromReader(baseOutput)
+            } else {
+                print("📹 Frame \(frameNumber) (\(timecode)): Using base video")
+                // Calculate the time offset for base video (subtract session start time)
+                let baseVideoTime = CMTimeSubtract(currentTime, sessionStartTime)
+                pixelBuffer = try await getFrameFromBaseVideo(baseAsset: baseAsset, atTime: baseVideoTime)
             }
             
             // Create blank frame if still no pixel buffer
@@ -223,7 +267,7 @@ class ProResVideoCompositor: NSObject {
     }
     
     // MARK: - Helper Methods
-    private func getVideoTrack(from asset: AVAsset) async throws -> AVAssetTrack {
+    func getVideoTrack(from asset: AVAsset) async throws -> AVAssetTrack {
         let tracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = tracks.first else {
             throw CompositorError.noVideoTrack
@@ -231,7 +275,7 @@ class ProResVideoCompositor: NSObject {
         return videoTrack
     }
     
-    private func getVideoProperties(from track: AVAssetTrack) async throws -> VideoProperties {
+    func getVideoProperties(from track: AVAssetTrack) async throws -> VideoProperties {
         let naturalSize = try await track.load(.naturalSize)
         let nominalFrameRate = try await track.load(.nominalFrameRate)
         let formatDescriptions = try await track.load(.formatDescriptions)
@@ -243,16 +287,21 @@ class ProResVideoCompositor: NSObject {
         // Extract color information if available
         if let formatDescription = formatDescriptions.first {
             let extensions = CMFormatDescriptionGetExtensions(formatDescription)
-            if let colorProperties = extensions?[kCMFormatDescriptionExtension_ColorPrimaries] {
-                colorPrimaries = colorProperties as! String
-            }
-            if let transferProperties = extensions?[kCMFormatDescriptionExtension_TransferFunction] {
-                transferFunction = transferProperties as! String
-            }
-            if let matrixProperties = extensions?[kCMFormatDescriptionExtension_YCbCrMatrix] {
-                yCbCrMatrix = matrixProperties as! String
+            if let extensionsDict = extensions as? [String: Any] {
+                if let colorProperties = extensionsDict[kCMFormatDescriptionExtension_ColorPrimaries as String] as? String {
+                    colorPrimaries = colorProperties
+                }
+                if let transferProperties = extensionsDict[kCMFormatDescriptionExtension_TransferFunction as String] as? String {
+                    transferFunction = transferProperties
+                }
+                if let matrixProperties = extensionsDict[kCMFormatDescriptionExtension_YCbCrMatrix as String] as? String {
+                    yCbCrMatrix = matrixProperties
+                }
             }
         }
+        
+        // Extract source timecode
+        let sourceTimecode = try await extractSourceTimecode(from: track.asset ?? AVURLAsset(url: URL(fileURLWithPath: "")))
         
         return VideoProperties(
             width: Int(naturalSize.width),
@@ -260,7 +309,8 @@ class ProResVideoCompositor: NSObject {
             frameRate: Int32(nominalFrameRate),
             colorPrimaries: colorPrimaries,
             transferFunction: transferFunction,
-            yCbCrMatrix: yCbCrMatrix
+            yCbCrMatrix: yCbCrMatrix,
+            sourceTimecode: sourceTimecode
         )
     }
     
@@ -273,7 +323,13 @@ class ProResVideoCompositor: NSObject {
                 let reader = try AVAssetReader(asset: asset)
                 
                 let videoTrack = try await getVideoTrack(from: asset)
-                let output = AVAssetReaderVideoCompositionOutput(videoTracks: [videoTrack], videoSettings: nil)
+                
+                // Use output settings that match our pixel buffer format
+                let outputSettings: [String: Any] = [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ]
+                
+                let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: outputSettings)
                 
                 reader.add(output)
                 readers[segment.url] = reader
@@ -295,21 +351,83 @@ class ProResVideoCompositor: NSObject {
         atTime time: CMTime,
         from readers: [URL: AVAssetReader]
     ) async throws -> CVPixelBuffer? {
-        guard let reader = readers[segment.url] else { return nil }
+        // Calculate the time offset within the segment
+        let segmentTimeOffset = CMTimeSubtract(time, segment.startTime)
+        let sourceTime = CMTimeAdd(segment.sourceStartTime, segmentTimeOffset)
         
-        if reader.status == .unknown {
-            reader.startReading()
-        }
+        // Use AVAssetImageGenerator for precise frame extraction
+        let asset = AVURLAsset(url: segment.url)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.requestedTimeToleranceBefore = .zero
+        imageGenerator.requestedTimeToleranceAfter = .zero
         
-        // This is simplified - in practice you'd need more sophisticated frame seeking
-        guard let output = reader.outputs.first as? AVAssetReaderVideoCompositionOutput else {
+        do {
+            let cgImage = try await imageGenerator.image(at: sourceTime).image
+            print("✅ Successfully extracted frame from segment at time: \(sourceTime.seconds)")
+            return cgImageToPixelBuffer(cgImage, size: CGSize(width: 3840, height: 2160))
+        } catch {
+            print("❌ Failed to extract frame from segment: \(error)")
             return nil
         }
-        
-        return getNextFrameFromReader(output)
     }
     
-    private func getNextFrameFromReader(_ output: AVAssetReaderVideoCompositionOutput) -> CVPixelBuffer? {
+    private func getFrameFromBaseVideo(baseAsset: AVAsset, atTime time: CMTime) async throws -> CVPixelBuffer? {
+        let imageGenerator = AVAssetImageGenerator(asset: baseAsset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.requestedTimeToleranceBefore = .zero
+        imageGenerator.requestedTimeToleranceAfter = .zero
+        
+        do {
+            let cgImage = try await imageGenerator.image(at: time).image
+            print("✅ Successfully extracted frame from base video at time: \(time.seconds)")
+            return cgImageToPixelBuffer(cgImage, size: CGSize(width: 3840, height: 2160))
+        } catch {
+            print("❌ Failed to extract frame from base video: \(error)")
+            return nil
+        }
+    }
+    
+    private func cgImageToPixelBuffer(_ cgImage: CGImage, size: CGSize) -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+        let attributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey as String: Int(size.width),
+            kCVPixelBufferHeightKey as String: Int(size.height)
+        ]
+        
+        let result = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32BGRA,
+            attributes as CFDictionary,
+            &pixelBuffer
+        )
+        
+        if result == kCVReturnSuccess, let buffer = pixelBuffer {
+            CVPixelBufferLockBaseAddress(buffer, [])
+            
+            let context = CGContext(
+                data: CVPixelBufferGetBaseAddress(buffer),
+                width: Int(size.width),
+                height: Int(size.height),
+                bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            )
+            
+            context?.draw(cgImage, in: CGRect(origin: .zero, size: size))
+            
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            return buffer
+        }
+        
+        return nil
+    }
+    
+    private func getNextFrameFromReader(_ output: AVAssetReaderTrackOutput) -> CVPixelBuffer? {
         guard let sampleBuffer = output.copyNextSampleBuffer() else { return nil }
         return CMSampleBufferGetImageBuffer(sampleBuffer)
     }
@@ -317,7 +435,7 @@ class ProResVideoCompositor: NSObject {
     private func createBlankFrame(properties: VideoProperties) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
         let attributes: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_422YpCbCr8,
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: properties.width,
             kCVPixelBufferHeightKey as String: properties.height
         ]
@@ -326,25 +444,486 @@ class ProResVideoCompositor: NSObject {
             kCFAllocatorDefault,
             properties.width,
             properties.height,
-            kCVPixelFormatType_422YpCbCr8,
+            kCVPixelFormatType_32BGRA,
             attributes as CFDictionary,
             &pixelBuffer
         )
         
         if result == kCVReturnSuccess, let buffer = pixelBuffer {
-            // Fill with black (or whatever background color you want)
+            // Fill with black (BGRA format: B=0, G=0, R=0, A=255)
             CVPixelBufferLockBaseAddress(buffer, [])
             let baseAddress = CVPixelBufferGetBaseAddress(buffer)
             let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
             let height = CVPixelBufferGetHeight(buffer)
             
-            memset(baseAddress, 0, bytesPerRow * height)
+            // Fill with black pixels (BGRA: 0, 0, 0, 255)
+            if let baseAddress = baseAddress {
+                let pixelData = baseAddress.assumingMemoryBound(to: UInt8.self)
+                for i in 0..<(bytesPerRow * height / 4) {
+                    let pixelIndex = i * 4
+                    pixelData[pixelIndex] = 0     // B
+                    pixelData[pixelIndex + 1] = 0 // G
+                    pixelData[pixelIndex + 2] = 0 // R
+                    pixelData[pixelIndex + 3] = 255 // A
+                }
+            }
+            
             CVPixelBufferUnlockBaseAddress(buffer, [])
             
             return buffer
         }
         
         return nil
+    }
+    
+    // MARK: - Segment Discovery and Parsing
+    func discoverSegments(in directoryURL: URL) async throws -> [SegmentInfo] {
+        let fileManager = FileManager.default
+        let segmentURLs = try fileManager.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension.lowercased() == "mov" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        
+        var segments: [SegmentInfo] = []
+        
+        for url in segmentURLs {
+            let segmentInfo = try await parseSegmentInfo(from: url)
+            segments.append(segmentInfo)
+        }
+        
+        return segments
+    }
+    
+    private func parseSegmentInfo(from url: URL) async throws -> SegmentInfo {
+        let asset = AVURLAsset(url: url)
+        let duration = try await asset.load(.duration)
+        let filename = url.lastPathComponent
+        
+        // Try to parse segment number from filename (e.g., "S01", "S02")
+        let segmentNumber = parseSegmentNumber(from: filename)
+        
+        // Try to parse start time from filename or metadata
+        let startTime = try await parseStartTime(from: asset, filename: filename)
+        
+        // Extract timecode information
+        let sourceTimecode = try await extractSourceTimecode(from: asset)
+        let sourceStartTimecode = try await extractStartTimecode(from: asset)
+        
+        return SegmentInfo(
+            url: url,
+            filename: filename,
+            duration: duration,
+            startTime: startTime,
+            segmentNumber: segmentNumber,
+            sourceTimecode: sourceTimecode,
+            sourceStartTimecode: sourceStartTimecode
+        )
+    }
+    
+    private func parseSegmentNumber(from filename: String) -> Int? {
+        // Look for patterns like "S01", "S02", etc.
+        let pattern = "S(\\d+)"
+        let regex = try? NSRegularExpression(pattern: pattern)
+        let range = NSRange(filename.startIndex..<filename.endIndex, in: filename)
+        
+        if let match = regex?.firstMatch(in: filename, range: range),
+           let numberRange = Range(match.range(at: 1), in: filename) {
+            return Int(filename[numberRange])
+        }
+        
+        return nil
+    }
+    
+    private func parseStartTime(from asset: AVAsset, filename: String) async throws -> CMTime? {
+        // First, try to get start time from metadata
+        if let startTime = try await getStartTimeFromMetadata(asset) {
+            return startTime
+        }
+        
+        // If no metadata, try to parse from filename
+        return parseStartTimeFromFilename(filename)
+    }
+    
+    private func getStartTimeFromMetadata(_ asset: AVAsset) async throws -> CMTime? {
+        // Try to get start time from various metadata sources
+        let metadata = try await asset.load(.metadata)
+        
+        for item in metadata {
+            if let key = item.commonKey?.rawValue,
+               key == "startTime" || key == "time" {
+                // Parse time value from metadata
+                if let value = try? await item.load(.value) as? String {
+                    return parseTimeString(value)
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    private func parseStartTimeFromFilename(_ filename: String) -> CMTime? {
+        // Look for time patterns in filename (e.g., "T10s", "T30s", etc.)
+        let patterns = [
+            "T(\\d+)s", // T10s, T30s
+            "T(\\d+)_(\\d+)", // T10_30 (minutes_seconds)
+            "start(\\d+)", // start10, start30
+        ]
+        
+        for pattern in patterns {
+            let regex = try? NSRegularExpression(pattern: pattern)
+            let range = NSRange(filename.startIndex..<filename.endIndex, in: filename)
+            
+            if let match = regex?.firstMatch(in: filename, range: range) {
+                if pattern == "T(\\d+)s" {
+                    if let secondsRange = Range(match.range(at: 1), in: filename) {
+                        let seconds = Int(filename[secondsRange]) ?? 0
+                        return CMTime(seconds: Double(seconds), preferredTimescale: 600)
+                    }
+                } else if pattern == "T(\\d+)_(\\d+)" {
+                    if let minutesRange = Range(match.range(at: 1), in: filename),
+                       let secondsRange = Range(match.range(at: 2), in: filename) {
+                        let minutes = Int(filename[minutesRange]) ?? 0
+                        let seconds = Int(filename[secondsRange]) ?? 0
+                        return CMTime(seconds: Double(minutes * 60 + seconds), preferredTimescale: 600)
+                    }
+                } else if pattern == "start(\\d+)" {
+                    if let secondsRange = Range(match.range(at: 1), in: filename) {
+                        let seconds = Int(filename[secondsRange]) ?? 0
+                        return CMTime(seconds: Double(seconds), preferredTimescale: 600)
+                    }
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    private func parseTimeString(_ timeString: String) -> CMTime? {
+        // Parse various time formats
+        let components = timeString.components(separatedBy: ":")
+        if components.count == 2 {
+            // MM:SS format
+            if let minutes = Int(components[0]), let seconds = Int(components[1]) {
+                return CMTime(seconds: Double(minutes * 60 + seconds), preferredTimescale: 600)
+            }
+        } else if components.count == 3 {
+            // HH:MM:SS format
+            if let hours = Int(components[0]), let minutes = Int(components[1]), let seconds = Int(components[2]) {
+                return CMTime(seconds: Double(hours * 3600 + minutes * 60 + seconds), preferredTimescale: 600)
+            }
+        } else if let seconds = Double(timeString) {
+            // Just seconds
+            return CMTime(seconds: seconds, preferredTimescale: 600)
+        }
+        
+        return nil
+    }
+    
+    // MARK: - Timecode Handling
+    private func extractSourceTimecode(from asset: AVAsset) async throws -> String? {
+        let metadata = try await asset.load(.metadata)
+        
+        print("🔍 Extracting timecode from metadata...")
+        for item in metadata {
+            print("  📋 Metadata item: \(item)")
+            if let key = item.commonKey?.rawValue {
+                print("    Key: \(key)")
+            }
+            if let identifier = item.identifier?.rawValue {
+                print("    Identifier: \(identifier)")
+            }
+            
+            // Check common timecode keys
+            if let key = item.commonKey?.rawValue {
+                switch key {
+                case "timecode":
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Found timecode: \(value)")
+                        return value
+                    }
+                case "sourceTimecode":
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Found sourceTimecode: \(value)")
+                        return value
+                    }
+                default:
+                    break
+                }
+            }
+            
+            // Check for timecode in identifier
+            if let identifier = item.identifier?.rawValue {
+                let lowerIdentifier = identifier.lowercased()
+                if lowerIdentifier.contains("timecode") || lowerIdentifier.contains("tc") || 
+                   lowerIdentifier.contains("reel") || lowerIdentifier.contains("source") {
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Found timecode in identifier \(identifier): \(value)")
+                        return value
+                    }
+                }
+            }
+        }
+        
+        // Try alternative approach - check format descriptions
+        print("🔍 Checking format descriptions for timecode...")
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        if let videoTrack = tracks.first {
+            let formatDescriptions = try await videoTrack.load(.formatDescriptions)
+            for formatDescription in formatDescriptions {
+                let extensions = CMFormatDescriptionGetExtensions(formatDescription)
+                if let extensionsDict = extensions as? [String: Any] {
+                    print("  📋 Format extensions: \(extensionsDict)")
+                    for (key, value) in extensionsDict {
+                        if key.lowercased().contains("timecode") || key.lowercased().contains("tc") {
+                            print("    ✅ Found timecode in format: \(key) = \(value)")
+                            if let timecodeString = value as? String {
+                                return timecodeString
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        print("❌ No timecode found in metadata")
+        return nil
+    }
+    
+    private func extractStartTimecode(from asset: AVAsset) async throws -> String? {
+        let metadata = try await asset.load(.metadata)
+        
+        print("🔍 Extracting start timecode from metadata...")
+        for item in metadata {
+            if let key = item.commonKey?.rawValue {
+                switch key {
+                case "startTimecode":
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Found startTimecode: \(value)")
+                        return value
+                    }
+                case "firstTimecode":
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Found firstTimecode: \(value)")
+                        return value
+                    }
+                case "timecode":
+                    // If no specific start timecode, use the main timecode as start
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Using main timecode as start: \(value)")
+                        return value
+                    }
+                default:
+                    break
+                }
+            }
+            
+            // Check for timecode in identifier
+            if let identifier = item.identifier?.rawValue {
+                let lowerIdentifier = identifier.lowercased()
+                if lowerIdentifier.contains("start") || lowerIdentifier.contains("first") {
+                    if let value = try? await item.load(.value) as? String {
+                        print("    ✅ Found start timecode in identifier \(identifier): \(value)")
+                        return value
+                    }
+                }
+            }
+        }
+        
+        print("❌ No start timecode found in metadata")
+        return nil
+    }
+    
+    private func timecodeToCMTime(_ timecode: String, frameRate: Int32) -> CMTime? {
+        // Parse timecode in format HH:MM:SS:FF (frames)
+        let components = timecode.components(separatedBy: ":")
+        guard components.count == 4,
+              let hours = Int(components[0]),
+              let minutes = Int(components[1]),
+              let seconds = Int(components[2]),
+              let frames = Int(components[3]) else {
+            return nil
+        }
+        
+        let totalSeconds = hours * 3600 + minutes * 60 + seconds
+        let frameTime = Double(frames) / Double(frameRate)
+        return CMTime(seconds: Double(totalSeconds) + frameTime, preferredTimescale: CMTimeScale(frameRate))
+    }
+    
+    func cmTimeToTimecode(_ time: CMTime, frameRate: Int32) -> String {
+        let totalSeconds = time.seconds
+        let hours = Int(totalSeconds) / 3600
+        let minutes = (Int(totalSeconds) % 3600) / 60
+        let seconds = Int(totalSeconds) % 60
+        let frames = Int((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate))
+        
+        return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
+    }
+    
+    private func addTimecodeMetadataUsingAVMutableMovie(to url: URL, timecode: String, frameRate: Int32) async throws {
+        print("📹 Adding timecode metadata using TimecodeKit: \(timecode)")
+        
+        // Create AVMovie from the output file
+        let movie = AVMovie(url: url)
+        
+        // Convert to mutable movie
+        let mutableMovie = movie.mutableCopy() as! AVMutableMovie
+        
+        // Parse timecode components
+        let components = timecode.components(separatedBy: ":")
+        guard components.count == 4,
+              let hours = Int(components[0]),
+              let minutes = Int(components[1]),
+              let seconds = Int(components[2]),
+              let frames = Int(components[3]) else {
+            print("❌ Failed to parse timecode: \(timecode)")
+            return
+        }
+        
+        // Create TimecodeKit timecode object using the correct API
+        // Use the components initializer
+        let timecodeObject = try Timecode(.components(h: hours, m: minutes, s: seconds, f: frames), at: .fps25) // Using .fps25 for 25fps
+        
+        // Get the duration of the movie and create duration timecode
+        let duration = try await mutableMovie.load(.duration)
+        let durationTimecode = try await mutableMovie.durationTimecode()
+        
+        // Replace the timecode track using TimecodeKit
+        do {
+            try await mutableMovie.replaceTimecodeTrack(
+                startTimecode: timecodeObject,
+                duration: durationTimecode,
+                fileType: .mov
+            )
+            print("✅ Successfully replaced timecode track with TimecodeKit")
+        } catch {
+            print("❌ Failed to replace timecode track: \(error.localizedDescription)")
+            return
+        }
+        
+        // Export the modified movie
+        let tempURL = url.deletingLastPathComponent().appendingPathComponent("temp_\(url.lastPathComponent)")
+        
+        guard let exportSession = AVAssetExportSession(
+            asset: mutableMovie,
+            presetName: AVAssetExportPresetPassthrough
+        ) else {
+            print("❌ Failed to create export session")
+            return
+        }
+        
+        exportSession.outputURL = tempURL
+        exportSession.outputFileType = .mov
+        exportSession.shouldOptimizeForNetworkUse = false
+        
+        do {
+            try await exportSession.export(to: tempURL, as: .mov)
+            
+            // Replace original file with timecode-enhanced version
+            try FileManager.default.removeItem(at: url)
+            try FileManager.default.moveItem(at: tempURL, to: url)
+            print("✅ Successfully added timecode metadata to output file")
+        } catch {
+            print("❌ Failed to export timecode metadata: \(error.localizedDescription)")
+            // Clean up temp file if it exists
+            if FileManager.default.fileExists(atPath: tempURL.path) {
+                try? FileManager.default.removeItem(at: tempURL)
+            }
+        }
+    }
+    
+    private func addTimecodeMetadata(to url: URL, timecode: String) async throws {
+        print("📹 Attempting to set timecode metadata for output file: \(timecode)")
+        
+        // For now, we'll just log that the timecode should be set
+        // The actual timecode is already set correctly in the session start time
+        print("📹 Note: The output file session starts at timecode: \(timecode)")
+        print("📹 The timecode metadata writing requires specialized tools or manual verification")
+        print("📹 The output file timing is correct and starts at the base timecode")
+    }
+    
+    func createGradedSegments(from segmentInfos: [SegmentInfo], baseDuration: CMTime, baseProperties: VideoProperties) -> [GradedSegment] {
+        var segments: [GradedSegment] = []
+        
+        // Sort segments by segment number if available, otherwise by filename
+        let sortedSegments = segmentInfos.sorted { seg1, seg2 in
+            if let num1 = seg1.segmentNumber, let num2 = seg2.segmentNumber {
+                return num1 < num2
+            }
+            return seg1.filename < seg2.filename
+        }
+        
+        // Manual timecode mapping for known segments (absolute timecodes)
+        let manualTimecodes: [String: String] = [
+            "5K_XQ_25FPS_LR001_LOG_G0_S01.mov": "01:01:41:09",
+            "5K_XQ_25FPS_LR001_LOG_G0_S02.mov": "01:01:45:16"
+        ]
+        
+        // Calculate relative timecode offsets from base timecode
+        let baseTimecode = "01:01:39:09"
+        
+        for segmentInfo in sortedSegments {
+            let startTime: CMTime
+            let sourceStartTime: CMTime
+            
+            // Check for manual timecode first
+            if let manualTimecode = manualTimecodes[segmentInfo.filename] {
+                if let absoluteTimecodeTime = timecodeToCMTime(manualTimecode, frameRate: baseProperties.frameRate) {
+                    // Use absolute timecode directly (no longer relative)
+                    startTime = absoluteTimecodeTime
+                    sourceStartTime = .zero
+                    let frameNumber = Int(absoluteTimecodeTime.seconds * Double(baseProperties.frameRate))
+                    let outputTimecode = cmTimeToTimecode(absoluteTimecodeTime, frameRate: baseProperties.frameRate)
+                    print("🎬 Using ABSOLUTE timecode for \(segmentInfo.filename):")
+                    print("   Absolute TC: \(manualTimecode) → Frame \(frameNumber) (\(outputTimecode))")
+                } else {
+                    print("❌ Failed to parse manual timecode: \(manualTimecode)")
+                    // Fallback to sequential timing
+                    let currentTime = segments.isEmpty ? .zero : CMTimeAdd(segments.last!.startTime, segments.last!.duration)
+                    startTime = currentTime
+                    sourceStartTime = .zero
+                    let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
+                    let outputTimecode = cmTimeToTimecode(currentTime, frameRate: baseProperties.frameRate)
+                    print("🎬 Fallback to sequential timing for \(segmentInfo.filename):")
+                    print("   Sequential: \(currentTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))")
+                }
+            } else if let sourceTimecode = segmentInfo.sourceStartTimecode,
+                      let timecodeTime = timecodeToCMTime(sourceTimecode, frameRate: baseProperties.frameRate) {
+                // Use extracted timecode-based timing
+                startTime = timecodeTime
+                sourceStartTime = .zero
+                let frameNumber = Int(timecodeTime.seconds * Double(baseProperties.frameRate))
+                let outputTimecode = cmTimeToTimecode(timecodeTime, frameRate: baseProperties.frameRate)
+                print("🎬 Using extracted timecode for \(segmentInfo.filename):")
+                print("   Extracted TC: \(sourceTimecode) → Frame \(frameNumber) (\(outputTimecode))")
+            } else if let parsedStartTime = segmentInfo.startTime {
+                // Use parsed start time if available
+                startTime = parsedStartTime
+                sourceStartTime = .zero
+                let frameNumber = Int(parsedStartTime.seconds * Double(baseProperties.frameRate))
+                let outputTimecode = cmTimeToTimecode(parsedStartTime, frameRate: baseProperties.frameRate)
+                print("🎬 Using parsed start time for \(segmentInfo.filename):")
+                print("   Parsed: \(parsedStartTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))")
+            } else {
+                // Fallback to sequential timing
+                let currentTime = segments.isEmpty ? .zero : CMTimeAdd(segments.last!.startTime, segments.last!.duration)
+                startTime = currentTime
+                sourceStartTime = .zero
+                let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
+                let outputTimecode = cmTimeToTimecode(currentTime, frameRate: baseProperties.frameRate)
+                print("🎬 Using sequential timing for \(segmentInfo.filename):")
+                print("   Sequential: \(currentTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))")
+            }
+            
+            let segment = GradedSegment(
+                url: segmentInfo.url,
+                startTime: startTime,
+                duration: segmentInfo.duration,
+                sourceStartTime: sourceStartTime
+            )
+            
+            segments.append(segment)
+        }
+        
+        return segments
     }
 }
 
@@ -356,6 +935,17 @@ struct VideoProperties {
     let colorPrimaries: String
     let transferFunction: String
     let yCbCrMatrix: String
+    let sourceTimecode: String? // Source timecode from the base video
+}
+
+struct SegmentInfo {
+    let url: URL
+    let filename: String
+    let duration: CMTime
+    let startTime: CMTime? // Optional: can be parsed from filename or metadata
+    let segmentNumber: Int? // Optional: can be parsed from filename
+    let sourceTimecode: String? // Source timecode from the segment file
+    let sourceStartTimecode: String? // Start timecode of the segment
 }
 
 enum CompositorError: Error {
@@ -364,60 +954,189 @@ enum CompositorError: Error {
     case cannotAddInput
     case failedToAppendFrame
     case invalidSegment
+    case segmentDiscoveryFailed
+    case invalidSegmentData
 }
 
-// MARK: - Usage Example
-class VideoCompositorViewController: NSViewController {
+//// MARK: - Usage Example
+//class VideoCompositorViewController: NSViewController {
+//    
+//    @IBOutlet weak var progressIndicator: NSProgressIndicator!
+//    @IBOutlet weak var statusLabel: NSTextField!
+//    
+//    private let compositor = ProResVideoCompositor()
+//    
+//    func startComposition() {
+//        // Define your graded segments
+//        let segments = [
+//            GradedSegment(
+//                url: URL(fileURLWithPath: "/path/to/graded_segment_1.mov"),
+//                startTime: CMTime(seconds: 10, preferredTimescale: 600),  // Start at 10 seconds
+//                duration: CMTime(seconds: 5, preferredTimescale: 600),    // 5 seconds long
+//                sourceStartTime: .zero
+//            ),
+//            GradedSegment(
+//                url: URL(fileURLWithPath: "/path/to/graded_segment_2.mov"),
+//                startTime: CMTime(seconds: 30, preferredTimescale: 600),  // Start at 30 seconds
+//                duration: CMTime(seconds: 8, preferredTimescale: 600),    // 8 seconds long
+//                sourceStartTime: .zero
+//            )
+//        ]
+//        
+//        let settings = CompositorSettings(
+//            outputURL: URL(fileURLWithPath: "/path/to/output.mov"),
+//            baseVideoURL: URL(fileURLWithPath: "/path/to/base_video.mov"),
+//            gradedSegments: segments,
+//            proResType: .proRes422HQ
+//        )
+//        
+//        // Setup callbacks
+//        compositor.progressHandler = { [weak self] progress in
+//            DispatchQueue.main.async {
+//                self?.progressIndicator.doubleValue = progress * 100
+//                self?.statusLabel.stringValue = "Processing: \(Int(progress * 100))%"
+//            }
+//        }
+//        
+//        compositor.completionHandler = { [weak self] result in
+//            DispatchQueue.main.async {
+//                switch result {
+//                case .success(let outputURL):
+//                    self?.statusLabel.stringValue = "Complete: \(outputURL.lastPathComponent)"
+//                case .failure(let error):
+//                    self?.statusLabel.stringValue = "Error: \(error.localizedDescription)"
+//                }
+//            }
+//        }
+//        
+//        // Start the composition
+//        compositor.composeVideo(with: settings)
+//    }
+//}
+
+// MARK: - Command Line Entry Point
+func runComposition() async {
+    print("🎬 Starting ProRes Composition...")
     
-    @IBOutlet weak var progressIndicator: NSProgressIndicator!
-    @IBOutlet weak var statusLabel: NSTextField!
+    let compositor = ProResVideoCompositor()
     
-    private let compositor = ProResVideoCompositor()
+    // Paths
+    let baseVideoURL = URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/src/5K_XQ_25FPS_LR001_LOG_G0.mov")
+    let segmentsDirectoryURL = URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/mm/")
+    let outputURL = URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/out/BB_output.mov")
     
-    func startComposition() {
-        // Define your graded segments
-        let segments = [
-            GradedSegment(
-                url: URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/mm/Burberry Outerwear-Social_5K_XQ_25FPS_LR001_LOG_G0          S01.mov"),
-                startTime: CMTime(seconds: 10, preferredTimescale: 600),  // Start at 10 seconds
-                duration: CMTime(seconds: 5, preferredTimescale: 600),    // 5 seconds long
-                sourceStartTime: .zero
-            ),
-            GradedSegment(
-                url: URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/mm/Burberry Outerwear-Social_5K_XQ_25FPS_LR001_LOG_G0          S02.mov"),
-                startTime: CMTime(seconds: 30, preferredTimescale: 600),  // Start at 30 seconds
-                duration: CMTime(seconds: 8, preferredTimescale: 600),    // 8 seconds long
-                sourceStartTime: .zero
+    do {
+        // Discover and parse segments automatically
+        print("🔍 Discovering segments in: \(segmentsDirectoryURL.path)")
+        let segmentInfos = try await compositor.discoverSegments(in: segmentsDirectoryURL)
+        
+        print("📊 Found \(segmentInfos.count) segments:")
+        for (index, info) in segmentInfos.enumerated() {
+            print("  \(index + 1). \(info.filename)")
+            print("     Duration: \(info.duration.seconds)s (\(Int(info.duration.seconds * 25)) frames)")
+            if let segmentNumber = info.segmentNumber {
+                print("     Segment #: \(segmentNumber)")
+            }
+            if let startTime = info.startTime {
+                let frameNumber = Int(startTime.seconds * 25)
+                let timecode = compositor.cmTimeToTimecode(startTime, frameRate: 25)
+                print("     Start Time: \(startTime.seconds)s (Frame \(frameNumber), TC: \(timecode))")
+            }
+            if let sourceTimecode = info.sourceTimecode {
+                print("     Source Timecode: \(sourceTimecode)")
+            }
+            if let sourceStartTimecode = info.sourceStartTimecode {
+                print("     Start Timecode: \(sourceStartTimecode)")
+            }
+        }
+        
+        // Get base video properties and duration for timing calculations
+        let baseAsset = AVURLAsset(url: baseVideoURL)
+        let baseTrack = try await compositor.getVideoTrack(from: baseAsset)
+        var baseProperties = try await compositor.getVideoProperties(from: baseTrack)
+        let baseDuration = try await baseAsset.load(.duration)
+        let totalFrames = Int(baseDuration.seconds * Double(baseProperties.frameRate))
+        
+        // Override with known base timecode if extraction failed
+        if baseProperties.sourceTimecode == nil || baseProperties.sourceTimecode == "00:00:00:00" {
+            print("📹 Overriding base timecode with known value: 01:01:39:09")
+            baseProperties = VideoProperties(
+                width: baseProperties.width,
+                height: baseProperties.height,
+                frameRate: baseProperties.frameRate,
+                colorPrimaries: baseProperties.colorPrimaries,
+                transferFunction: baseProperties.transferFunction,
+                yCbCrMatrix: baseProperties.yCbCrMatrix,
+                sourceTimecode: "01:01:39:09"
             )
-        ]
+        }
+        
+        print("📹 Base video duration: \(baseDuration.seconds)s (\(totalFrames) frames)")
+        print("📹 Base video properties: \(baseProperties.width)x\(baseProperties.height) @ \(baseProperties.frameRate)fps")
+        if let sourceTimecode = baseProperties.sourceTimecode {
+            print("📹 Base video source timecode: \(sourceTimecode)")
+        }
+        
+        // Create graded segments from discovered info
+        let segments = compositor.createGradedSegments(from: segmentInfos, baseDuration: baseDuration, baseProperties: baseProperties)
+        
+        print("🎬 Created \(segments.count) graded segments:")
+        for (index, segment) in segments.enumerated() {
+            print("  \(index + 1). \(segment.url.lastPathComponent)")
+            let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRate))
+            let endFrame = startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRate))
+            let startTimecode = compositor.cmTimeToTimecode(segment.startTime, frameRate: baseProperties.frameRate)
+            let endTimecode = compositor.cmTimeToTimecode(CMTimeAdd(segment.startTime, segment.duration), frameRate: baseProperties.frameRate)
+            print("     Start: Frame \(startFrame) (\(startTimecode)), Duration: \(segment.duration.seconds)s (\(Int(segment.duration.seconds * Double(baseProperties.frameRate))) frames)")
+            print("     End: Frame \(endFrame) (\(endTimecode))")
+            if let sourceTimecode = baseProperties.sourceTimecode {
+                print("     Base Source TC: \(sourceTimecode)")
+            }
+        }
         
         let settings = CompositorSettings(
-            outputURL: URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/out/BB_output.mov"),
-            baseVideoURL: URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/src/Burberry Outerwear-Social_5K_XQ_25FPS_LR001_LOG_SOURCE.mov"),
+            outputURL: outputURL,
+            baseVideoURL: baseVideoURL,
             gradedSegments: segments,
             proResType: .proRes422HQ
         )
         
-        // Setup callbacks
-        compositor.progressHandler = { [weak self] progress in
-            DispatchQueue.main.async {
-                self?.progressIndicator.doubleValue = progress * 100
-                self?.statusLabel.stringValue = "Processing: \(Int(progress * 100))%"
-            }
+        // Setup progress callback for command line
+        compositor.progressHandler = { progress in
+            let percentage = Int(progress * 100)
+            let progressBar = String(repeating: "█", count: percentage / 2)
+            let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
+            print("\r📹 Progress: [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
+            fflush(stdout)
         }
         
-        compositor.completionHandler = { [weak self] result in
-            DispatchQueue.main.async {
+        // Setup completion handler and wait for completion
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            compositor.completionHandler = { result in
+                print("\n") // New line after progress bar
                 switch result {
                 case .success(let outputURL):
-                    self?.statusLabel.stringValue = "Complete: \(outputURL.lastPathComponent)"
+                    print("✅ Composition complete!")
+                    print("📁 Output file: \(outputURL.path)")
+                    continuation.resume()
                 case .failure(let error):
-                    self?.statusLabel.stringValue = "Error: \(error.localizedDescription)"
+                    print("❌ Composition failed: \(error.localizedDescription)")
+                    continuation.resume()
                 }
             }
+            
+            // Start the composition
+            compositor.composeVideo(with: settings)
         }
         
-        // Start the composition
-        compositor.composeVideo(with: settings)
+    } catch {
+        print("❌ Failed to discover or parse segments: \(error.localizedDescription)")
     }
 }
+
+Task {
+    await runComposition()
+    exit(0)
+}
+
+RunLoop.main.run()

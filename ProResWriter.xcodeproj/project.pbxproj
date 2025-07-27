@@ -6,6 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0726D6E92E3590260050CF6F /* TimecodeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6E82E3590260050CF6F /* TimecodeKit */; };
+		0726D6EB2E3590260050CF6F /* TimecodeKitAV in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EA2E3590260050CF6F /* TimecodeKitAV */; };
+		0726D6ED2E3590260050CF6F /* TimecodeKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EC2E3590260050CF6F /* TimecodeKitCore */; };
+		0726D6EF2E3590260050CF6F /* TimecodeKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EE2E3590260050CF6F /* TimecodeKitUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		0726D6D92E353E950050CF6F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -35,6 +42,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0726D6EB2E3590260050CF6F /* TimecodeKitAV in Frameworks */,
+				0726D6EF2E3590260050CF6F /* TimecodeKitUI in Frameworks */,
+				0726D6E92E3590260050CF6F /* TimecodeKit in Frameworks */,
+				0726D6ED2E3590260050CF6F /* TimecodeKitCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +88,10 @@
 			);
 			name = ProResWriter;
 			packageProductDependencies = (
+				0726D6E82E3590260050CF6F /* TimecodeKit */,
+				0726D6EA2E3590260050CF6F /* TimecodeKitAV */,
+				0726D6EC2E3590260050CF6F /* TimecodeKitCore */,
+				0726D6EE2E3590260050CF6F /* TimecodeKitUI */,
 			);
 			productName = ProResWriter;
 			productReference = 0726D6DB2E353E950050CF6F /* ProResWriter */;
@@ -106,6 +121,9 @@
 			);
 			mainGroup = 0726D6D22E353E950050CF6F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0726D6DC2E353E950050CF6F /* Products */;
 			projectDirPath = "";
@@ -289,6 +307,40 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/orchetect/TimecodeKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.3.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0726D6E82E3590260050CF6F /* TimecodeKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKit;
+		};
+		0726D6EA2E3590260050CF6F /* TimecodeKitAV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKitAV;
+		};
+		0726D6EC2E3590260050CF6F /* TimecodeKitCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKitCore;
+		};
+		0726D6EE2E3590260050CF6F /* TimecodeKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKitUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0726D6D32E353E950050CF6F /* Project object */;
 }
