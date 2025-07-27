@@ -49,13 +49,17 @@ class ProResVideoCompositor: NSObject {
     // MARK: - Core Processing
     private func processComposition(settings: CompositorSettings) async throws -> URL {
 
+        let startTime = CFAbsoluteTimeGetCurrent()
         print("🔍 Starting composition process...")
 
         // 1. Analyze base video to get properties
+        let analysisStartTime = CFAbsoluteTimeGetCurrent()
         print("📹 Analyzing base video...")
         let baseAsset = AVURLAsset(url: settings.baseVideoURL)
         let baseTrack = try await getVideoTrack(from: baseAsset)
         var baseProperties = try await getVideoProperties(from: baseTrack)
+        let analysisEndTime = CFAbsoluteTimeGetCurrent()
+        print("📹 Video analysis completed in: \(String(format: "%.2f", analysisEndTime - analysisStartTime))s")
 
         // Log the extracted timecode for debugging
         if let sourceTimecode = baseProperties.sourceTimecode {
@@ -68,64 +72,84 @@ class ProResVideoCompositor: NSObject {
             "✅ Base video properties: \(baseProperties.width)x\(baseProperties.height) @ \(baseProperties.frameRate)fps"
         )
 
-        // 2. Setup output writer
-        print("📝 Setting up asset writer...")
-        try setupAssetWriter(
-            outputURL: settings.outputURL,
-            properties: baseProperties,
-            proResType: settings.proResType
-        )
-
-        // 3. Load and prepare graded segments
-        print("🎬 Preparing graded segments...")
-        let segmentReaders = try await prepareSegmentReaders(settings.gradedSegments)
-        print("✅ Prepared \(settings.gradedSegments.count) segments")
-
-        // 4. Start writing process
-        print("✍️ Starting writing process...")
-        guard let assetWriter = assetWriter,
-            let videoWriterInput = videoWriterInput,
-            let pixelBufferAdaptor = pixelBufferAdaptor
-        else {
+        // 2. Use AVMutableComposition with trimming for fast overlay
+        let exportStartTime = CFAbsoluteTimeGetCurrent()
+        print("🚀 Using AVMutableComposition with trimming for fast overlay...")
+        
+        // Create composition
+        let composition = AVMutableComposition()
+        let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        
+        // Add base video to composition
+        let baseVideoTrack = try await getVideoTrack(from: baseAsset)
+        let baseDuration = try await baseAsset.load(.duration)
+        try videoTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: baseDuration), of: baseVideoTrack, at: .zero)
+        
+        print("🎬 Base video added to composition: \(baseDuration.seconds)s")
+        
+        // Sort segments by start time for proper trimming
+        let sortedSegments = settings.gradedSegments.sorted { $0.startTime < $1.startTime }
+        
+        // Process segments in reverse order to avoid time shifting issues
+        for (index, segment) in sortedSegments.reversed().enumerated() {
+            print("🎬 Processing segment \(sortedSegments.count - index): \(segment.url.lastPathComponent)")
+            print("   Timeline position: \(segment.startTime.seconds)s")
+            print("   Duration: \(segment.duration.seconds)s")
+            
+            // Remove the base video section that this segment will replace
+            let segmentEndTime = CMTimeAdd(segment.startTime, segment.duration)
+            try videoTrack?.removeTimeRange(CMTimeRange(start: segment.startTime, duration: segment.duration))
+            
+            // Add the segment at the correct position
+            let segmentAsset = AVURLAsset(url: segment.url)
+            let segmentVideoTrack = try await getVideoTrack(from: segmentAsset)
+            try videoTrack?.insertTimeRange(
+                CMTimeRange(start: .zero, duration: segment.duration), 
+                of: segmentVideoTrack, 
+                at: segment.startTime
+            )
+            
+            print("   ✅ Segment inserted and base video trimmed")
+        }
+        
+        // Get final composition duration
+        let finalDuration = try await composition.load(.duration)
+        print("📹 Final composition duration: \(finalDuration.seconds)s")
+        
+        // Export using passthrough for speed
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
             throw CompositorError.setupFailed
         }
-
-        assetWriter.startWriting()
-
-        // Start the session at the base timecode instead of zero
-        let sessionStartTime: CMTime
-        if let sourceTimecode = baseProperties.sourceTimecode,
-            let timecodeTime = timecodeToCMTime(sourceTimecode, frameRate: baseProperties.frameRate)
-        {
-            sessionStartTime = timecodeTime
-            print("📹 Starting output session at source timecode: \(sourceTimecode)")
+        
+        exportSession.outputURL = settings.outputURL
+        exportSession.outputFileType = .mov
+        
+        // Remove existing file if it exists
+        if FileManager.default.fileExists(atPath: settings.outputURL.path) {
+            try FileManager.default.removeItem(at: settings.outputURL)
+        }
+        
+        await exportSession.export()
+        
+        if exportSession.status == .completed {
+            let exportEndTime = CFAbsoluteTimeGetCurrent()
+            print("🚀 Export completed in: \(String(format: "%.2f", exportEndTime - exportStartTime))s")
         } else {
-            sessionStartTime = .zero
-            print("📹 Starting output session at zero (no source timecode)")
+            throw exportSession.error ?? CompositorError.setupFailed
         }
 
-        assetWriter.startSession(atSourceTime: sessionStartTime)
-
-        // 5. Process frame by frame
-        try await processFrames(
-            baseAsset: baseAsset,
-            baseProperties: baseProperties,
-            segmentReaders: segmentReaders,
-            gradedSegments: settings.gradedSegments,
-            videoWriterInput: videoWriterInput,
-            pixelBufferAdaptor: pixelBufferAdaptor
-        )
-
-        // 6. Finalize
-        videoWriterInput.markAsFinished()
-        await assetWriter.finishWriting()
-
-        // 7. Add timecode metadata using AVMutableMovie
+        // 3. Add timecode metadata using AVMutableMovie
+        let timecodeStartTime = CFAbsoluteTimeGetCurrent()
         if let sourceTimecode = baseProperties.sourceTimecode {
             try await addTimecodeMetadataUsingAVMutableMovie(
                 to: settings.outputURL, timecode: sourceTimecode,
                 frameRate: baseProperties.frameRate)
         }
+        let timecodeEndTime = CFAbsoluteTimeGetCurrent()
+        print("📹 Timecode metadata added in: \(String(format: "%.2f", timecodeEndTime - timecodeStartTime))s")
+
+        let totalTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("⏱️ Total composition time: \(String(format: "%.2f", totalTime))s")
 
         return settings.outputURL
     }
@@ -192,30 +216,24 @@ class ProResVideoCompositor: NSObject {
         segmentReaders: [URL: AVAssetReader],
         gradedSegments: [GradedSegment],
         videoWriterInput: AVAssetWriterInput,
-        pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor
+        pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor,
+        sessionTimecode: CMTime
     ) async throws {
 
         let frameDuration = CMTime(value: 1, timescale: baseProperties.frameRate)
         let totalDuration = try await baseAsset.load(.duration)
         let totalFrames = Int(totalDuration.seconds * Double(baseProperties.frameRate))
 
-        // Calculate the session start time (base timecode)
-        let sessionStartTime: CMTime
-        if let sourceTimecode = baseProperties.sourceTimecode,
-            let timecodeTime = timecodeToCMTime(sourceTimecode, frameRate: baseProperties.frameRate)
-        {
-            sessionStartTime = timecodeTime
-        } else {
-            sessionStartTime = .zero
-        }
-
-        var currentTime = sessionStartTime
+        var currentTime = sessionTimecode
         var frameIndex = 0
+        var frameProcessingTimes: [CFAbsoluteTime] = []
 
         // We'll use AVAssetImageGenerator for base video frames too
 
         while frameIndex < totalFrames {
 
+            let frameStartTime = CFAbsoluteTimeGetCurrent()
+            
             // Wait for writer to be ready
             while !videoWriterInput.isReadyForMoreMediaData {
                 try await Task.sleep(nanoseconds: 1_000_000)  // 1ms
@@ -224,16 +242,9 @@ class ProResVideoCompositor: NSObject {
             // Determine which segment (if any) should be active at this time
             let activeSegment = findActiveSegment(at: currentTime, in: gradedSegments)
 
-            // Calculate frame number and timecode for logging
-            let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
-            let timecode = cmTimeToTimecode(currentTime, frameRate: baseProperties.frameRate)
-
             var pixelBuffer: CVPixelBuffer?
 
             if let segment = activeSegment {
-                print(
-                    "🎬 Frame \(frameNumber) (\(timecode)): Using graded segment - \(segment.url.lastPathComponent)"
-                )
                 // Use graded segment frame
                 pixelBuffer = try await getFrameFromSegment(
                     segment: segment,
@@ -241,9 +252,8 @@ class ProResVideoCompositor: NSObject {
                     from: segmentReaders
                 )
             } else {
-                print("📹 Frame \(frameNumber) (\(timecode)): Using base video")
                 // Calculate the time offset for base video (subtract session start time)
-                let baseVideoTime = CMTimeSubtract(currentTime, sessionStartTime)
+                let baseVideoTime = CMTimeSubtract(currentTime, sessionTimecode)
                 pixelBuffer = try await getFrameFromBaseVideo(
                     baseAsset: baseAsset, atTime: baseVideoTime)
             }
@@ -260,11 +270,23 @@ class ProResVideoCompositor: NSObject {
                     throw CompositorError.failedToAppendFrame
                 }
             }
+            
+            let frameEndTime = CFAbsoluteTimeGetCurrent()
+            frameProcessingTimes.append(frameEndTime - frameStartTime)
 
-            // Update progress
-            let progress = Double(frameIndex) / Double(totalFrames)
-            await MainActor.run {
-                progressHandler?(progress)
+            // Update progress every 10 frames (or at start/end)
+            if frameIndex % 10 == 0 || frameIndex == totalFrames - 1 {
+                let progress = Double(frameIndex) / Double(totalFrames)
+                await MainActor.run {
+                    progressHandler?(progress)
+                }
+                
+                // Log timing every 100 frames
+                if frameIndex % 100 == 0 && frameIndex > 0 {
+                    let recentFrames = frameProcessingTimes.suffix(100)
+                    let avgFrameTime = recentFrames.reduce(0, +) / Double(recentFrames.count)
+                    print("📊 Frame \(frameIndex)/\(totalFrames): Avg frame time: \(String(format: "%.3f", avgFrameTime))s")
+                }
             }
 
             currentTime = CMTimeAdd(currentTime, frameDuration)
@@ -376,12 +398,11 @@ class ProResVideoCompositor: NSObject {
         let asset = AVURLAsset(url: segment.url)
         let imageGenerator = AVAssetImageGenerator(asset: asset)
         imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.requestedTimeToleranceBefore = .zero
-        imageGenerator.requestedTimeToleranceAfter = .zero
+        imageGenerator.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 25)  // 1 frame tolerance
+        imageGenerator.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 25)   // 1 frame tolerance
 
         do {
             let cgImage = try await imageGenerator.image(at: sourceTime).image
-            print("✅ Successfully extracted frame from segment at time: \(sourceTime.seconds)")
             return cgImageToPixelBuffer(cgImage, size: CGSize(width: 3840, height: 2160))
         } catch {
             print("❌ Failed to extract frame from segment: \(error)")
@@ -394,12 +415,11 @@ class ProResVideoCompositor: NSObject {
     {
         let imageGenerator = AVAssetImageGenerator(asset: baseAsset)
         imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.requestedTimeToleranceBefore = .zero
-        imageGenerator.requestedTimeToleranceAfter = .zero
+        imageGenerator.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 25)  // 1 frame tolerance
+        imageGenerator.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 25)   // 1 frame tolerance
 
         do {
             let cgImage = try await imageGenerator.image(at: time).image
-            print("✅ Successfully extracted frame from base video at time: \(time.seconds)")
             return cgImageToPixelBuffer(cgImage, size: CGSize(width: 3840, height: 2160))
         } catch {
             print("❌ Failed to extract frame from base video: \(error)")
@@ -694,7 +714,7 @@ class ProResVideoCompositor: NSObject {
         }
     }
 
-    private func timecodeToCMTime(_ timecode: String, frameRate: Int32) -> CMTime? {
+    private func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil) -> CMTime? {
         // Parse timecode in format HH:MM:SS:FF (frames)
         let components = timecode.components(separatedBy: ":")
         guard components.count == 4,
@@ -706,10 +726,32 @@ class ProResVideoCompositor: NSObject {
             return nil
         }
 
-        let totalSeconds = hours * 3600 + minutes * 60 + seconds
-        let frameTime = Double(frames) / Double(frameRate)
-        return CMTime(
-            seconds: Double(totalSeconds) + frameTime, preferredTimescale: CMTimeScale(frameRate))
+        // If we have a base timecode, calculate relative offset
+        if let baseTimecode = baseTimecode {
+            let baseComponents = baseTimecode.components(separatedBy: ":")
+            guard baseComponents.count == 4,
+                let baseHours = Int(baseComponents[0]),
+                let baseMinutes = Int(baseComponents[1]),
+                let baseSeconds = Int(baseComponents[2]),
+                let baseFrames = Int(baseComponents[3])
+            else {
+                return nil
+            }
+
+            // Calculate the difference in seconds and frames
+            let totalSeconds = (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
+            let frameDifference = frames - baseFrames
+            let frameTime = Double(frameDifference) / Double(frameRate)
+            
+            return CMTime(
+                seconds: Double(totalSeconds) + frameTime, preferredTimescale: CMTimeScale(frameRate))
+        } else {
+            // Absolute timecode (for base timecode itself)
+            let totalSeconds = hours * 3600 + minutes * 60 + seconds
+            let frameTime = Double(frames) / Double(frameRate)
+            return CMTime(
+                seconds: Double(totalSeconds) + frameTime, preferredTimescale: CMTimeScale(frameRate))
+        }
     }
 
     func cmTimeToTimecode(_ time: CMTime, frameRate: Int32) -> String {
@@ -783,6 +825,7 @@ class ProResVideoCompositor: NSObject {
         exportSession.outputURL = tempURL
         exportSession.outputFileType = .mov
         exportSession.shouldOptimizeForNetworkUse = false
+        exportSession.timeRange = CMTimeRange(start: .zero, duration: duration)
 
         do {
             try await exportSession.export(to: tempURL, as: .mov)
@@ -820,7 +863,7 @@ class ProResVideoCompositor: NSObject {
             // Use extracted timecode-based timing (preferred)
             if let sourceTimecode = segmentInfo.sourceStartTimecode,
                 let timecodeTime = timecodeToCMTime(
-                    sourceTimecode, frameRate: baseProperties.frameRate)
+                    sourceTimecode, frameRate: baseProperties.frameRate, baseTimecode: baseProperties.sourceTimecode)
             {
                 // Use extracted timecode-based timing
                 startTime = timecodeTime
