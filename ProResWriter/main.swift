@@ -142,6 +142,11 @@ class ProResVideoCompositor: NSObject {
         let finalDuration = try await composition.load(.duration)
         print("📹 Final composition duration: \(finalDuration.seconds)s")
 
+        // 🎬 TIMECODE: Will be added after export (optimized)
+        if let sourceTimecode = baseProperties.sourceTimecode {
+            print("📹 Timecode will be added after export: \(sourceTimecode)")
+        }
+
         // HARDWARE ACCELERATION: Use Apple Silicon ProRes engine and Metal GPU
         print("🚀 Enabling Apple Silicon ProRes engine and Metal GPU acceleration...")
         
@@ -838,6 +843,8 @@ class ProResVideoCompositor: NSObject {
         return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
     }
 
+
+
     private func addTimecodeMetadataUsingAVMutableMovie(
         to url: URL, timecode: String, frameRate: Int32
     ) async throws {
@@ -882,7 +889,7 @@ class ProResVideoCompositor: NSObject {
             return
         }
 
-        // Export the modified movie
+        // OPTIMIZED: Use faster export settings for timecode metadata
         let tempURL = url.deletingLastPathComponent().appendingPathComponent(
             "temp_\(url.lastPathComponent)")
 
@@ -896,10 +903,16 @@ class ProResVideoCompositor: NSObject {
             return
         }
 
+        // OPTIMIZATION: Use faster export settings
         exportSession.outputURL = tempURL
         exportSession.outputFileType = .mov
         exportSession.shouldOptimizeForNetworkUse = false
         exportSession.timeRange = CMTimeRange(start: .zero, duration: duration)
+        
+        // OPTIMIZATION: Single pass for speed
+        if #available(macOS 12.0, *) {
+            exportSession.canPerformMultiplePassesOverSourceMediaData = false
+        }
 
         do {
             try await exportSession.export(to: tempURL, as: .mov)
