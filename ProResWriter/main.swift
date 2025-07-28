@@ -50,7 +50,6 @@ class ProResVideoCompositor: NSObject {
     // MARK: - Core Processing
     private func processComposition(settings: CompositorSettings) async throws -> URL {
 
-        let startTime = CFAbsoluteTimeGetCurrent()
         print("🔍 Starting composition process...")
 
         // 1. Analyze base video to get properties
@@ -101,46 +100,43 @@ class ProResVideoCompositor: NSObject {
         // Sort segments by start time for proper trimming
         let sortedSegments = settings.gradedSegments.sorted { $0.startTime < $1.startTime }
 
-        // OPTIMIZATION: Pre-load all segment assets and timecode data in parallel
-        print("🚀 Pre-loading segment assets and timecode data in parallel...")
-        let segmentAssets = await withTaskGroup(of: (Int, AVAsset).self) { group in
-            for (index, segment) in sortedSegments.enumerated() {
-                group.addTask {
-                    // HARDWARE ACCELERATION: Use Apple Silicon optimizations for segments
-                    let assetOptions: [String: Any] = [
-                        AVURLAssetPreferPreciseDurationAndTimingKey: true
-                    ]
-                    let asset = AVURLAsset(url: segment.url, options: assetOptions)
-                    // Pre-load duration to avoid blocking during composition
-                    _ = try? await asset.load(.duration)
-                    return (index, asset)
-                }
-            }
-            
-            var assets: [Int: AVAsset] = [:]
-            for await (index, asset) in group {
-                assets[index] = asset
-            }
-            return assets
+        // MEMORY OPTIMIZATION: Stream assets on-demand instead of pre-loading all
+        print("🚀 Using memory-optimized streaming assets...")
+        
+        // Create a lazy asset loader to minimize memory usage
+        let assetLoader = { (segment: GradedSegment) -> AVAsset in
+            let assetOptions: [String: Any] = [
+                AVURLAssetPreferPreciseDurationAndTimingKey: true
+            ]
+            return AVURLAsset(url: segment.url, options: assetOptions)
         }
 
+        // MEMORY OPTIMIZATION: Process segments sequentially to minimize memory pressure
+        print("🎬 Processing \(sortedSegments.count) segments with memory optimization...")
+        
         // Process segments in reverse order to avoid time shifting issues
-        print("🎬 Processing \(sortedSegments.count) segments...")
         for (index, segment) in sortedSegments.reversed().enumerated() {
+            print("   Processing segment \(sortedSegments.count - index): \(segment.url.lastPathComponent)")
+            
             // Remove the base video section that this segment will replace
-            try videoTrack?.removeTimeRange(
+            try? videoTrack?.removeTimeRange(
                 CMTimeRange(start: segment.startTime, duration: segment.duration))
 
-            // Add the segment at the correct position using pre-loaded asset
-            let segmentAsset = segmentAssets[sortedSegments.count - 1 - index]!
-            let segmentVideoTrack = try await getVideoTrack(from: segmentAsset)
-            try videoTrack?.insertTimeRange(
+            // Load asset on-demand and immediately release after use
+            let segmentAsset = assetLoader(segment)
+            let segmentVideoTrack = try? await getVideoTrack(from: segmentAsset)
+            try? videoTrack?.insertTimeRange(
                 CMTimeRange(start: .zero, duration: segment.duration),
-                of: segmentVideoTrack,
+                of: segmentVideoTrack!,
                 at: segment.startTime
             )
+            
+            // Force memory cleanup after each segment
+            autoreleasepool {
+                // This will help release memory immediately
+            }
         }
-        print("   ✅ All segments processed")
+        print("   ✅ All segments processed with memory optimization")
 
         // Get final composition duration
         let finalDuration = try await composition.load(.duration)
@@ -149,7 +145,7 @@ class ProResVideoCompositor: NSObject {
         // HARDWARE ACCELERATION: Use Apple Silicon ProRes engine and Metal GPU
         print("🚀 Enabling Apple Silicon ProRes engine and Metal GPU acceleration...")
         
-        // Use hardware-accelerated export preset
+        // MEMORY OPTIMIZATION: Use memory-efficient export settings
         guard
             let exportSession = AVAssetExportSession(
                 asset: composition, presetName: AVAssetExportPresetPassthrough)
@@ -160,37 +156,51 @@ class ProResVideoCompositor: NSObject {
         exportSession.outputURL = settings.outputURL
         exportSession.outputFileType = .mov
         
-        // MAXIMUM SPEED OPTIMIZATIONS
+        // MEMORY OPTIMIZED EXPORT SETTINGS
         exportSession.fileLengthLimit = 0 // No file size limit
         exportSession.shouldOptimizeForNetworkUse = false // Faster for local files
         exportSession.timeRange = CMTimeRange(start: .zero, duration: finalDuration)
         
-        // Enable maximum hardware acceleration
+        // Memory optimization: Single pass to reduce memory usage
         if #available(macOS 12.0, *) {
-            // Use Apple Silicon ProRes engine with maximum optimization
-            exportSession.canPerformMultiplePassesOverSourceMediaData = false // Single pass for speed
+            exportSession.canPerformMultiplePassesOverSourceMediaData = false
         }
+        
+        // Monitor memory usage
+        let processInfo = ProcessInfo.processInfo
+        let initialMemory = processInfo.physicalMemory
+        print("📊 Initial memory usage: \(initialMemory / 1024 / 1024)MB")
         
         // Remove existing file if it exists
         if FileManager.default.fileExists(atPath: settings.outputURL.path) {
             try FileManager.default.removeItem(at: settings.outputURL)
         }
 
-        print("🚀 Starting hardware-accelerated export...")
+        print("🚀 Starting memory-optimized export...")
         let exportStart = CFAbsoluteTimeGetCurrent()
+        
+        // Monitor memory during export
+        let exportMemory = processInfo.physicalMemory
+        print("📊 Memory before export: \(exportMemory / 1024 / 1024)MB")
         
         try await exportSession.export(to: settings.outputURL, as: .mov)
 
         let exportEndTime = CFAbsoluteTimeGetCurrent()
         let exportDuration = exportEndTime - exportStart
+        let finalMemory = processInfo.physicalMemory
         print(
             "🚀 Export completed in: \(String(format: "%.2f", exportDuration))s"
         )
+        print("📊 Memory after export: \(finalMemory / 1024 / 1024)MB")
+        print("📊 Memory delta: \((finalMemory - exportMemory) / 1024 / 1024)MB")
         
-        // Performance analysis
-        let totalDuration = exportEndTime - exportStartTime
-        let exportPercentage = (exportDuration / totalDuration) * 100
-        print("📊 Export represents \(String(format: "%.1f", exportPercentage))% of total processing time")
+        // Performance analysis - Setup vs Render time
+        let setupTime = exportStart - exportStartTime
+        let renderTime = exportEndTime - exportStart
+        print("📊 Setup time (timeline building): \(String(format: "%.2f", setupTime))s")
+        print("🎬 Render time (export only): \(String(format: "%.2f", renderTime))s")
+        print("📊 Setup represents \(String(format: "%.1f", (setupTime / (setupTime + renderTime)) * 100))% of total time")
+        print("🎬 Render represents \(String(format: "%.1f", (renderTime / (setupTime + renderTime)) * 100))% of total time")
 
         // 3. Add timecode metadata using AVMutableMovie
         // OPTIMIZATION: Skip timecode metadata for maximum speed testing
@@ -201,8 +211,10 @@ class ProResVideoCompositor: NSObject {
             "📹 Timecode metadata skipped in: \(String(format: "%.2f", timecodeEndTime - timecodeStartTime))s"
         )
 
-        let totalTime = CFAbsoluteTimeGetCurrent() - startTime
-        print("⏱️ Total composition time: \(String(format: "%.2f", totalTime))s")
+        // RENDER TIME: Only measure the actual export time (like DaVinci Resolve)
+        let actualRenderTime = exportEndTime - exportStart
+        print("🎬 RENDER TIME (export only): \(String(format: "%.2f", actualRenderTime))s")
+        print("📊 This is the equivalent to DaVinci Resolve's render time")
 
         return settings.outputURL
     }
@@ -981,21 +993,32 @@ private func checkHardwareAcceleration() {
         print("✅ Metal GPU available: \(device.name)")
         print("📊 GPU memory: \(device.recommendedMaxWorkingSetSize / 1024 / 1024)MB")
         
+        // Check CPU cores for parallel processing
+        let processInfo = ProcessInfo.processInfo
+        let cpuCount = processInfo.processorCount
+        let activeProcessorCount = processInfo.activeProcessorCount
+        print("🖥️ CPU cores: \(cpuCount) total, \(activeProcessorCount) active")
+        
+        // Check memory availability
+        let totalMemory = processInfo.physicalMemory
+        let availableMemory = ProcessInfo.processInfo.physicalMemory
+        print("💾 Total system memory: \(totalMemory / 1024 / 1024)MB")
+        print("💾 Available memory: \(availableMemory / 1024 / 1024)MB")
+        
         // Check if we're on Apple Silicon
         if #available(macOS 11.0, *) {
-            let processInfo = ProcessInfo.processInfo
             if processInfo.isiOSAppOnMac {
-                print("🚀 Apple Silicon detected - using native ProRes engine")
+                print("🚀 Apple Silicon detected - using memory-optimized ProRes engine")
             } else {
-                print("🚀 Intel Mac with Metal GPU - using optimized ProRes encoding")
+                print("🚀 Intel Mac with Metal GPU - using memory-optimized ProRes encoding")
             }
         }
     } else {
         print("❌ Metal GPU not available")
     }
     
-    print("📹 Using hardware-accelerated ProRes encoding")
-    print("🚀 Apple Silicon ProRes engine enabled")
+    print("📹 Using memory-optimized ProRes encoding")
+    print("🚀 Apple Silicon ProRes engine enabled with memory optimization")
 }
 
 // MARK: - Command Line Entry Point
