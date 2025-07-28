@@ -203,12 +203,15 @@ class ProResVideoCompositor: NSObject {
         print("🎬 Render represents \(String(format: "%.1f", (renderTime / (setupTime + renderTime)) * 100))% of total time")
 
         // 3. Add timecode metadata using AVMutableMovie
-        // OPTIMIZATION: Skip timecode metadata for maximum speed testing
         let timecodeStartTime = CFAbsoluteTimeGetCurrent()
-        print("📹 Timecode metadata SKIPPED for maximum speed testing")
+        if let sourceTimecode = baseProperties.sourceTimecode {
+            try await addTimecodeMetadataUsingAVMutableMovie(
+                to: settings.outputURL, timecode: sourceTimecode,
+                frameRate: baseProperties.frameRate)
+        }
         let timecodeEndTime = CFAbsoluteTimeGetCurrent()
         print(
-            "📹 Timecode metadata skipped in: \(String(format: "%.2f", timecodeEndTime - timecodeStartTime))s"
+            "📹 Timecode metadata added in: \(String(format: "%.2f", timecodeEndTime - timecodeStartTime))s"
         )
 
         // RENDER TIME: Only measure the actual export time (like DaVinci Resolve)
@@ -612,9 +615,9 @@ class ProResVideoCompositor: NSObject {
         // Try to parse start time from filename or metadata
         let startTime = try await parseStartTime(from: asset, filename: filename)
 
-        // OPTIMIZATION: Skip timecode extraction for speed testing
-        let sourceTimecode: String? = nil
-        let sourceStartTimecode: String? = nil
+        // RESTORED: Extract timecode information
+        let sourceTimecode = try await extractSourceTimecode(from: asset)
+        let sourceStartTimecode = try await extractStartTimecode(from: asset)
 
         return SegmentInfo(
             url: url,
@@ -733,17 +736,51 @@ class ProResVideoCompositor: NSObject {
         return nil
     }
 
-    // MARK: - Timecode Handling using TimecodeKit (OPTIMIZED)
+    // MARK: - Timecode Handling using TimecodeKit (RESTORED)
     private func extractSourceTimecode(from asset: AVAsset) async throws -> String? {
-        // OPTIMIZATION: Skip timecode extraction for speed testing
-        print("🔍 Timecode extraction SKIPPED for speed testing")
-        return nil
+        print("🔍 Extracting timecode using TimecodeKit...")
+
+        do {
+            // Try to auto-detect frame rate first
+            let frameRate = try await asset.timecodeFrameRate()
+            print("    📹 Auto-detected frame rate: \(frameRate)")
+
+            // Read start timecode using TimecodeKit
+            if let startTimecode = try await asset.startTimecode(at: frameRate) {
+                print("    ✅ Found start timecode: \(startTimecode)")
+                return startTimecode.stringValue()
+            } else {
+                print("    ❌ No start timecode found")
+                return nil
+            }
+        } catch {
+            print("    ❌ Failed to extract timecode with auto-detected frame rate: \(error)")
+            print("❌ No timecode found in video")
+            return nil
+        }
     }
 
     private func extractStartTimecode(from asset: AVAsset) async throws -> String? {
-        // OPTIMIZATION: Skip timecode extraction for speed testing
-        print("🔍 Start timecode extraction SKIPPED for speed testing")
-        return nil
+        print("🔍 Extracting start timecode using TimecodeKit...")
+
+        do {
+            // Try to auto-detect frame rate first
+            let frameRate = try await asset.timecodeFrameRate()
+            print("    📹 Auto-detected frame rate: \(frameRate)")
+
+            // Read start timecode using TimecodeKit
+            if let startTimecode = try await asset.startTimecode(at: frameRate) {
+                print("    ✅ Found start timecode: \(startTimecode)")
+                return startTimecode.stringValue()
+            } else {
+                print("    ❌ No start timecode found")
+                return nil
+            }
+        } catch {
+            print("    ❌ Failed to extract timecode with auto-detected frame rate: \(error)")
+            print("❌ No timecode found in video")
+            return nil
+        }
     }
 
     private func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil)
@@ -1108,6 +1145,12 @@ func runComposition() async {
                 print("     Base Source TC: \(sourceTimecode)")
             }
         }
+
+        // 🎬 RENDER PHASE: Press Enter to start (like DaVinci Resolve's render button)
+        print("\n🎬 Timeline ready! Press Enter to start render...")
+        print("📊 This will measure only the export time (like DaVinci Resolve)")
+        _ = readLine()
+        print("🚀 Starting render...")
 
         let settings = CompositorSettings(
             outputURL: outputURL,
