@@ -976,9 +976,9 @@ func runComposition() async {
 
     // Paths
     let blankRushURL = URL(
-        fileURLWithPath: "/Users/fq/Desktop/PRWriter/src/5K_XQ_25FPS_LR001_LOG_G0.mov")
-    let segmentsDirectoryURL = URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/mm/")
-    let outputURL = URL(fileURLWithPath: "/Users/fq/Desktop/PRWriter/out/BB_output.mov")
+        fileURLWithPath: "/Volumes/EVO-POST/__POST/TEST/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov")
+    let segmentsDirectoryURL = URL(fileURLWithPath: "/Volumes/EVO-POST/__POST/TEST/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM/")
+    let outputURL = URL(fileURLWithPath: "/Volumes/EVO-POST/__POST/TEST/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT")
 
     do {
         // Discover and parse segments automatically
