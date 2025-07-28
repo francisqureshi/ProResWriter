@@ -14,6 +14,8 @@ open ProResWriter.xcodeproj
 ```bash
 # Build debug version with custom build directory
 xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Debug build -derivedDataPath ./build
+# Release
+xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Release build -derivedDataPath ./build
 
 # Run the built executable
 ./build/Build/Products/Debug/ProResWriter
@@ -23,6 +25,7 @@ xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration D
 ```bash
 # Build debug version (default location)
 xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Debug build
+
 
 # Run the built executable
 ./DerivedData/ProResWriter/Build/Products/Debug/ProResWriter
