@@ -17,6 +17,9 @@ xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration D
 # Release
 xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Release build -derivedDataPath ./build
 
+
+xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Release build -derivedDataPath ./build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
 # Run the built executable
 ./build/Build/Products/Debug/ProResWriter
 ```

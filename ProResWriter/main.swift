@@ -1325,7 +1325,8 @@ func runComposition() async {
 }
 
 Task {
-    await runComposition()
+//    await runComposition()
+    blankvideo()
     exit(0)
 }
 
