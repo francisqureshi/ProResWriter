@@ -102,24 +102,34 @@ func blankvideo() {
     // Generation timer
     let generationStartTime = CFAbsoluteTimeGetCurrent()
     
-    // Generate frames
-    for frameIndex in 0..<totalFrames {
-        // Wait for writer to be ready
-        while !videoWriterInput.isReadyForMoreMediaData {
-            Thread.sleep(forTimeInterval: 0.001) // 1ms
+    // Generate frames with reliable readiness checking
+    let batchSize = 50 // Process 50 frames at a time
+    var frameIndex = 0
+    
+    while frameIndex < totalFrames {
+        // Process a batch of frames
+        let endIndex = min(frameIndex + batchSize, totalFrames)
+        
+        for i in frameIndex..<endIndex {
+            // Wait for writer to be ready with efficient sleep
+            while !videoWriterInput.isReadyForMoreMediaData {
+                Thread.sleep(forTimeInterval: 0.0005) // 0.5ms - balanced for speed and reliability
+            }
+            
+            // Calculate presentation time
+            let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(i))
+            
+            // Append the same black pixel buffer for each frame
+            let success = pixelBufferAdaptor.append(blackPixelBuffer, withPresentationTime: presentationTime)
+            if !success {
+                print("❌ Failed to append frame \(i)")
+            }
         }
         
-        // Calculate presentation time
-        let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
+        frameIndex = endIndex
         
-        // Append the same black pixel buffer for each frame
-        let success = pixelBufferAdaptor.append(blackPixelBuffer, withPresentationTime: presentationTime)
-        if !success {
-            print("❌ Failed to append frame \(frameIndex)")
-        }
-        
-        // Progress update every 25 frames (1 second at 25fps)
-        if frameIndex % 25 == 0 {
+        // Progress update every 1000 frames (40 seconds at 25fps) for better performance
+        if frameIndex % 1000 == 0 || frameIndex >= totalFrames {
             let progress = Double(frameIndex) / Double(totalFrames)
             let percentage = Int(progress * 100)
             print("📹 Progress: \(percentage)% (\(frameIndex)/\(totalFrames) frames)")
