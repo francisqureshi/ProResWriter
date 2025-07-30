@@ -82,7 +82,7 @@ func blankvideo() {
         return
     }
     videoWriterInput.addTrackAssociation(
-        withTrackOf: timecodeWriterInput, type: kCMTimeCodeFormatType_TimeCode32)
+        withTrackOf: timecodeWriterInput, type: AVTrackAssociationTypeTimecode)
     assetWriter.add(videoWriterInput)
 
     let setupEndTime = CFAbsoluteTimeGetCurrent()
