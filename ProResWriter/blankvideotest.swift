@@ -44,6 +44,7 @@ func blankvideo() {
         print("❌ Failed to create asset writer")
         return
     }
+    print("✅ Asset writer created")
 
     // Use  ProRes settings with 709  color primaries
     let videoSettings: [String: Any] = [
@@ -63,6 +64,7 @@ func blankvideo() {
 
     // Create timecode track
     let timecodeWriterInput = AVAssetWriterInput(mediaType: .timecode, outputSettings: nil)
+    print("✅ Timecode input created")
 
     // Create pixel buffer adaptor
     let pixelBufferAttributes: [String: Any] = [
@@ -76,14 +78,25 @@ func blankvideo() {
         sourcePixelBufferAttributes: pixelBufferAttributes
     )
 
-    // Add input to writer
+    // Add video input to asset writer
     guard assetWriter.canAdd(videoWriterInput) else {
         print("❌ Cannot add video input to asset writer")
         return
     }
-    videoWriterInput.addTrackAssociation(
-        withTrackOf: timecodeWriterInput, type: AVTrackAssociationTypeTimecode)
     assetWriter.add(videoWriterInput)
+    
+    // Add timecode input to asset writer
+    if assetWriter.canAdd(timecodeWriterInput) {
+        assetWriter.add(timecodeWriterInput)
+        print("✅ Timecode input added to asset writer")
+        
+        // Associate timecode track with video track BEFORE starting session
+        videoWriterInput.addTrackAssociation(
+            withTrackOf: timecodeWriterInput, type: AVAssetTrack.AssociationType.timecode.rawValue)
+        print("✅ Timecode track associated with video track")
+    } else {
+        print("⚠️ Cannot add timecode input to asset writer - continuing without timecode")
+    }
 
     let setupEndTime = CFAbsoluteTimeGetCurrent()
     let setupTime = setupEndTime - setupStartTime
@@ -92,6 +105,40 @@ func blankvideo() {
     // Start writing
     assetWriter.startWriting()
     assetWriter.startSession(atSourceTime: .zero)
+
+    // Add timecode sample BEFORE video frame generation (if timecode input was added)
+    if assetWriter.inputs.contains(timecodeWriterInput) {
+        print("⏰ Adding timecode sample before video generation...")
+        
+        // Create timecode sample buffer
+        guard let timecodeSampleBuffer = createTimecodeSampleBuffer(frameRate: frameRate, duration: duration) else {
+            print("❌ Failed to create timecode sample buffer")
+            return
+        }
+        print("✅ Timecode sample buffer created")
+        
+        // Append timecode sample with timeout
+        var timecodeWaitCount = 0
+        while !timecodeWriterInput.isReadyForMoreMediaData {
+            Thread.sleep(forTimeInterval: 0.001)
+            timecodeWaitCount += 1
+            if timecodeWaitCount > 1000 { // 1 second timeout
+                print("❌ Timeout waiting for timecode writer to be ready")
+                return
+            }
+        }
+        
+        let timecodeSuccess = timecodeWriterInput.append(timecodeSampleBuffer)
+        if !timecodeSuccess {
+            print("❌ Failed to append timecode sample")
+            return
+        } else {
+            print("✅ Timecode sample appended successfully")
+        }
+        
+        timecodeWriterInput.markAsFinished()
+        print("✅ Timecode track finished")
+    }
 
     // Calculate frame duration
     let frameDuration = CMTime(value: 1, timescale: frameRate)
@@ -113,14 +160,22 @@ func blankvideo() {
     let batchSize = 50  // Process 50 frames at a time
     var frameIndex = 0
 
+    print("🎬 Starting frame generation...")
+    
     while frameIndex < totalFrames {
         // Process a batch of frames
         let endIndex = min(frameIndex + batchSize, totalFrames)
 
         for i in frameIndex..<endIndex {
-            // Wait for writer to be ready with efficient sleep
+            // Wait for writer to be ready with timeout
+            var waitCount = 0
             while !videoWriterInput.isReadyForMoreMediaData {
-                Thread.sleep(forTimeInterval: 0.0005)  // 0.5ms - balanced for speed and reliability
+                Thread.sleep(forTimeInterval: 0.001)  // 1ms
+                waitCount += 1
+                if waitCount > 1000 { // 1 second timeout
+                    print("❌ Timeout waiting for video writer to be ready")
+                    return
+                }
             }
 
             // Calculate presentation time
@@ -131,13 +186,14 @@ func blankvideo() {
                 blackPixelBuffer, withPresentationTime: presentationTime)
             if !success {
                 print("❌ Failed to append frame \(i)")
+                return
             }
         }
 
         frameIndex = endIndex
 
-        // Progress update every 1000 frames (40 seconds at 25fps) for better performance
-        if frameIndex % 1000 == 0 || frameIndex >= totalFrames {
+        // Progress update every 50 frames for better visibility
+        if frameIndex % 50 == 0 || frameIndex >= totalFrames {
             let progress = Double(frameIndex) / Double(totalFrames)
             let percentage = Int(progress * 100)
             print("📹 Progress: \(percentage)% (\(frameIndex)/\(totalFrames) frames)")
@@ -147,6 +203,8 @@ func blankvideo() {
     let generationEndTime = CFAbsoluteTimeGetCurrent()
     let generationTime = generationEndTime - generationStartTime
     print("📊 Frame generation time: \(String(format: "%.2f", generationTime))s")
+
+    // Timecode sample already added before video generation
 
     // Finish writing and wait for completion
     videoWriterInput.markAsFinished()
@@ -248,4 +306,101 @@ private func createBlackPixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
     }
 
     return nil
+}
+
+// Helper function to create a timecode sample buffer
+private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> CMSampleBuffer? {
+    var sampleBuffer: CMSampleBuffer?
+    var dataBuffer: CMBlockBuffer?
+    var formatDescription: CMTimeCodeFormatDescription?
+    
+    // Create timecode sample data (starting at 00:00:00:00)
+    var timecodeSample = CVSMPTETime()
+    timecodeSample.hours = 05
+    timecodeSample.minutes = 0
+    timecodeSample.seconds = 0
+    timecodeSample.frames = 0
+    
+    // Create format description for 25fps non-drop frame
+    let tcFlags = kCMTimeCodeFlag_24HourMax
+    let frameDuration = CMTime(value: 1, timescale: frameRate)
+    
+    let status = CMTimeCodeFormatDescriptionCreate(
+        allocator: kCFAllocatorDefault,
+        timeCodeFormatType: kCMTimeCodeFormatType_TimeCode32,
+        frameDuration: frameDuration,
+        frameQuanta: UInt32(frameRate),
+        flags: tcFlags,
+        extensions: nil,
+        formatDescriptionOut: &formatDescription
+    )
+    
+    guard status == noErr, let formatDescription = formatDescription else {
+        print("❌ Could not create timecode format description")
+        return nil
+    }
+    
+    // Convert timecode to frame number
+    var frameNumberData: Int32 = 0  // Starting at frame 0
+    
+    // Create block buffer for timecode data
+    let blockBufferStatus = CMBlockBufferCreateWithMemoryBlock(
+        allocator: kCFAllocatorDefault,
+        memoryBlock: nil,
+        blockLength: MemoryLayout<Int32>.size,
+        blockAllocator: kCFAllocatorDefault,
+        customBlockSource: nil,
+        offsetToData: 0,
+        dataLength: MemoryLayout<Int32>.size,
+        flags: kCMBlockBufferAssureMemoryNowFlag,
+        blockBufferOut: &dataBuffer
+    )
+    
+    guard blockBufferStatus == kCMBlockBufferNoErr, let dataBuffer = dataBuffer else {
+        print("❌ Could not create block buffer")
+        return nil
+    }
+    
+    // Write frame number data to block buffer
+    let replaceStatus = CMBlockBufferReplaceDataBytes(
+        with: &frameNumberData,
+        blockBuffer: dataBuffer,
+        offsetIntoDestination: 0,
+        dataLength: MemoryLayout<Int32>.size
+    )
+    
+    guard replaceStatus == kCMBlockBufferNoErr else {
+        print("❌ Could not write into block buffer")
+        return nil
+    }
+    
+    // Create timing info
+    var timingInfo = CMSampleTimingInfo()
+    timingInfo.duration = CMTime(seconds: duration, preferredTimescale: frameRate)
+    timingInfo.decodeTimeStamp = CMTime.invalid
+    timingInfo.presentationTimeStamp = .zero
+    
+    // Create sample buffer
+    var sizes = MemoryLayout<Int32>.size
+    let sampleBufferStatus = CMSampleBufferCreate(
+        allocator: kCFAllocatorDefault,
+        dataBuffer: dataBuffer,
+        dataReady: true,
+        makeDataReadyCallback: nil,
+        refcon: nil,
+        formatDescription: formatDescription,
+        sampleCount: 1,
+        sampleTimingEntryCount: 1,
+        sampleTimingArray: &timingInfo,
+        sampleSizeEntryCount: 1,
+        sampleSizeArray: &sizes,
+        sampleBufferOut: &sampleBuffer
+    )
+    
+    guard sampleBufferStatus == noErr, let sampleBuffer = sampleBuffer else {
+        print("❌ Could not create sample buffer")
+        return nil
+    }
+    
+    return sampleBuffer
 }
