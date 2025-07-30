@@ -37,11 +37,16 @@ func blankvideo() {
         return
     }
     
-    // Use basic ProRes settings
+    // Use  ProRes settings with 709  color primaries
     let videoSettings: [String: Any] = [
         AVVideoCodecKey: AVVideoCodecType.proRes422,
         AVVideoWidthKey: width,
         AVVideoHeightKey: height,
+        AVVideoColorPropertiesKey: [
+            AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+            AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+            AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+        ],
     ]
     
     // Create video input
