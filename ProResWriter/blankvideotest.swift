@@ -13,11 +13,14 @@ import TimecodeKit
 func blankvideo() {
     print("🎬 Creating blank black video file...")
     
+    // Performance timers
+    let totalStartTime = CFAbsoluteTimeGetCurrent()
+    
     // Video properties
     let width = 1920
     let height = 1080
     let frameRate: Int32 = 25
-    let duration: Double = 10.0 // 10 seconds
+    let duration: Double = 1200.0 // 10 seconds
     
     // Create output URL
     let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -30,6 +33,9 @@ func blankvideo() {
     if FileManager.default.fileExists(atPath: outputURL.path) {
         try? FileManager.default.removeItem(at: outputURL)
     }
+    
+    // Setup timer
+    let setupStartTime = CFAbsoluteTimeGetCurrent()
     
     // Create asset writer
     guard let assetWriter = try? AVAssetWriter(outputURL: outputURL, fileType: .mov) else {
@@ -72,6 +78,10 @@ func blankvideo() {
     }
     assetWriter.add(videoWriterInput)
     
+    let setupEndTime = CFAbsoluteTimeGetCurrent()
+    let setupTime = setupEndTime - setupStartTime
+    print("📊 Setup time: \(String(format: "%.2f", setupTime))s")
+    
     // Start writing
     assetWriter.startWriting()
     assetWriter.startSession(atSourceTime: .zero)
@@ -82,6 +92,16 @@ func blankvideo() {
     
     print("📊 Generating \(totalFrames) frames...")
     
+    // Create one black pixel buffer to reuse for all frames
+    guard let blackPixelBuffer = createBlackPixelBuffer(width: width, height: height) else {
+        print("❌ Failed to create black pixel buffer")
+        return
+    }
+    print("✅ Created reusable black pixel buffer")
+    
+    // Generation timer
+    let generationStartTime = CFAbsoluteTimeGetCurrent()
+    
     // Generate frames
     for frameIndex in 0..<totalFrames {
         // Wait for writer to be ready
@@ -89,17 +109,11 @@ func blankvideo() {
             Thread.sleep(forTimeInterval: 0.001) // 1ms
         }
         
-        // Create black pixel buffer
-        guard let pixelBuffer = createBlackPixelBuffer(width: width, height: height) else {
-            print("❌ Failed to create pixel buffer for frame \(frameIndex)")
-            continue
-        }
-        
         // Calculate presentation time
         let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
         
-        // Append frame
-        let success = pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime)
+        // Append the same black pixel buffer for each frame
+        let success = pixelBufferAdaptor.append(blackPixelBuffer, withPresentationTime: presentationTime)
         if !success {
             print("❌ Failed to append frame \(frameIndex)")
         }
@@ -112,15 +126,43 @@ func blankvideo() {
         }
     }
     
+    let generationEndTime = CFAbsoluteTimeGetCurrent()
+    let generationTime = generationEndTime - generationStartTime
+    print("📊 Frame generation time: \(String(format: "%.2f", generationTime))s")
+    
     // Finish writing and wait for completion
     videoWriterInput.markAsFinished()
+    
+    // Export timer
+    let exportStartTime = CFAbsoluteTimeGetCurrent()
     
     // Use semaphore to wait for completion
     let semaphore = DispatchSemaphore(value: 0)
     
     assetWriter.finishWriting {
+        let exportEndTime = CFAbsoluteTimeGetCurrent()
+        let exportTime = exportEndTime - exportStartTime
+        let totalTime = exportEndTime - totalStartTime
+        
         print("✅ Blank video creation completed!")
         print("📁 Output file: \(outputURL.path)")
+        
+        // Performance analysis
+        print("📊 Performance Analysis:")
+        print("   Setup time: \(String(format: "%.2f", setupTime))s")
+        print("   Generation time: \(String(format: "%.2f", generationTime))s")
+        print("   Export time: \(String(format: "%.2f", exportTime))s")
+        print("   Total time: \(String(format: "%.2f", totalTime))s")
+        
+        // Calculate percentages
+        let setupPercentage = (setupTime / totalTime) * 100
+        let generationPercentage = (generationTime / totalTime) * 100
+        let exportPercentage = (exportTime / totalTime) * 100
+        
+        print("📊 Time breakdown:")
+        print("   Setup: \(String(format: "%.1f", setupPercentage))%")
+        print("   Generation: \(String(format: "%.1f", generationPercentage))%")
+        print("   Export: \(String(format: "%.1f", exportPercentage))%")
         
         // Verify file was created
         if FileManager.default.fileExists(atPath: outputURL.path) {
