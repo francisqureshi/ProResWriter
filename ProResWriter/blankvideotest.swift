@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import CoreMedia
+import TimecodeKit
 
 func blankvideo() {
     print("🎬 Creating blank black video file...")
@@ -36,16 +37,11 @@ func blankvideo() {
         return
     }
     
-    // Configure video settings for ProRes
+    // Use basic ProRes settings
     let videoSettings: [String: Any] = [
-        AVVideoCodecKey: AVVideoCodecType.proRes422HQ,
+        AVVideoCodecKey: AVVideoCodecType.proRes422,
         AVVideoWidthKey: width,
         AVVideoHeightKey: height,
-        AVVideoColorPropertiesKey: [
-            AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-            AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-            AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
-        ],
     ]
     
     // Create video input
@@ -111,8 +107,12 @@ func blankvideo() {
         }
     }
     
-    // Finish writing
+    // Finish writing and wait for completion
     videoWriterInput.markAsFinished()
+    
+    // Use semaphore to wait for completion
+    let semaphore = DispatchSemaphore(value: 0)
+    
     assetWriter.finishWriting {
         print("✅ Blank video creation completed!")
         print("📁 Output file: \(outputURL.path)")
@@ -121,8 +121,23 @@ func blankvideo() {
         if FileManager.default.fileExists(atPath: outputURL.path) {
             let fileSize = try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64
             print("📊 File size: \(fileSize ?? 0) bytes")
+            
+            if let fileSize = fileSize, fileSize > 0 {
+                print("✅ Video file created successfully!")
+                print("📊 File size: \(fileSize) bytes")
+            } else {
+                print("❌ Video file may be corrupted (zero size)")
+            }
+        } else {
+            print("❌ Output file was not created")
         }
+        
+        semaphore.signal()
     }
+    
+    // Wait for completion
+    semaphore.wait()
+    print("🎬 Blank video creation process finished!")
 }
 
 // Helper function to create a black pixel buffer
