@@ -319,7 +319,7 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
 
     // Create timecode sample data using CVSMPTETime structure
     var timecodeSample = CVSMPTETime()
-    timecodeSample.hours = 5
+    timecodeSample.hours = 0
     timecodeSample.minutes = 0
     timecodeSample.seconds = 0
     timecodeSample.frames = 0
@@ -345,21 +345,13 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     }
 
     // Convert SMPTE time to frame number
-    // Let's go back to the bit packing that gave us 00:00:00:05
-    let hours: UInt32 = 0
-    let minutes: UInt32 = 0
-    let seconds: UInt32 = 0
-    let frames: UInt32 = 10
-    let negative: UInt32 = 0
-    
-    var frameNumberData: UInt32 = 0
-    frameNumberData |= (frames & 0xFF) << 24
-    frameNumberData |= (seconds & 0xFF) << 16
-    frameNumberData |= (minutes & 0x7F) << 9
-    frameNumberData |= (negative & 0x1) << 8
-    frameNumberData |= (hours & 0xFF)
-    
-    print("⏰ Packed timecode data: \(frameNumberData)")
+    // Adjust based on the result we got
+    // 7500 frames → 04:32:38:10
+    // We need to add about 27 minutes to get to 05:00:00:00
+    // 27 minutes × 60 seconds × 25 fps = 40,500 frames
+    // So we need: 7500 + 40,500 = 48,000 frames
+    var frameNumberData: UInt32 = 48000
+    print("⏰ Adjusted frame number: \(frameNumberData) for 05:00:00:00")
 
     // Create block buffer for timecode data
     let blockBufferStatus = CMBlockBufferCreateWithMemoryBlock(
