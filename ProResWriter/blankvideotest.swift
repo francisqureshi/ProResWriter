@@ -139,14 +139,18 @@ func blankvideo() {
             return
         } else {
             print("✅ Timecode sample appended successfully")
-            
+
             // Debug: Check if timecode sample buffer has data
             if let dataBuffer = CMSampleBufferGetDataBuffer(timecodeSampleBuffer) {
                 var dataLength = 0
                 var dataPointer: UnsafeMutablePointer<Int8>?
-                let status = CMBlockBufferGetDataPointer(dataBuffer, atOffset: 0, lengthAtOffsetOut: &dataLength, totalLengthOut: nil, dataPointerOut: &dataPointer)
+                let status = CMBlockBufferGetDataPointer(
+                    dataBuffer, atOffset: 0, lengthAtOffsetOut: &dataLength, totalLengthOut: nil,
+                    dataPointerOut: &dataPointer)
                 if status == kCMBlockBufferNoErr, let pointer = dataPointer {
-                    let frameNumber = pointer.withMemoryRebound(to: Int32.self, capacity: 1) { $0.pointee }
+                    let frameNumber = pointer.withMemoryRebound(to: Int32.self, capacity: 1) {
+                        $0.pointee
+                    }
                     print("🔍 Timecode sample buffer contains frame number: \(frameNumber)")
                 }
             }
@@ -333,11 +337,13 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     // Create timecode sample data using CVSMPTETime structure
     // Following Apple's example: SMPTE time 00:00:02:00 (HH:MM:SS:FF), 25fps non-drop frame format
     var timecodeSample = CVSMPTETime()
-    timecodeSample.hours = 0    // HH
-    timecodeSample.minutes = 0  // MM
+    timecodeSample.hours = 4  // HH
+    timecodeSample.minutes = 3  // MM
     timecodeSample.seconds = 2  // SS
-    timecodeSample.frames = 0   // FF
-    print("⏰ Created CVSMPTETime: \(String(format: "%02d:%02d:%02d:%02d", timecodeSample.hours, timecodeSample.minutes, timecodeSample.seconds, timecodeSample.frames))")
+    timecodeSample.frames = 1  // FF
+    print(
+        "⏰ Created CVSMPTETime: \(String(format: "%02d:%02d:%02d:%02d", timecodeSample.hours, timecodeSample.minutes, timecodeSample.seconds, timecodeSample.frames))"
+    )
 
     // Create format description for timecode media (following Apple's example)
     // frameDuration: CMTimeMake(1, 25) for 25fps non-drop frame
@@ -365,11 +371,14 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     // Use Apple's utility function to convert CVSMPTETime time into frame number to write
     // Following Apple's example: frameNumber32ForTimecodeUsingFormatDescription
     // For 64-bit timecode, we'll calculate manually since we're using Int64
-    var frameNumberData: Int32 = Int32(timecodeSample.hours) * 3600 * frameRate +  // hours to frames
-                                 Int32(timecodeSample.minutes) * 60 * frameRate +    // minutes to frames
-                                 Int32(timecodeSample.seconds) * frameRate +         // seconds to frames
-                                 Int32(timecodeSample.frames)                        // frames
-    print("⏰ Calculated frame number: \(frameNumberData) for timecode \(String(format: "%02d:%02d:%02d:%02d", timecodeSample.hours, timecodeSample.minutes, timecodeSample.seconds, timecodeSample.frames))")
+    var frameNumberData: Int32 =
+        Int32(timecodeSample.hours) * 3600 * frameRate  // hours to frames
+        + Int32(timecodeSample.minutes) * 60 * frameRate  // minutes to frames
+        + Int32(timecodeSample.seconds) * frameRate  // seconds to frames
+        + Int32(timecodeSample.frames)  // frames
+    print(
+        "⏰ Calculated frame number: \(frameNumberData) for timecode \(String(format: "%02d:%02d:%02d:%02d", timecodeSample.hours, timecodeSample.minutes, timecodeSample.seconds, timecodeSample.frames))"
+    )
 
     // Create block buffer for timecode data (64-bit big-endian signed integer)
     let blockBufferStatus = CMBlockBufferCreateWithMemoryBlock(
