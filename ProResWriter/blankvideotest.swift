@@ -146,7 +146,7 @@ func blankvideo() {
                 var dataPointer: UnsafeMutablePointer<Int8>?
                 let status = CMBlockBufferGetDataPointer(dataBuffer, atOffset: 0, lengthAtOffsetOut: &dataLength, totalLengthOut: nil, dataPointerOut: &dataPointer)
                 if status == kCMBlockBufferNoErr, let pointer = dataPointer {
-                    let frameNumber = pointer.withMemoryRebound(to: Int64.self, capacity: 1) { $0.pointee }
+                    let frameNumber = pointer.withMemoryRebound(to: Int32.self, capacity: 1) { $0.pointee }
                     print("🔍 Timecode sample buffer contains frame number: \(frameNumber)")
                 }
             }
@@ -348,7 +348,7 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
 
     let status = CMTimeCodeFormatDescriptionCreate(
         allocator: kCFAllocatorDefault,
-        timeCodeFormatType: kCMTimeCodeFormatType_TimeCode64,
+        timeCodeFormatType: kCMTimeCodeFormatType_TimeCode32,
         frameDuration: frameDuration,
         frameQuanta: UInt32(frameRate),
         flags: tcFlags,
@@ -365,21 +365,21 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     // Use Apple's utility function to convert CVSMPTETime time into frame number to write
     // Following Apple's example: frameNumber32ForTimecodeUsingFormatDescription
     // For 64-bit timecode, we'll calculate manually since we're using Int64
-    var frameNumberData: Int64 = Int64(timecodeSample.hours) * 3600 * Int64(frameRate) +  // hours to frames
-                                 Int64(timecodeSample.minutes) * 60 * Int64(frameRate) +    // minutes to frames
-                                 Int64(timecodeSample.seconds) * Int64(frameRate) +         // seconds to frames
-                                 Int64(timecodeSample.frames)                               // frames
+    var frameNumberData: Int32 = Int32(timecodeSample.hours) * 3600 * frameRate +  // hours to frames
+                                 Int32(timecodeSample.minutes) * 60 * frameRate +    // minutes to frames
+                                 Int32(timecodeSample.seconds) * frameRate +         // seconds to frames
+                                 Int32(timecodeSample.frames)                        // frames
     print("⏰ Calculated frame number: \(frameNumberData) for timecode \(String(format: "%02d:%02d:%02d:%02d", timecodeSample.hours, timecodeSample.minutes, timecodeSample.seconds, timecodeSample.frames))")
 
     // Create block buffer for timecode data (64-bit big-endian signed integer)
     let blockBufferStatus = CMBlockBufferCreateWithMemoryBlock(
         allocator: kCFAllocatorDefault,
         memoryBlock: nil,
-        blockLength: MemoryLayout<Int64>.size,
+        blockLength: MemoryLayout<Int32>.size,
         blockAllocator: kCFAllocatorDefault,
         customBlockSource: nil,
         offsetToData: 0,
-        dataLength: MemoryLayout<Int64>.size,
+        dataLength: MemoryLayout<Int32>.size,
         flags: kCMBlockBufferAssureMemoryNowFlag,
         blockBufferOut: &dataBuffer
     )
@@ -389,12 +389,14 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
         return nil
     }
 
-    // Write frame number data to block buffer (64-bit big-endian signed integer)
+    // Write frame number data to block buffer (32-bit big-endian signed integer)
+    // Convert to big-endian format as required by Core Media
+    var bigEndianFrameNumber = frameNumberData.bigEndian
     let replaceStatus = CMBlockBufferReplaceDataBytes(
-        with: &frameNumberData,
+        with: &bigEndianFrameNumber,
         blockBuffer: dataBuffer,
         offsetIntoDestination: 0,
-        dataLength: MemoryLayout<Int64>.size
+        dataLength: MemoryLayout<Int32>.size
     )
 
     guard replaceStatus == kCMBlockBufferNoErr else {
@@ -414,7 +416,7 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     // numSamples: Number of samples in the CMSampleBuffer (1 for single timecode entry)
     // numSampleTimingEntries: Number of entries in sampleTimingArray (1 for single timing)
     // numSampleSizeEntries: Number of entries in sampleSizeArray (1 for single size)
-    var sizes = MemoryLayout<Int64>.size
+    var sizes = MemoryLayout<Int32>.size
     let sampleBufferStatus = CMSampleBufferCreate(
         allocator: kCFAllocatorDefault,
         dataBuffer: dataBuffer,
