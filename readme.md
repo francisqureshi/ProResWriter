@@ -7,7 +7,7 @@ Topline TODO:
 so the current offering makes a temp file for adding timecode track!
 so instead, we should try just lifting the OCF timecode chat!!!
 
-- [ ] copy/lift timecode track from OCF, no need to calculate TC?
+- [x] copy/lift timecode track from OCF, no need to calculate TC?
 
 ==========
 Pairing workflow 
