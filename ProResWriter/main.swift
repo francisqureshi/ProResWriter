@@ -88,6 +88,10 @@ class ProResVideoCompositor: NSObject {
         let composition = AVMutableComposition()
         let videoTrack = composition.addMutableTrack(
             withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        
+        // Add timecode track to composition
+        let timecodeTrack = composition.addMutableTrack(
+            withMediaType: .timecode, preferredTrackID: kCMPersistentTrackID_Invalid)
 
         // Add base video to composition
         let baseVideoTrack = try await getVideoTrack(from: baseAsset)
@@ -96,6 +100,71 @@ class ProResVideoCompositor: NSObject {
             CMTimeRange(start: .zero, duration: baseDuration), of: baseVideoTrack, at: .zero)
 
         print("🎬 Base video added to composition: \(baseDuration.seconds)s")
+
+        // Add timecode sample to timecode track if source timecode exists
+        if let sourceTimecode = baseProperties.sourceTimecode, let timecodeTrack = timecodeTrack {
+            print("⏰ Adding timecode track to composition...")
+            
+            guard let timecodeSampleBuffer = createTimecodeSampleBuffer(
+                timecode: sourceTimecode, 
+                frameRate: baseProperties.frameRate, 
+                duration: baseDuration.seconds
+            ) else {
+                print("❌ Failed to create timecode sample buffer")
+                throw CompositorError.timecodeCreationFailed
+            }
+            
+            // Create a temporary asset with the timecode sample to insert into composition
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("temp_timecode.mov")
+            try? FileManager.default.removeItem(at: tempURL)
+            
+            // Create temporary asset writer for timecode
+            let tempWriter = try AVAssetWriter(outputURL: tempURL, fileType: .mov)
+            let tempTimecodeInput = AVAssetWriterInput(mediaType: .timecode, outputSettings: nil)
+            
+            if tempWriter.canAdd(tempTimecodeInput) {
+                tempWriter.add(tempTimecodeInput)
+                tempWriter.startWriting()
+                tempWriter.startSession(atSourceTime: .zero)
+                
+                // Append timecode sample
+                while !tempTimecodeInput.isReadyForMoreMediaData {
+                    try await Task.sleep(nanoseconds: 1_000_000) // 1ms
+                }
+                
+                if tempTimecodeInput.append(timecodeSampleBuffer) {
+                    tempTimecodeInput.markAsFinished()
+                    await tempWriter.finishWriting()
+                    
+                    // Load the temporary asset and insert its timecode track
+                    let tempAsset = AVURLAsset(url: tempURL)
+                    let tempTimecodeTracks = try await tempAsset.loadTracks(withMediaType: .timecode)
+                    print("🔍 Temporary asset has \(tempTimecodeTracks.count) timecode tracks")
+                    
+                    if let tempTimecodeTrack = tempTimecodeTracks.first {
+                        try timecodeTrack.insertTimeRange(
+                            CMTimeRange(start: .zero, duration: baseDuration),
+                            of: tempTimecodeTrack,
+                            at: .zero
+                        )
+                        print("✅ Timecode track added to composition")
+                        
+                        // Verify the track was actually added
+                        let finalTimecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+                        print("🔍 Composition now has \(finalTimecodeTracks.count) timecode tracks")
+                    } else {
+                        print("❌ No timecode track found in temporary asset")
+                    }
+                    
+                    // Clean up temporary file
+                    try? FileManager.default.removeItem(at: tempURL)
+                } else {
+                    print("❌ Failed to append timecode sample to temporary writer")
+                }
+            }
+        } else {
+            print("⚠️ No source timecode found - skipping timecode track")
+        }
 
         // Sort segments by start time for proper trimming
         let sortedSegments = settings.gradedSegments.sorted { $0.startTime < $1.startTime }
@@ -144,8 +213,23 @@ class ProResVideoCompositor: NSObject {
         let finalDuration = try await composition.load(.duration)
         print("📹 Final composition duration: \(finalDuration.seconds)s")
 
-        // Skip composition timecode - will add after fast export
-        print("📹 Timecode will be added after fast export")
+        // Debug: Check what tracks are in the composition
+        let allTracks = try await composition.loadTracks(withMediaType: .video)
+        let timecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+        print("🔍 Composition tracks: \(allTracks.count) video tracks, \(timecodeTracks.count) timecode tracks")
+        
+        if timecodeTracks.count > 0 {
+            print("✅ Timecode track found in composition - should be exported")
+            
+            // Associate timecode track with video track for proper export
+            if let videoTrack = videoTrack, let timecodeTrack = timecodeTracks.first {
+                // Note: AVMutableComposition doesn't support addTrackAssociation, 
+                // but AVAssetExportSession should preserve the timecode track
+                print("🔗 Video and timecode tracks ready for export")
+            }
+        } else {
+            print("❌ No timecode track found in composition")
+        }
 
         // HARDWARE ACCELERATION: Use Apple Silicon ProRes engine and Metal GPU
         print("🚀 Enabling Apple Silicon ProRes engine and Metal GPU acceleration...")
@@ -233,19 +317,6 @@ class ProResVideoCompositor: NSObject {
         )
 
         // 3. FAST TIMECODE EMBEDDING (Post-process)
-        let timecodeStartTime = CFAbsoluteTimeGetCurrent()
-        if let sourceTimecode = baseProperties.sourceTimecode {
-            print("📹 Fast timecode embedding: \(sourceTimecode)")
-            try await addTimecodeUltraFast(
-                to: settings.outputURL, 
-                timecode: sourceTimecode,
-                frameRate: baseProperties.frameRate
-            )
-        }
-        let timecodeEndTime = CFAbsoluteTimeGetCurrent()
-        print(
-            "📹 Fast timecode embedding completed in: \(String(format: "%.2f", timecodeEndTime - timecodeStartTime))s"
-        )
 
         // RENDER TIME: Only measure the actual export time (like DaVinci Resolve)
         let actualRenderTime = exportEndTime - exportStart
@@ -1445,6 +1516,7 @@ enum CompositorError: Error {
     case failedToAppendFrame
     case invalidSegment
     case segmentDiscoveryFailed
+    case timecodeCreationFailed
     case invalidSegmentData
 }
 
