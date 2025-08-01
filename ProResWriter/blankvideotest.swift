@@ -278,9 +278,9 @@ func blankvideo() async {
                     let progressBar = String(repeating: "█", count: percentage / 2)
                     let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
 
-                    // Calculate FPS every 5 updates (500ms) for smoother display
+                    // Calculate FPS every 10 updates (1000ms) for smoother display
                     updateCounter += 1
-                    if updateCounter >= 5 {
+                    if updateCounter >= 10 {
                         let timeDelta = currentTime - lastTime
                         let framesDelta = frameIndex - lastFrameCount
 
@@ -428,8 +428,9 @@ private func loadFiraCodeFont(size: CGFloat) -> CTFont {
 }
 
 // Helper function to create a pixel buffer with burnt-in timecode
-private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String, baseFileName: String) -> CVPixelBuffer?
-{
+private func createTimecodePixelBuffer(
+    width: Int, height: Int, timecode: String, baseFileName: String
+) -> CVPixelBuffer? {
     var pixelBuffer: CVPixelBuffer?
     let attributes: [String: Any] = [
         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
@@ -480,7 +481,7 @@ private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String
         let font = loadFiraCodeFont(size: fontSize)
 
         // Create the full display text
-        let displayText = "SRC TC: \(timecode) ---> \(baseFileName)"
+        let displayText = "    SRC TC: \(timecode) ---> \(baseFileName)"
 
         // Create attributed string for timecode
         let attributes: [NSAttributedString.Key: Any] = [
@@ -489,16 +490,30 @@ private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String
         ]
         let attributedString = NSAttributedString(string: displayText, attributes: attributes)
 
-        // Calculate text position (bottom-right corner with padding)
+        // Calculate text position for timecode (bottom-left corner with padding)
         let line = CTLineCreateWithAttributedString(attributedString)
         let textBounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
         let padding = fontSize * 0.75
         let x = padding
         let y = padding
 
-        // Draw the text
+        // Draw the timecode text
         context.textPosition = CGPoint(x: x, y: y)
         CTLineDraw(line, context)
+
+        // Create and draw the "NO GRADE" text in bottom-right corner
+        let gradeText = "/// NO GRADE ///    "
+        let gradeAttributedString = NSAttributedString(string: gradeText, attributes: attributes)
+        let gradeLine = CTLineCreateWithAttributedString(gradeAttributedString)
+        let gradeTextBounds = CTLineGetBoundsWithOptions(gradeLine, .useOpticalBounds)
+
+        // Position in bottom-right corner
+        let gradeX = CGFloat(width) - gradeTextBounds.width - padding
+        let gradeY = padding
+
+        // Draw the grade text
+        context.textPosition = CGPoint(x: gradeX, y: gradeY)
+        CTLineDraw(gradeLine, context)
 
         CVPixelBufferUnlockBaseAddress(buffer, [])
         return buffer
