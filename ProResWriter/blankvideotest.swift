@@ -193,14 +193,11 @@ func blankvideo() async {
         let frameDuration = CMTime(value: 1, timescale: frameRate)
         let totalFrames = Int(duration * Double(frameRate))
 
-        print("📊 Generating \(totalFrames) frames...")
+        print("📊 Generating \(totalFrames) frames with burnt-in timecode...")
 
-        // Create one black pixel buffer to reuse for all frames
-        guard let blackPixelBuffer = createBlackPixelBuffer(width: width, height: height) else {
-            print("❌ Failed to create black pixel buffer")
-            return
-        }
-        print("✅ Created reusable black pixel buffer")
+        // We'll create timecode pixel buffers dynamically for each frame
+        let startTimecode = sourceProperties.sourceTimecode ?? "01:00:00:00"
+        print("✅ Using start timecode: \(startTimecode)")
 
         // Generation timer
         let generationStartTime = CFAbsoluteTimeGetCurrent()
@@ -235,9 +232,22 @@ func blankvideo() async {
                         // Calculate presentation time
                         let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(i))
 
-                        // Append the same black pixel buffer for each frame
+                        // Calculate timecode for this frame
+                        let frameTimecode = calculateTimecodeForFrame(i, startTimecode: startTimecode, frameRate: frameRate)
+                        
+                        // Create pixel buffer with burnt-in timecode
+                        guard let timecodePixelBuffer = createTimecodePixelBuffer(
+                            width: width, 
+                            height: height, 
+                            timecode: frameTimecode
+                        ) else {
+                            print("❌ Failed to create timecode pixel buffer for frame \(i)")
+                            return
+                        }
+
+                        // Append the timecode frame
                         let success = pixelBufferAdaptor.append(
-                            blackPixelBuffer, withPresentationTime: presentationTime)
+                            timecodePixelBuffer, withPresentationTime: presentationTime)
                         if !success {
                             print("❌ Failed to append frame \(i)")
                             return
@@ -361,6 +371,79 @@ func blankvideo() async {
     } catch {
         print("❌ Error creating blank video: \(error.localizedDescription)")
     }
+}
+
+// Helper function to create a pixel buffer with burnt-in timecode
+private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String) -> CVPixelBuffer? {
+    var pixelBuffer: CVPixelBuffer?
+    let attributes: [String: Any] = [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        kCVPixelBufferWidthKey as String: width,
+        kCVPixelBufferHeightKey as String: height,
+        kCVPixelBufferCGImageCompatibilityKey as String: true,
+        kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+    ]
+
+    let result = CVPixelBufferCreate(
+        kCFAllocatorDefault,
+        width,
+        height,
+        kCVPixelFormatType_32BGRA,
+        attributes as CFDictionary,
+        &pixelBuffer
+    )
+
+    if result == kCVReturnSuccess, let buffer = pixelBuffer {
+        CVPixelBufferLockBaseAddress(buffer, [])
+
+        let baseAddress = CVPixelBufferGetBaseAddress(buffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+
+        // Create CGContext for drawing
+        guard let context = CGContext(
+            data: baseAddress,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else {
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            return nil
+        }
+
+        // Fill with black background
+        context.setFillColor(red: 0, green: 0, blue: 0, alpha: 1.0)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+        // Draw timecode text
+        let fontSize = CGFloat(width) / 25.0  // Scale font size based on resolution
+        let font = CTFontCreateWithName("Monaco" as CFString, fontSize, nil)
+        
+        // Create attributed string for timecode
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)  // White text
+        ]
+        let attributedString = NSAttributedString(string: timecode, attributes: attributes)
+        
+        // Calculate text position (bottom-right corner with padding)
+        let line = CTLineCreateWithAttributedString(attributedString)
+        let textBounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
+        let padding = fontSize * 0.5
+        let x = CGFloat(width) - textBounds.width - padding
+        let y = padding
+
+        // Draw the text
+        context.textPosition = CGPoint(x: x, y: y)
+        CTLineDraw(line, context)
+
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+        return buffer
+    }
+
+    return nil
 }
 
 // Helper function to create a black pixel buffer
@@ -527,6 +610,38 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     print("✅ Sample buffer created successfully")
 
     return sampleBuffer
+}
+
+// Helper function to calculate timecode for a specific frame
+private func calculateTimecodeForFrame(_ frameNumber: Int, startTimecode: String, frameRate: Int32) -> String {
+    // Parse the start timecode
+    let components = startTimecode.components(separatedBy: ":")
+    guard components.count == 4,
+          let startHours = Int(components[0]),
+          let startMinutes = Int(components[1]),
+          let startSeconds = Int(components[2]),
+          let startFrames = Int(components[3]) else {
+        return "00:00:00:00"
+    }
+    
+    // Convert start timecode to total frames
+    let startTotalFrames = startHours * 3600 * Int(frameRate) + 
+                          startMinutes * 60 * Int(frameRate) + 
+                          startSeconds * Int(frameRate) + 
+                          startFrames
+    
+    // Add current frame number
+    let currentTotalFrames = startTotalFrames + frameNumber
+    
+    // Convert back to timecode
+    let hours = currentTotalFrames / (3600 * Int(frameRate))
+    let remainingAfterHours = currentTotalFrames % (3600 * Int(frameRate))
+    let minutes = remainingAfterHours / (60 * Int(frameRate))
+    let remainingAfterMinutes = remainingAfterHours % (60 * Int(frameRate))
+    let seconds = remainingAfterMinutes / Int(frameRate)
+    let frames = remainingAfterMinutes % Int(frameRate)
+    
+    return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
 }
 
 // Helper functions for video analysis
