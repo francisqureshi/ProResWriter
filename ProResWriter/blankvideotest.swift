@@ -233,14 +233,17 @@ func blankvideo() async {
                         let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(i))
 
                         // Calculate timecode for this frame
-                        let frameTimecode = calculateTimecodeForFrame(i, startTimecode: startTimecode, frameRate: frameRate)
-                        
+                        let frameTimecode = calculateTimecodeForFrame(
+                            i, startTimecode: startTimecode, frameRate: frameRate)
+
                         // Create pixel buffer with burnt-in timecode
-                        guard let timecodePixelBuffer = createTimecodePixelBuffer(
-                            width: width, 
-                            height: height, 
-                            timecode: frameTimecode
-                        ) else {
+                        guard
+                            let timecodePixelBuffer = createTimecodePixelBuffer(
+                                width: width,
+                                height: height,
+                                timecode: frameTimecode
+                            )
+                        else {
                             print("❌ Failed to create timecode pixel buffer for frame \(i)")
                             return
                         }
@@ -264,31 +267,33 @@ func blankvideo() async {
                 var lastTime = generationStartTime
                 var displayFPS = 0.0
                 var updateCounter = 0
-                
+
                 while !Task.isCancelled && frameIndex < totalFrames {
                     let currentTime = CFAbsoluteTimeGetCurrent()
                     let progress = Double(frameIndex) / Double(totalFrames)
                     let percentage = Int(progress * 100)
                     let progressBar = String(repeating: "█", count: percentage / 2)
                     let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
-                    
+
                     // Calculate FPS every 5 updates (500ms) for smoother display
                     updateCounter += 1
                     if updateCounter >= 5 {
                         let timeDelta = currentTime - lastTime
                         let framesDelta = frameIndex - lastFrameCount
-                        
+
                         if timeDelta > 0 && framesDelta > 0 {
                             displayFPS = Double(framesDelta) / timeDelta
                         }
-                        
+
                         // Reset for next calculation
                         lastFrameCount = frameIndex
                         lastTime = currentTime
                         updateCounter = 0
                     }
-                    
-                    print("\r📹 [\(progressBar)\(emptyBar)] \(percentage)% (\(frameIndex)/\(totalFrames) frames) | \(String(format: "%.0f", displayFPS)) fps", terminator: "")
+
+                    print(
+                        "\r📹 [\(progressBar)\(emptyBar)] \(percentage)% (\(frameIndex)/\(totalFrames) frames) | \(String(format: "%.0f", displayFPS)) fps",
+                        terminator: "")
                     fflush(stdout)
 
                     // Break if generation is complete
@@ -373,8 +378,55 @@ func blankvideo() async {
     }
 }
 
+// Cache for loaded fonts to avoid repeated loading
+private var loadedFonts: [CGFloat: CTFont] = [:]
+
+// Helper function to load Fira Code font from app bundle
+private func loadFiraCodeFont(size: CGFloat) -> CTFont {
+    // Return cached font if already loaded
+    if let cachedFont = loadedFonts[size] {
+        return cachedFont
+    }
+
+    // Try to load from bundle
+    if let fontPath = Bundle.main.path(
+        forResource: "FiraCodeNerdFont-Regular", ofType: "ttf", inDirectory: "Fonts"),
+        let fontData = NSData(contentsOfFile: fontPath),
+        let dataProvider = CGDataProvider(data: fontData),
+        let cgFont = CGFont(dataProvider)
+    {
+
+        // Register the font (only once)
+        var error: Unmanaged<CFError>?
+        CTFontManagerRegisterGraphicsFont(cgFont, &error)
+
+        // Create CTFont from registered font
+        if let fontName = cgFont.postScriptName {
+            let font = CTFontCreateWithName(fontName, size, nil)
+            loadedFonts[size] = font
+
+            // // Only print success message once
+            // if loadedFonts.count == 1 {
+            //     print("✅ Fira Code Nerd Font loaded successfully")
+            // }
+            return font
+        }
+    }
+
+    // Fallback to Monaco
+    let font = CTFontCreateWithName("Monaco" as CFString, size, nil)
+    loadedFonts[size] = font
+
+    // Only print fallback message once
+    if loadedFonts.count == 1 {
+        print("⚠️ Using Monaco fallback font")
+    }
+    return font
+}
+
 // Helper function to create a pixel buffer with burnt-in timecode
-private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String) -> CVPixelBuffer? {
+private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String) -> CVPixelBuffer?
+{
     var pixelBuffer: CVPixelBuffer?
     let attributes: [String: Any] = [
         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
@@ -400,15 +452,18 @@ private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String
         let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
 
         // Create CGContext for drawing
-        guard let context = CGContext(
-            data: baseAddress,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else {
+        guard
+            let context = CGContext(
+                data: baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+                    | CGBitmapInfo.byteOrder32Little.rawValue
+            )
+        else {
             CVPixelBufferUnlockBaseAddress(buffer, [])
             return nil
         }
@@ -419,15 +474,15 @@ private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String
 
         // Draw timecode text
         let fontSize = CGFloat(width) / 25.0  // Scale font size based on resolution
-        let font = CTFontCreateWithName("Monaco" as CFString, fontSize, nil)
-        
+        let font = loadFiraCodeFont(size: fontSize)
+
         // Create attributed string for timecode
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)  // White text
+            .foregroundColor: CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0),  // White text
         ]
         let attributedString = NSAttributedString(string: timecode, attributes: attributes)
-        
+
         // Calculate text position (bottom-right corner with padding)
         let line = CTLineCreateWithAttributedString(attributedString)
         let textBounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
@@ -613,26 +668,28 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
 }
 
 // Helper function to calculate timecode for a specific frame
-private func calculateTimecodeForFrame(_ frameNumber: Int, startTimecode: String, frameRate: Int32) -> String {
+private func calculateTimecodeForFrame(_ frameNumber: Int, startTimecode: String, frameRate: Int32)
+    -> String
+{
     // Parse the start timecode
     let components = startTimecode.components(separatedBy: ":")
     guard components.count == 4,
-          let startHours = Int(components[0]),
-          let startMinutes = Int(components[1]),
-          let startSeconds = Int(components[2]),
-          let startFrames = Int(components[3]) else {
+        let startHours = Int(components[0]),
+        let startMinutes = Int(components[1]),
+        let startSeconds = Int(components[2]),
+        let startFrames = Int(components[3])
+    else {
         return "00:00:00:00"
     }
-    
+
     // Convert start timecode to total frames
-    let startTotalFrames = startHours * 3600 * Int(frameRate) + 
-                          startMinutes * 60 * Int(frameRate) + 
-                          startSeconds * Int(frameRate) + 
-                          startFrames
-    
+    let startTotalFrames =
+        startHours * 3600 * Int(frameRate) + startMinutes * 60 * Int(frameRate) + startSeconds
+        * Int(frameRate) + startFrames
+
     // Add current frame number
     let currentTotalFrames = startTotalFrames + frameNumber
-    
+
     // Convert back to timecode
     let hours = currentTotalFrames / (3600 * Int(frameRate))
     let remainingAfterHours = currentTotalFrames % (3600 * Int(frameRate))
@@ -640,7 +697,7 @@ private func calculateTimecodeForFrame(_ frameNumber: Int, startTimecode: String
     let remainingAfterMinutes = remainingAfterHours % (60 * Int(frameRate))
     let seconds = remainingAfterMinutes / Int(frameRate)
     let frames = remainingAfterMinutes % Int(frameRate)
-    
+
     return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
 }
 

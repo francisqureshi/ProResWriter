@@ -16,12 +16,12 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		0726D6D92E353E950050CF6F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
+			buildActionMask = 12;
+			dstPath = Fonts;
+			dstSubfolderSpec = 7;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -29,9 +29,22 @@
 		0726D6DB2E353E950050CF6F /* ProResWriter */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ProResWriter; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 0726D6D92E353E950050CF6F /* CopyFiles */;
+			membershipExceptions = (
+				"Resources/Fonts/FiraCodeNerdFont-Regular.ttf",
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0726D6DD2E353E950050CF6F /* ProResWriter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
+			);
 			path = ProResWriter;
 			sourceTree = "<group>";
 		};
