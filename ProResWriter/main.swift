@@ -88,7 +88,7 @@ class ProResVideoCompositor: NSObject {
         let composition = AVMutableComposition()
         let videoTrack = composition.addMutableTrack(
             withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-        
+
         // Add timecode track to composition
         let timecodeTrack = composition.addMutableTrack(
             withMediaType: .timecode, preferredTrackID: kCMPersistentTrackID_Invalid)
@@ -101,69 +101,33 @@ class ProResVideoCompositor: NSObject {
 
         print("🎬 Base video added to composition: \(baseDuration.seconds)s")
 
-        // Add timecode sample to timecode track if source timecode exists
-        if let sourceTimecode = baseProperties.sourceTimecode, let timecodeTrack = timecodeTrack {
-            print("⏰ Adding timecode track to composition...")
+        // Copy existing timecode track from base asset if it exists
+        if let timecodeTrack = timecodeTrack {
+            print("⏰ Looking for existing timecode track in base asset...")
             
-            guard let timecodeSampleBuffer = createTimecodeSampleBuffer(
-                timecode: sourceTimecode, 
-                frameRate: baseProperties.frameRate, 
-                duration: baseDuration.seconds
-            ) else {
-                print("❌ Failed to create timecode sample buffer")
-                throw CompositorError.timecodeCreationFailed
-            }
+            // Check if base asset has timecode tracks
+            let baseTimecodeTracks = try await baseAsset.loadTracks(withMediaType: .timecode)
+            print("🔍 Base asset has \(baseTimecodeTracks.count) timecode tracks")
             
-            // Create a temporary asset with the timecode sample to insert into composition
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("temp_timecode.mov")
-            try? FileManager.default.removeItem(at: tempURL)
-            
-            // Create temporary asset writer for timecode
-            let tempWriter = try AVAssetWriter(outputURL: tempURL, fileType: .mov)
-            let tempTimecodeInput = AVAssetWriterInput(mediaType: .timecode, outputSettings: nil)
-            
-            if tempWriter.canAdd(tempTimecodeInput) {
-                tempWriter.add(tempTimecodeInput)
-                tempWriter.startWriting()
-                tempWriter.startSession(atSourceTime: .zero)
+            if let baseTimecodeTrack = baseTimecodeTracks.first {
+                print("✅ Found existing timecode track in base asset - copying directly...")
                 
-                // Append timecode sample
-                while !tempTimecodeInput.isReadyForMoreMediaData {
-                    try await Task.sleep(nanoseconds: 1_000_000) // 1ms
-                }
+                // Copy the timecode track directly from base asset
+                try timecodeTrack.insertTimeRange(
+                    CMTimeRange(start: .zero, duration: baseDuration),
+                    of: baseTimecodeTrack,
+                    at: .zero
+                )
+                print("✅ Timecode track copied directly from base asset")
                 
-                if tempTimecodeInput.append(timecodeSampleBuffer) {
-                    tempTimecodeInput.markAsFinished()
-                    await tempWriter.finishWriting()
-                    
-                    // Load the temporary asset and insert its timecode track
-                    let tempAsset = AVURLAsset(url: tempURL)
-                    let tempTimecodeTracks = try await tempAsset.loadTracks(withMediaType: .timecode)
-                    print("🔍 Temporary asset has \(tempTimecodeTracks.count) timecode tracks")
-                    
-                    if let tempTimecodeTrack = tempTimecodeTracks.first {
-                        try timecodeTrack.insertTimeRange(
-                            CMTimeRange(start: .zero, duration: baseDuration),
-                            of: tempTimecodeTrack,
-                            at: .zero
-                        )
-                        print("✅ Timecode track added to composition")
-                        
-                        // Verify the track was actually added
-                        let finalTimecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
-                        print("🔍 Composition now has \(finalTimecodeTracks.count) timecode tracks")
-                    } else {
-                        print("❌ No timecode track found in temporary asset")
-                    }
-                    
-                    // Clean up temporary file
-                    try? FileManager.default.removeItem(at: tempURL)
-                } else {
-                    print("❌ Failed to append timecode sample to temporary writer")
-                }
+                // Verify the track was actually added
+                let finalTimecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+                print("🔍 Composition now has \(finalTimecodeTracks.count) timecode tracks")
+            } else {
+                print("⚠️ No existing timecode track found in base asset - skipping timecode track")
             }
         } else {
-            print("⚠️ No source timecode found - skipping timecode track")
+            print("⚠️ Failed to create timecode track in composition")
         }
 
         // Sort segments by start time for proper trimming
@@ -216,14 +180,16 @@ class ProResVideoCompositor: NSObject {
         // Debug: Check what tracks are in the composition
         let allTracks = try await composition.loadTracks(withMediaType: .video)
         let timecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
-        print("🔍 Composition tracks: \(allTracks.count) video tracks, \(timecodeTracks.count) timecode tracks")
-        
+        print(
+            "🔍 Composition tracks: \(allTracks.count) video tracks, \(timecodeTracks.count) timecode tracks"
+        )
+
         if timecodeTracks.count > 0 {
             print("✅ Timecode track found in composition - should be exported")
-            
+
             // Associate timecode track with video track for proper export
             if let videoTrack = videoTrack, let timecodeTrack = timecodeTracks.first {
-                // Note: AVMutableComposition doesn't support addTrackAssociation, 
+                // Note: AVMutableComposition doesn't support addTrackAssociation,
                 // but AVAssetExportSession should preserve the timecode track
                 print("🔗 Video and timecode tracks ready for export")
             }
@@ -1348,7 +1314,7 @@ class ProResVideoCompositor: NSObject {
         to url: URL, timecode: String, frameRate: Int32
     ) async throws {
         print("📹 Fast timecode embedding using TimecodeKit...")
-        
+
         // Parse timecode components
         let components = timecode.components(separatedBy: ":")
         guard components.count == 4,
@@ -1370,48 +1336,50 @@ class ProResVideoCompositor: NSObject {
         case 60: frameRateEnum = .fps60
         default: frameRateEnum = .fps25
         }
-        
+
         let timecodeObject = try Timecode(
             .components(h: hours, m: minutes, s: seconds, f: frames), at: frameRateEnum)
 
         // Use TimecodeKit approach for fast post-processing
         let movie = AVMovie(url: url)
         let mutableMovie = movie.mutableCopy() as! AVMutableMovie
-        
+
         // Replace timecode track using TimecodeKit
         try await mutableMovie.replaceTimecodeTrack(
-            startTimecode: timecodeObject, 
+            startTimecode: timecodeObject,
             fileType: .mov
         )
-        
+
         // Use optimized export session for speed
         let tempURL = url.deletingLastPathComponent().appendingPathComponent(
             "fast_timecode_\(url.lastPathComponent)")
-        
-        guard let exportSession = AVAssetExportSession(
-            asset: mutableMovie, presetName: AVAssetExportPresetPassthrough)
+
+        guard
+            let exportSession = AVAssetExportSession(
+                asset: mutableMovie, presetName: AVAssetExportPresetPassthrough)
         else {
             print("❌ Failed to create export session for timecode")
             return
         }
-        
+
         // Fast settings
         exportSession.outputURL = tempURL
         exportSession.outputFileType = .mov
         exportSession.shouldOptimizeForNetworkUse = false
-        exportSession.timeRange = CMTimeRange(start: .zero, duration: try await mutableMovie.load(.duration))
-        
+        exportSession.timeRange = CMTimeRange(
+            start: .zero, duration: try await mutableMovie.load(.duration))
+
         // Single pass for speed
         if #available(macOS 12.0, *) {
             exportSession.canPerformMultiplePassesOverSourceMediaData = false
         }
-        
+
         try await exportSession.export(to: tempURL, as: .mov)
-        
+
         // Replace original file with timecode-enhanced version
         try FileManager.default.removeItem(at: url)
         try FileManager.default.moveItem(at: tempURL, to: url)
-        
+
         print("✅ Fast timecode embedding completed!")
     }
 
@@ -1568,15 +1536,15 @@ func runComposition() async {
     // Paths
     let blankRushURL = URL(
         fileURLWithPath:
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
     )
     let segmentsDirectoryURL = URL(
         fileURLWithPath:
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM/"
+            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM/"
     )
     let outputURL = URL(
         fileURLWithPath:
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
     )
 
     do {
