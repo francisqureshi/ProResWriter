@@ -261,7 +261,7 @@ class ProResVideoCompositor: NSObject {
 
         // Start export with progress monitoring using modern async approach
         print("🚀 Export Progress:")
-        
+
         // Use concurrent tasks for export and progress monitoring
         await withTaskGroup(of: Void.self) { group in
             // Task 1: Start the export
@@ -272,7 +272,7 @@ class ProResVideoCompositor: NSObject {
                     // Export error handled by main task
                 }
             }
-            
+
             // Task 2: Monitor progress with updating ASCII bar
             group.addTask {
                 while !Task.isCancelled {
@@ -282,21 +282,21 @@ class ProResVideoCompositor: NSObject {
                     let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
                     print("\r📹 [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
                     fflush(stdout)
-                    
+
                     // Break if export is complete
                     if progress >= 1.0 {
                         break
                     }
-                    
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+
+                    try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
                 }
             }
-            
+
             // Wait for export to complete first, then cancel progress monitoring
             await group.next()
             group.cancelAll()
         }
-        
+
         print("")  // New line after progress bar
 
         let exportEndTime = CFAbsoluteTimeGetCurrent()
@@ -1574,15 +1574,15 @@ func runComposition() async {
     // Paths
     let blankRushURL = URL(
         fileURLWithPath:
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
     )
     let segmentsDirectoryURL = URL(
         fileURLWithPath:
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM/"
+            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM/"
     )
     let outputURL = URL(
         fileURLWithPath:
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
     )
 
     do {
@@ -1706,8 +1706,8 @@ func runComposition() async {
 }
 
 Task {
-    await runComposition()
-    // blankvideo()
+    // await runComposition()
+    await blankvideo()
     exit(0)
 }
 

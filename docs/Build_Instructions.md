@@ -14,9 +14,9 @@ open ProResWriter.xcodeproj
 ```bash
 # Build debug version with custom build directory
 xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Debug build -derivedDataPath ./build
-# Release
-xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Release build -derivedDataPath ./build
 
+# Release
+xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Release build -derivedDataPath ./build && sleep 5 && clear
 
 xcodebuild -project ProResWriter.xcodeproj -scheme ProResWriter -configuration Release build -derivedDataPath ./build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 

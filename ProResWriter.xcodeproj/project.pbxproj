@@ -266,7 +266,7 @@
 		0726D6E32E353E950050CF6F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -278,7 +278,7 @@
 		0726D6E42E353E950050CF6F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				ENABLE_HARDENED_RUNTIME = YES;
