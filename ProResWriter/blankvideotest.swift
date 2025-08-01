@@ -197,7 +197,9 @@ func blankvideo() async {
 
         // We'll create timecode pixel buffers dynamically for each frame
         let startTimecode = sourceProperties.sourceTimecode ?? "01:00:00:00"
+        let baseFileName = sourceClipURL.deletingPathExtension().lastPathComponent
         print("✅ Using start timecode: \(startTimecode)")
+        print("✅ Base filename: \(baseFileName)")
 
         // Generation timer
         let generationStartTime = CFAbsoluteTimeGetCurrent()
@@ -241,7 +243,8 @@ func blankvideo() async {
                             let timecodePixelBuffer = createTimecodePixelBuffer(
                                 width: width,
                                 height: height,
-                                timecode: frameTimecode
+                                timecode: frameTimecode,
+                                baseFileName: baseFileName
                             )
                         else {
                             print("❌ Failed to create timecode pixel buffer for frame \(i)")
@@ -425,7 +428,7 @@ private func loadFiraCodeFont(size: CGFloat) -> CTFont {
 }
 
 // Helper function to create a pixel buffer with burnt-in timecode
-private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String) -> CVPixelBuffer?
+private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String, baseFileName: String) -> CVPixelBuffer?
 {
     var pixelBuffer: CVPixelBuffer?
     let attributes: [String: Any] = [
@@ -472,22 +475,25 @@ private func createTimecodePixelBuffer(width: Int, height: Int, timecode: String
         context.setFillColor(red: 0, green: 0, blue: 0, alpha: 1.0)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
 
-        // Draw timecode text
-        let fontSize = CGFloat(width) / 25.0  // Scale font size based on resolution
+        // Draw timecode text with prefix and filename
+        let fontSize = CGFloat(height) / 50.0  // Scale font size based on resolution
         let font = loadFiraCodeFont(size: fontSize)
+
+        // Create the full display text
+        let displayText = "SRC TC: \(timecode) ---> \(baseFileName)"
 
         // Create attributed string for timecode
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0),  // White text
         ]
-        let attributedString = NSAttributedString(string: timecode, attributes: attributes)
+        let attributedString = NSAttributedString(string: displayText, attributes: attributes)
 
         // Calculate text position (bottom-right corner with padding)
         let line = CTLineCreateWithAttributedString(attributedString)
         let textBounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
-        let padding = fontSize * 0.5
-        let x = CGFloat(width) - textBounds.width - padding
+        let padding = fontSize * 0.75
+        let x = padding
         let y = padding
 
         // Draw the text
