@@ -104,14 +104,14 @@ class ProResVideoCompositor: NSObject {
         // Copy existing timecode track from base asset if it exists
         if let timecodeTrack = timecodeTrack {
             print("⏰ Looking for existing timecode track in base asset...")
-            
+
             // Check if base asset has timecode tracks
             let baseTimecodeTracks = try await baseAsset.loadTracks(withMediaType: .timecode)
             print("🔍 Base asset has \(baseTimecodeTracks.count) timecode tracks")
-            
+
             if let baseTimecodeTrack = baseTimecodeTracks.first {
                 print("✅ Found existing timecode track in base asset - copying directly...")
-                
+
                 // Copy the timecode track directly from base asset
                 try timecodeTrack.insertTimeRange(
                     CMTimeRange(start: .zero, duration: baseDuration),
@@ -119,7 +119,7 @@ class ProResVideoCompositor: NSObject {
                     at: .zero
                 )
                 print("✅ Timecode track copied directly from base asset")
-                
+
                 // Verify the track was actually added
                 let finalTimecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
                 print("🔍 Composition now has \(finalTimecodeTracks.count) timecode tracks")
@@ -259,7 +259,45 @@ class ProResVideoCompositor: NSObject {
             exportSession.canPerformMultiplePassesOverSourceMediaData = false
         }
 
-        try await exportSession.export(to: settings.outputURL, as: .mov)
+        // Start export with progress monitoring using modern async approach
+        print("🚀 Export Progress:")
+        
+        // Use concurrent tasks for export and progress monitoring
+        await withTaskGroup(of: Void.self) { group in
+            // Task 1: Start the export
+            group.addTask {
+                do {
+                    try await exportSession.export(to: settings.outputURL, as: .mov)
+                } catch {
+                    // Export error handled by main task
+                }
+            }
+            
+            // Task 2: Monitor progress with updating ASCII bar
+            group.addTask {
+                while !Task.isCancelled {
+                    let progress = exportSession.progress
+                    let percentage = Int(progress * 100)
+                    let progressBar = String(repeating: "█", count: percentage / 2)
+                    let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
+                    print("\r📹 [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
+                    fflush(stdout)
+                    
+                    // Break if export is complete
+                    if progress >= 1.0 {
+                        break
+                    }
+                    
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                }
+            }
+            
+            // Wait for export to complete first, then cancel progress monitoring
+            await group.next()
+            group.cancelAll()
+        }
+        
+        print("")  // New line after progress bar
 
         let exportEndTime = CFAbsoluteTimeGetCurrent()
         let exportDuration = exportEndTime - exportStart
