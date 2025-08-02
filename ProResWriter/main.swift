@@ -1574,7 +1574,7 @@ func runComposition() async {
     // Paths
     let blankRushURL = URL(
         fileURLWithPath:
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
     )
     let segmentsDirectoryURL = URL(
         fileURLWithPath:
@@ -1582,7 +1582,7 @@ func runComposition() async {
     )
     let outputURL = URL(
         fileURLWithPath:
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
     )
 
     do {
@@ -1705,9 +1705,61 @@ func runComposition() async {
     }
 }
 
+// MARK: - Test Functions
+func testBlankRushWithMultipleFrameRates() async {
+    print("🧪 Testing blank rush creation with multiple frame rates...")
+
+    let testMaterialBase = "/Users/fq/Movies/ProResWriter/testMaterial"
+    let frameRateDirectories = ["23.98", "29.97", "30.00", "59.94 DF"]
+
+    for frameRateDir in frameRateDirectories {
+        print("\n📹 Testing frame rate: \(frameRateDir)")
+        let directoryURL = URL(fileURLWithPath: "\(testMaterialBase)/\(frameRateDir)")
+
+        do {
+            let files = try FileManager.default.contentsOfDirectory(
+                at: directoryURL, includingPropertiesForKeys: nil
+            )
+            .filter { $0.pathExtension.lowercased() == "mov" }
+
+            for fileURL in files {
+                print("  🎬 Testing file: \(fileURL.lastPathComponent)")
+
+                do {
+                    try await createBlankRush(from: fileURL)
+                    print("  ✅ Success: \(fileURL.lastPathComponent)")
+                } catch {
+                    print(
+                        "  ❌ Failed: \(fileURL.lastPathComponent) - \(error.localizedDescription)")
+                }
+            }
+        } catch {
+            print("  ❌ Could not read directory \(frameRateDir): \(error.localizedDescription)")
+        }
+    }
+}
+
+func testSingleClip() async {
+    // Test with default clip
+    let sourceClipURL = URL(
+        fileURLWithPath:
+            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
+    )
+
+    do {
+        try await createBlankRush(from: sourceClipURL)
+    } catch {
+        print("❌ Error creating blank rush: \(error.localizedDescription)")
+    }
+}
+
 Task {
     // await runComposition()
-    await blankvideo()
+
+    // Choose test mode:
+    // await testSingleClip()
+    await testBlankRushWithMultipleFrameRates()
+
     exit(0)
 }
 

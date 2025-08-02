@@ -16,18 +16,11 @@ enum BlankVideoError: Error {
     case invalidSourceFile
 }
 
-func blankvideo() async {
-    do {
-        print("🎬 Creating blank video from source clip...")
+func createBlankRush(from sourceClipURL: URL) async throws {
+    print("🎬 Creating blank video from source clip...")
 
-        // Performance timers
-        let totalStartTime = CFAbsoluteTimeGetCurrent()
-
-        // Source clip path (update this to your base clip)
-        let sourceClipURL = URL(
-            fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_24FPS_LR001_LOG.mov"
-        )
+    // Performance timers
+    let totalStartTime = CFAbsoluteTimeGetCurrent()
 
         print("📹 Analyzing source clip: \(sourceClipURL.lastPathComponent)")
 
@@ -169,7 +162,7 @@ func blankvideo() async {
                     writerReady = timecodeWriterInput.isReadyForMoreMediaData
 
                     if !writerReady {
-                        print("❌ Timeout waiting for timecode writer to be ready")
+                        // print("❌ Timeout waiting for timecode writer to be ready")
                         break
                     }
 
@@ -196,9 +189,15 @@ func blankvideo() async {
         print("📊 Generating \(totalFrames) frames with burnt-in timecode...")
 
         // We'll create timecode pixel buffers dynamically for each frame
-        let startTimecode = sourceProperties.sourceTimecode ?? "01:00:00:00"
+        let startTimecode: String
+        if let sourceTimecode = sourceProperties.sourceTimecode {
+            startTimecode = sourceTimecode
+            print("✅ Using start timecode: \(startTimecode)")
+        } else {
+            startTimecode = "00:00:00:00"
+            print("⚠️ No timecode found in source clip - using fallback: \(startTimecode)")
+        }
         let baseFileName = sourceClipURL.deletingPathExtension().lastPathComponent
-        print("✅ Using start timecode: \(startTimecode)")
         print("✅ Base filename: \(baseFileName)")
 
         // Generation timer
@@ -374,11 +373,7 @@ func blankvideo() async {
                 continuation.resume()
             }
         }
-        print("🎬 Blank video creation process finished!")
-
-    } catch {
-        print("❌ Error creating blank video: \(error.localizedDescription)")
-    }
+    print("🎬 Blank video creation process finished!")
 }
 
 // Cache for loaded fonts to avoid repeated loading
@@ -481,7 +476,7 @@ private func createTimecodePixelBuffer(
         let font = loadFiraCodeFont(size: fontSize)
 
         // Create the full display text
-        let displayText = "    SRC TC: \(timecode) ---> \(baseFileName)"
+        let displayText = "     SRC TC: \(timecode) ---> \(baseFileName)"
 
         // Create attributed string for timecode
         let attributes: [NSAttributedString.Key: Any] = [
@@ -494,22 +489,22 @@ private func createTimecodePixelBuffer(
         let line = CTLineCreateWithAttributedString(attributedString)
         let textBounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
         let padding = fontSize * 0.75
-        let x = padding
-        let y = padding
+        let textPosX = padding
+        let textPosY = CGFloat(height) - fontSize - padding
 
         // Draw the timecode text
-        context.textPosition = CGPoint(x: x, y: y)
+        context.textPosition = CGPoint(x: textPosX, y: textPosY)
         CTLineDraw(line, context)
 
         // Create and draw the "NO GRADE" text in bottom-right corner
-        let gradeText = "/// NO GRADE ///    "
+        let gradeText = "/// NO GRADE ///       "
         let gradeAttributedString = NSAttributedString(string: gradeText, attributes: attributes)
         let gradeLine = CTLineCreateWithAttributedString(gradeAttributedString)
         let gradeTextBounds = CTLineGetBoundsWithOptions(gradeLine, .useOpticalBounds)
 
         // Position in bottom-right corner
         let gradeX = CGFloat(width) - gradeTextBounds.width - padding
-        let gradeY = padding
+        let gradeY = textPosY
 
         // Draw the grade text
         context.textPosition = CGPoint(x: gradeX, y: gradeY)
