@@ -7,7 +7,23 @@ Topline TODO:
 so the current offering makes a temp file for adding timecode track!
 so instead, we should try just lifting the OCF timecode chat!!!
 
-- [x] copy/lift timecode track from OCF, no need to calculate TC?
+- [x] copy/lift timecode track from OCF, no need to calculate TC!
+- [ ] copy/lift source audio tracks 
+- [ ] gather material in every frame rate
+    [ ] 25
+    [ ] 24
+    [ ] 23.976
+    [ ] 30
+    [ ] 29.97
+    [ ] 59.94
+    [ ] 29.97 DF
+    [ ] 59.94 DF
+    [ ] 60
+
+
+
+
+- [ ] create tests with media in framerate 
 
 ==========
 Pairing workflow 
