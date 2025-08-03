@@ -216,30 +216,8 @@ func createBlankRush(from sourceClipURL: URL) async throws {
         BlankFrameCompositor.sourceProperties = sourceProperties
         BlankFrameCompositor.sourceClipURL = sourceClipURL
         
-        // Add timecode track using our working approach from main.swift
-        print("⏰ Adding timecode track to export...")
-        if let sourceTimecode = sourceProperties.sourceTimecode {
-            print("⏰ Creating timecode track with start timecode: \(sourceTimecode)")
-            
-            // Get the composition's video track for association
-            let compositionTracks = try await composition.loadTracks(withMediaType: .video)
-            if let videoTrack = compositionTracks.first {
-                print("✅ Found video track for timecode association")
-                
-                // Add timecode track using the same approach as main.swift
-                try await addTimecodeTrackToExport(
-                    exportSession: exportSession,
-                    videoTrack: videoTrack,
-                    timecode: sourceTimecode,
-                    frameRate: sourceProperties.frameRate,
-                    duration: sourceDuration
-                )
-            } else {
-                print("⚠️ No video track found for timecode association")
-            }
-        } else {
-            print("⚠️ No source timecode available - exporting without timecode track")
-        }
+        // Skip timecode track addition during export - we'll add it in post-processing
+        print("⚠️ Skipping timecode track during export - will be added in post-processing")
         
         print("✅ Export session configured")
 
@@ -256,6 +234,29 @@ func createBlankRush(from sourceClipURL: URL) async throws {
         
         if exportSession.status == AVAssetExportSession.Status.completed {
             print("✅ Export completed successfully!")
+            
+            // Step 4: Post-process to add timecode track (hybrid approach)
+            if let sourceTimecode = sourceProperties.sourceTimecode {
+                print("⏰ Post-processing: Adding timecode track using hybrid approach...")
+                let postProcessStartTime = CFAbsoluteTimeGetCurrent()
+                
+                do {
+                    try await addTimecodeUltraFast(
+                        to: outputURL, 
+                        timecode: sourceTimecode, 
+                        frameRate: sourceProperties.frameRate
+                    )
+                    
+                    let postProcessEndTime = CFAbsoluteTimeGetCurrent()
+                    let postProcessTime = postProcessEndTime - postProcessStartTime
+                    print("✅ Timecode post-processing completed in \(String(format: "%.2f", postProcessTime))s")
+                } catch {
+                    print("⚠️ Timecode post-processing failed: \(error.localizedDescription)")
+                    print("⚠️ Continuing with blank video without timecode track")
+                }
+            } else {
+                print("⚠️ No source timecode available - skipping timecode post-processing")
+            }
         } else {
             print("❌ Export failed: \(exportSession.error?.localizedDescription ?? "Unknown error")")
             return
@@ -715,21 +716,77 @@ private func getVideoProperties(from track: AVAssetTrack) async throws -> VideoP
     )
 }
 
-// Add timecode track to export session using the working approach from main.swift
-private func addTimecodeTrackToExport(
-    exportSession: AVAssetExportSession,
-    videoTrack: AVAssetTrack,
-    timecode: String,
-    frameRate: Int32,
-    duration: CMTime
+// Fast Timecode Post-Processing (from main.swift)
+private func addTimecodeUltraFast(
+    to url: URL, timecode: String, frameRate: Int32
 ) async throws {
-    print("📹 Adding timecode track to export session...")
-    
-    // Unfortunately, AVAssetExportSession doesn't support adding timecode tracks directly
-    // The timecode track should already be preserved from the composition
-    // This is a limitation of AVAssetExportSession vs AVAssetWriter
-    
-    print("⚠️ AVAssetExportSession preserves existing timecode tracks from composition")
-    print("✅ Timecode track should be preserved from source composition")
+    print("📹 Fast timecode embedding using TimecodeKit...")
+
+    // Parse timecode components
+    let components = timecode.components(separatedBy: ":")
+    guard components.count == 4,
+        let hours = Int(components[0]),
+        let minutes = Int(components[1]),
+        let seconds = Int(components[2]),
+        let frames = Int(components[3])
+    else {
+        print("❌ Failed to parse timecode: \(timecode)")
+        return
+    }
+
+    // Create TimecodeKit timecode object using the correct frame rate
+    let frameRateEnum: TimecodeFrameRate
+    switch frameRate {
+    case 24: frameRateEnum = .fps24
+    case 25: frameRateEnum = .fps25
+    case 30: frameRateEnum = .fps30
+    case 60: frameRateEnum = .fps60
+    default: frameRateEnum = .fps25
+    }
+
+    let timecodeObject = try Timecode(
+        .components(h: hours, m: minutes, s: seconds, f: frames), at: frameRateEnum)
+
+    // Use TimecodeKit approach for fast post-processing
+    let movie = AVMovie(url: url)
+    let mutableMovie = movie.mutableCopy() as! AVMutableMovie
+
+    // Replace timecode track using TimecodeKit
+    try await mutableMovie.replaceTimecodeTrack(
+        startTimecode: timecodeObject,
+        fileType: .mov
+    )
+
+    // Use optimized export session for speed
+    let tempURL = url.deletingLastPathComponent().appendingPathComponent(
+        "fast_timecode_\(url.lastPathComponent)")
+
+    guard
+        let exportSession = AVAssetExportSession(
+            asset: mutableMovie, presetName: AVAssetExportPresetPassthrough)
+    else {
+        print("❌ Failed to create export session for timecode")
+        return
+    }
+
+    // Fast settings
+    exportSession.outputURL = tempURL
+    exportSession.outputFileType = AVFileType.mov
+    exportSession.shouldOptimizeForNetworkUse = false
+    exportSession.timeRange = CMTimeRange(
+        start: .zero, duration: try await mutableMovie.load(.duration))
+
+    // Single pass for speed
+    if #available(macOS 12.0, *) {
+        exportSession.canPerformMultiplePassesOverSourceMediaData = false
+    }
+
+    try await exportSession.export(to: tempURL, as: .mov)
+
+    // Replace original file with timecode-enhanced version
+    try FileManager.default.removeItem(at: url)
+    try FileManager.default.moveItem(at: tempURL, to: url)
+
+    print("✅ Fast timecode embedding completed!")
 }
 
