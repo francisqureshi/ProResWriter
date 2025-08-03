@@ -9,6 +9,7 @@ import AVFoundation
 import CoreMedia
 import Foundation
 import TimecodeKit
+import CoreGraphics
 
 // Error handling
 enum BlankVideoError: Error {
@@ -16,23 +17,79 @@ enum BlankVideoError: Error {
     case invalidSourceFile
 }
 
+
+// Custom compositor to generate black frames with burnt-in timecode
+class BlankFrameCompositor: NSObject, AVVideoCompositing {
+    static var sourceProperties: VideoProperties?
+    static var sourceClipURL: URL?
+    
+    var sourcePixelBufferAttributes: [String : Any]? = [
+        kCVPixelBufferPixelFormatTypeKey as String: [kCVPixelFormatType_32BGRA] as [CFNumber]
+    ]
+    
+    var requiredPixelBufferAttributesForRenderContext: [String : Any] = [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA as CFNumber
+    ]
+    
+    func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
+        // Nothing to do here
+    }
+    
+    func startRequest(_ asyncVideoCompositionRequest: AVAsynchronousVideoCompositionRequest) {
+        autoreleasepool {
+            guard let sourceProperties = Self.sourceProperties,
+                  let sourceClipURL = Self.sourceClipURL else {
+                asyncVideoCompositionRequest.finish(with: NSError(domain: "BlankFrameCompositor", code: -1))
+                return
+            }
+            
+            // Calculate frame number from presentation time
+            let frameRate = Float(sourceProperties.frameRate)
+            let frameNumber = Int(asyncVideoCompositionRequest.compositionTime.seconds * Double(frameRate))
+            
+            // Calculate timecode for this frame
+            let startTimecode = sourceProperties.sourceTimecode ?? "00:00:00:00"
+            let timecodeFrameRate = getTimecodeFrameRate(sourceFrameRate: frameRate)
+            let frameTimecode = calculateTimecodeForFrame(frameNumber, startTimecode: startTimecode, frameRate: timecodeFrameRate)
+            
+            // Create black frame with burnt-in timecode
+            let baseFileName = sourceClipURL.deletingPathExtension().lastPathComponent
+            
+            guard let pixelBuffer = createTimecodePixelBuffer(
+                width: sourceProperties.width,
+                height: sourceProperties.height,
+                timecode: frameTimecode,
+                baseFileName: baseFileName
+            ) else {
+                asyncVideoCompositionRequest.finish(with: NSError(domain: "BlankFrameCompositor", code: -2))
+                return
+            }
+            
+            asyncVideoCompositionRequest.finish(withComposedVideoFrame: pixelBuffer)
+        }
+    }
+}
+
 func createBlankRush(from sourceClipURL: URL) async throws {
-    print("🎬 Creating blank video from source clip...")
+    print("🎬 Creating blank video using composition approach...")
 
     // Performance timers
     let totalStartTime = CFAbsoluteTimeGetCurrent()
 
-        print("📹 Analyzing source clip: \(sourceClipURL.lastPathComponent)")
+    print("📹 Analyzing source clip: \(sourceClipURL.lastPathComponent)")
 
         // Load and analyze source clip
         let sourceAsset = AVURLAsset(url: sourceClipURL)
         let sourceVideoTrack = try await getVideoTrack(from: sourceAsset)
         let sourceProperties = try await getVideoProperties(from: sourceVideoTrack)
         let sourceDuration = try await sourceAsset.load(.duration)
+        
+        // Extract properties from source for convenience
+        let width = sourceProperties.width
+        let height = sourceProperties.height
+        let duration = sourceDuration.seconds
 
-        print(
-            "✅ Source clip properties: \(sourceProperties.width)x\(sourceProperties.height) @ \(sourceProperties.frameRate)fps"
-        )
+        print("✅ Source clip properties: \(sourceProperties.width)x\(sourceProperties.height) @ \(sourceProperties.frameRate)fps")
         print("📹 Source duration: \(sourceDuration.seconds)s")
         if let sourceTimecode = sourceProperties.sourceTimecode {
             print("⏰ Source timecode: \(sourceTimecode)")
@@ -54,9 +111,7 @@ func createBlankRush(from sourceClipURL: URL) async throws {
         let outputURL = outDirectory.appendingPathComponent(
             "blank_copy_\(sourceClipURL.deletingPathExtension().lastPathComponent).mov")
 
-        print(
-            "📹 Creating blank copy: \(width)x\(height) @ \(frameRate)fps for \(String(format: "%.2f", duration))s"
-        )
+        print("📹 Creating blank copy using composition approach")
         print("📁 Output: \(outputURL.path)")
 
         // Remove existing file if it exists
@@ -64,318 +119,119 @@ func createBlankRush(from sourceClipURL: URL) async throws {
             try? FileManager.default.removeItem(at: outputURL)
         }
 
-        // Setup timer
-        let setupStartTime = CFAbsoluteTimeGetCurrent()
-
-        // Create asset writer
-        guard let assetWriter = try? AVAssetWriter(outputURL: outputURL, fileType: .mov) else {
-            print("❌ Failed to create asset writer")
-            return
+        // Step 1: Create composition that preserves source track structure
+        print("🎬 Creating composition from source...")
+        let composition = AVMutableComposition()
+        
+        // Add video track to composition with same settings as source
+        guard let compositionVideoTrack = composition.addMutableTrack(
+            withMediaType: .video, 
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw BlankVideoError.noVideoTrack
         }
-        print("✅ Asset writer created")
-
-        // Use ProRes settings matching source color properties
-        let videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.proRes422,
-            AVVideoWidthKey: width,
-            AVVideoHeightKey: height,
-            AVVideoColorPropertiesKey: [
-                AVVideoColorPrimariesKey: sourceProperties.colorPrimaries,
-                AVVideoTransferFunctionKey: sourceProperties.transferFunction,
-                AVVideoYCbCrMatrixKey: sourceProperties.yCbCrMatrix,
-            ],
-        ]
-
-        // Create video input
-        let videoWriterInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-        videoWriterInput.expectsMediaDataInRealTime = false
-
-        // Create timecode track
-        let timecodeWriterInput = AVAssetWriterInput(mediaType: .timecode, outputSettings: nil)
-        print("✅ Timecode input created")
-
-        // Create pixel buffer adaptor
-        let pixelBufferAttributes: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: width,
-            kCVPixelBufferHeightKey as String: height,
-        ]
-
-        let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: videoWriterInput,
-            sourcePixelBufferAttributes: pixelBufferAttributes
+        
+        // Add timecode track to composition 
+        let compositionTimecodeTrack = composition.addMutableTrack(
+            withMediaType: .timecode,
+            preferredTrackID: kCMPersistentTrackID_Invalid
         )
+        
+        // Insert the source video track (this preserves all metadata)
+        try compositionVideoTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: sourceDuration),
+            of: sourceVideoTrack,
+            at: .zero
+        )
+        
+        // Copy timecode track if it exists
+        let sourceTimecodeTracks = try await sourceAsset.loadTracks(withMediaType: .timecode)
+        if let sourceTimecodeTrack = sourceTimecodeTracks.first, 
+           let compositionTimecodeTrack = compositionTimecodeTrack {
+            try compositionTimecodeTrack.insertTimeRange(
+                CMTimeRange(start: .zero, duration: sourceDuration),
+                of: sourceTimecodeTrack,
+                at: .zero
+            )
+            print("✅ Timecode track copied to composition")
+        }
+        
+        print("✅ Composition created with source metadata preserved")
 
-        // Add video input to asset writer
-        guard assetWriter.canAdd(videoWriterInput) else {
-            print("❌ Cannot add video input to asset writer")
+        // Step 2: Create video composition with custom compositor to replace content
+        print("🎨 Creating video composition with black frames and burnt-in timecode...")
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.customVideoCompositorClass = BlankFrameCompositor.self
+        videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(sourceProperties.frameRate))
+        videoComposition.renderSize = CGSize(width: sourceProperties.width, height: sourceProperties.height)
+        
+        // Create composition instruction
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: sourceDuration)
+        
+        // Create layer instruction for the video track
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+        instruction.layerInstructions = [layerInstruction]
+        
+        videoComposition.instructions = [instruction]
+        print("✅ Video composition created with custom compositor")
+
+        // Step 3: Export using AVAssetExportSession to preserve metadata
+        print("📤 Setting up export session...")
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+            print("❌ Failed to create export session")
             return
         }
-        assetWriter.add(videoWriterInput)
-
-        // Add timecode input to asset writer
-        if assetWriter.canAdd(timecodeWriterInput) {
-            assetWriter.add(timecodeWriterInput)
-            print("✅ Timecode input added to asset writer")
-
-            // Associate timecode track with video track BEFORE starting session
-            videoWriterInput.addTrackAssociation(
-                withTrackOf: timecodeWriterInput,
-                type: AVAssetTrack.AssociationType.timecode.rawValue)
-            print("✅ Timecode track associated with video track")
-        } else {
-            print("⚠️ Cannot add timecode input to asset writer - continuing without timecode")
-        }
-
-        let setupEndTime = CFAbsoluteTimeGetCurrent()
-        let setupTime = setupEndTime - setupStartTime
-        print("📊 Setup time: \(String(format: "%.2f", setupTime))s")
-
-        // Start writing
-        assetWriter.startWriting()
-        assetWriter.startSession(atSourceTime: .zero)
-
-        // Copy existing timecode track from source asset (if available)
-        if assetWriter.inputs.contains(timecodeWriterInput) {
-            print("⏰ Looking for existing timecode track in source asset...")
-
-            // Check if source asset has timecode tracks
-            let sourceTimecodeTracks = try await sourceAsset.loadTracks(withMediaType: .timecode)
-            print("🔍 Source asset has \(sourceTimecodeTracks.count) timecode tracks")
-
-            if let sourceTimecodeTrack = sourceTimecodeTracks.first {
-                print("✅ Found existing timecode track in source asset - copying samples...")
-
-                // Get all sample buffers from the source timecode track
-                let reader = try AVAssetReader(asset: sourceAsset)
-                let readerOutput = AVAssetReaderTrackOutput(
-                    track: sourceTimecodeTrack, outputSettings: nil)
-                reader.add(readerOutput)
-                reader.startReading()
-
-                while let sampleBuffer = readerOutput.copyNextSampleBuffer() {
-                    // Wait for writer to be ready
-                    var timecodeWaitCount = 0
-                    var writerReady = false
-
-                    while !timecodeWriterInput.isReadyForMoreMediaData && timecodeWaitCount < 1000 {
-                        try await Task.sleep(nanoseconds: 1_000_000)  // 1ms
-                        timecodeWaitCount += 1
-                    }
-
-                    writerReady = timecodeWriterInput.isReadyForMoreMediaData
-
-                    if !writerReady {
-                        // print("❌ Timeout waiting for timecode writer to be ready")
-                        break
-                    }
-
-                    // Append the sample buffer only if writer is ready
-                    if !timecodeWriterInput.append(sampleBuffer) {
-                        print("❌ Failed to append timecode sample")
-                        break
-                    }
-                }
-
-                print("✅ Timecode track copied from source asset")
-            } else {
-                print("⚠️ No existing timecode track found in source asset - skipping timecode")
-            }
-
-            timecodeWriterInput.markAsFinished()
-            print("✅ Timecode track finished")
-        }
-
-        // Calculate frame duration
-        let frameDuration = CMTime(value: 1, timescale: frameRate)
-        let totalFrames = Int(duration * Double(frameRate))
-
-        print("📊 Generating \(totalFrames) frames with burnt-in timecode...")
-
-        // We'll create timecode pixel buffers dynamically for each frame
-        let startTimecode: String
-        if let sourceTimecode = sourceProperties.sourceTimecode {
-            startTimecode = sourceTimecode
-            print("✅ Using start timecode: \(startTimecode)")
-        } else {
-            startTimecode = "00:00:00:00"
-            print("⚠️ No timecode found in source clip - using fallback: \(startTimecode)")
-        }
-        let baseFileName = sourceClipURL.deletingPathExtension().lastPathComponent
-        print("✅ Base filename: \(baseFileName)")
-
-        // Generation timer
-        let generationStartTime = CFAbsoluteTimeGetCurrent()
-
-        // Generate frames with reliable readiness checking
-        let batchSize = 50  // Process 50 frames at a time
-        var frameIndex = 0
-
-        print("🎬 Starting frame generation...")
-        print("📹 Frame Generation Progress:")
-
-        // Use concurrent tasks for frame generation and progress monitoring
-        await withTaskGroup(of: Void.self) { group in
-            // Task 1: Generate frames
-            group.addTask {
-                while frameIndex < totalFrames {
-                    // Process a batch of frames
-                    let endIndex = min(frameIndex + batchSize, totalFrames)
-
-                    for i in frameIndex..<endIndex {
-                        // Wait for writer to be ready with timeout
-                        var waitCount = 0
-                        while !videoWriterInput.isReadyForMoreMediaData {
-                            try? await Task.sleep(nanoseconds: 1_000_000)  // 1ms
-                            waitCount += 1
-                            if waitCount > 1000 {  // 1 second timeout
-                                print("❌ Timeout waiting for video writer to be ready")
-                                return
-                            }
-                        }
-
-                        // Calculate presentation time
-                        let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(i))
-
-                        // Calculate timecode for this frame
-                        let frameTimecode = calculateTimecodeForFrame(
-                            i, startTimecode: startTimecode, frameRate: frameRate)
-
-                        // Create pixel buffer with burnt-in timecode
-                        guard
-                            let timecodePixelBuffer = createTimecodePixelBuffer(
-                                width: width,
-                                height: height,
-                                timecode: frameTimecode,
-                                baseFileName: baseFileName
-                            )
-                        else {
-                            print("❌ Failed to create timecode pixel buffer for frame \(i)")
-                            return
-                        }
-
-                        // Append the timecode frame
-                        let success = pixelBufferAdaptor.append(
-                            timecodePixelBuffer, withPresentationTime: presentationTime)
-                        if !success {
-                            print("❌ Failed to append frame \(i)")
-                            return
-                        }
-                    }
-
-                    frameIndex = endIndex
-                }
-            }
-
-            // Task 2: Monitor progress with animated progress bar and FPS counter
-            group.addTask {
-                var lastFrameCount = 0
-                var lastTime = generationStartTime
-                var displayFPS = 0.0
-                var updateCounter = 0
-
-                while !Task.isCancelled && frameIndex < totalFrames {
-                    let currentTime = CFAbsoluteTimeGetCurrent()
-                    let progress = Double(frameIndex) / Double(totalFrames)
-                    let percentage = Int(progress * 100)
-                    let progressBar = String(repeating: "█", count: percentage / 2)
-                    let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
-
-                    // Calculate FPS every 10 updates (1000ms) for smoother display
-                    updateCounter += 1
-                    if updateCounter >= 10 {
-                        let timeDelta = currentTime - lastTime
-                        let framesDelta = frameIndex - lastFrameCount
-
-                        if timeDelta > 0 && framesDelta > 0 {
-                            displayFPS = Double(framesDelta) / timeDelta
-                        }
-
-                        // Reset for next calculation
-                        lastFrameCount = frameIndex
-                        lastTime = currentTime
-                        updateCounter = 0
-                    }
-
-                    print(
-                        "\r📹 [\(progressBar)\(emptyBar)] \(percentage)% (\(frameIndex)/\(totalFrames) frames) | \(String(format: "%.0f", displayFPS)) fps",
-                        terminator: "")
-                    fflush(stdout)
-
-                    // Break if generation is complete
-                    if frameIndex >= totalFrames {
-                        break
-                    }
-
-                    try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
-                }
-            }
-
-            // Wait for frame generation to complete first, then cancel progress monitoring
-            await group.next()
-            group.cancelAll()
-        }
-
-        print("")  // New line after progress bar
-
-        let generationEndTime = CFAbsoluteTimeGetCurrent()
-        let generationTime = generationEndTime - generationStartTime
-        print("📊 Frame generation time: \(String(format: "%.2f", generationTime))s")
-
-        // Timecode sample already added before video generation
-
-        // Finish writing and wait for completion
-        videoWriterInput.markAsFinished()
+        
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = AVFileType.mov
+        exportSession.videoComposition = videoComposition
+        
+        // Store info for compositor
+        BlankFrameCompositor.sourceProperties = sourceProperties
+        BlankFrameCompositor.sourceClipURL = sourceClipURL
+        
+        print("✅ Export session configured")
 
         // Export timer
         let exportStartTime = CFAbsoluteTimeGetCurrent()
+        
+        // Start export
+        print("🚀 Starting export...")
+        await exportSession.export()
+        
+        let exportEndTime = CFAbsoluteTimeGetCurrent()
+        let exportTime = exportEndTime - exportStartTime
+        let totalTime = exportEndTime - totalStartTime
+        
+        if exportSession.status == AVAssetExportSession.Status.completed {
+            print("✅ Export completed successfully!")
+        } else {
+            print("❌ Export failed: \(exportSession.error?.localizedDescription ?? "Unknown error")")
+            return
+        }
 
-        // Finish writing and wait for completion (async)
-        await withCheckedContinuation { continuation in
-            assetWriter.finishWriting {
-                let exportEndTime = CFAbsoluteTimeGetCurrent()
-                let exportTime = exportEndTime - exportStartTime
-                let totalTime = exportEndTime - totalStartTime
+        print("✅ Blank video creation completed!")
+        print("📁 Output file: \(outputURL.path)")
 
-                print("✅ Blank video creation completed!")
-                print("📁 Output file: \(outputURL.path)")
+        // Performance analysis
+        print("📊 Performance Analysis:")
+        print("   Export time: \(String(format: "%.2f", exportTime))s")
+        print("   Total time: \(String(format: "%.2f", totalTime))s")
 
-                // Performance analysis
-                print("📊 Performance Analysis:")
-                print("   Setup time: \(String(format: "%.2f", setupTime))s")
-                print("   Generation time: \(String(format: "%.2f", generationTime))s")
-                print("   Export time: \(String(format: "%.2f", exportTime))s")
-                print("   Total time: \(String(format: "%.2f", totalTime))s")
+        // Verify file was created
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            let fileSize = try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64
+            print("📊 File size: \(fileSize ?? 0) bytes")
 
-                // Calculate percentages
-                let setupPercentage = (setupTime / totalTime) * 100
-                let generationPercentage = (generationTime / totalTime) * 100
-                let exportPercentage = (exportTime / totalTime) * 100
-
-                print("📊 Time breakdown:")
-                print("   Setup: \(String(format: "%.1f", setupPercentage))%")
-                print("   Generation: \(String(format: "%.1f", generationPercentage))%")
-                print("   Export: \(String(format: "%.1f", exportPercentage))%")
-
-                // Verify file was created
-                if FileManager.default.fileExists(atPath: outputURL.path) {
-                    let fileSize =
-                        try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size]
-                        as? Int64
-                    print("📊 File size: \(fileSize ?? 0) bytes")
-
-                    if let fileSize = fileSize, fileSize > 0 {
-                        print("✅ Video file created successfully!")
-                        print("📊 File size: \(fileSize) bytes")
-                    } else {
-                        print("❌ Video file may be corrupted (zero size)")
-                    }
-                } else {
-                    print("❌ Output file was not created")
-                }
-
-                continuation.resume()
+            if let fileSize = fileSize, fileSize > 0 {
+                print("✅ Video file created successfully!")
+                print("📊 File size: \(fileSize) bytes")
+            } else {
+                print("❌ Video file may be corrupted (zero size)")
             }
+        } else {
+            print("❌ Output file was not created")
         }
     print("🎬 Blank video creation process finished!")
 }
@@ -491,7 +347,7 @@ private func createTimecodePixelBuffer(
 
         // Calculate text position for timecode (bottom-left corner with padding)
         let line = CTLineCreateWithAttributedString(attributedString)
-        let textBounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
+        _ = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
         let padding = fontSize * 0.75
         let textPosX = padding
         let textPosY = CGFloat(height) - fontSize - padding
@@ -565,6 +421,20 @@ private func createBlackPixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
     return nil
 }
 
+// Helper function to get proper timecode frame rate base (24 for 23.976fps, 30 for 29.97fps, etc.)
+private func getTimecodeFrameRate(sourceFrameRate: Float) -> Int32 {
+    switch sourceFrameRate {
+    case 23.9...24.1:
+        return 24  // 23.976fps uses 24-frame timecode base (0-23)
+    case 29.9...30.1:
+        return 30  // 29.97fps uses 30-frame timecode base (0-29)
+    case 59.9...60.1:
+        return 60  // 59.94fps uses 60-frame timecode base (0-59)
+    default:
+        return Int32(round(sourceFrameRate))
+    }
+}
+
 // Helper function to create a timecode sample buffer
 private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> CMSampleBuffer? {
     var sampleBuffer: CMSampleBuffer?
@@ -608,7 +478,7 @@ private func createTimecodeSampleBuffer(frameRate: Int32, duration: Double) -> C
     // Use Apple's utility function to convert CVSMPTETime time into frame number to write
     // Following Apple's example: frameNumber32ForTimecodeUsingFormatDescription
     // For 64-bit timecode, we'll calculate manually since we're using Int64
-    var frameNumberData: Int32 =
+    let frameNumberData: Int32 =
         Int32(timecodeSample.hours) * 3600 * frameRate  // hours to frames
         + Int32(timecodeSample.minutes) * 60 * frameRate  // minutes to frames
         + Int32(timecodeSample.seconds) * frameRate  // seconds to frames
@@ -794,3 +664,4 @@ private func getVideoProperties(from track: AVAssetTrack) async throws -> VideoP
         sourceTimecode: sourceTimecode
     )
 }
+
