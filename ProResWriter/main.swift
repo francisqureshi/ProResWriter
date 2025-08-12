@@ -1740,7 +1740,6 @@ func testBlankRushWithMultipleFrameRates() async {
 }
 
 func testSingleClip() async {
-    // Test with default clip
     let sourceClipURL = URL(
         fileURLWithPath:
             "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRiush/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
@@ -1753,12 +1752,39 @@ func testSingleClip() async {
     }
 }
 
-Task {
-    // await runComposition()
+func processCommandLineArgs() async {
+    let arguments = CommandLine.arguments
+    
+    guard arguments.count > 1 else {
+        print("❌ Usage: \(arguments[0]) <source_file>")
+        print("Example: ./ProResWriter \"/path/to/source.mxf\"")
+        exit(1)
+    }
+    
+    let sourceFilePath = arguments[1]
+    let sourceClipURL = URL(fileURLWithPath: sourceFilePath)
+    
+    guard FileManager.default.fileExists(atPath: sourceClipURL.path) else {
+        print("❌ Source file does not exist: \(sourceClipURL.path)")
+        exit(1)
+    }
+    
+    print("🎬 Processing source file: \(sourceClipURL.lastPathComponent)")
+    
+    do {
+        try await createBlankRush(from: sourceClipURL)
+    } catch {
+        print("❌ Error creating blank rush: \(error.localizedDescription)")
+        exit(1)
+    }
+}
 
-    // Choose test mode:
-    // await testSingleClip()
-    await testBlankRushWithMultipleFrameRates()
+Task {
+    if CommandLine.arguments.count > 1 {
+        await processCommandLineArgs()
+    } else {
+        await testSingleClip()
+    }
 
     exit(0)
 }

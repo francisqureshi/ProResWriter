@@ -44,10 +44,14 @@ func createBlankRush(from sourceClipURL: URL) async throws {
         let frameRate = sourceProperties.frameRate
         let duration = sourceDuration.seconds
 
-        // Create output URL
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            .first!
-        let outputURL = documentsPath.appendingPathComponent(
+        // Create output URL in OUT folder relative to source file
+        let sourceDirectory = sourceClipURL.deletingLastPathComponent()
+        let outDirectory = sourceDirectory.appendingPathComponent("OUT")
+        
+        // Create OUT directory if it doesn't exist
+        try? FileManager.default.createDirectory(at: outDirectory, withIntermediateDirectories: true)
+        
+        let outputURL = outDirectory.appendingPathComponent(
             "blank_copy_\(sourceClipURL.deletingPathExtension().lastPathComponent).mov")
 
         print(
