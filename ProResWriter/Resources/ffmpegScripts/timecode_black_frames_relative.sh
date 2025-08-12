@@ -104,12 +104,12 @@ if [[ ! -f "$FONT_PATH" ]]; then
     FONT_PATH=""
 fi
 
-# Build video filter with running timecode embedded in source string
-# We'll use the timecode parameter but add prefix/suffix text
+# Build video filter with running timecode embedded in source string - TOP LEFT positioning
+# We'll use the timecode parameter but add prefix/suffix text - 2.5% font size relative to height
 if [[ -n "$FONT_PATH" ]]; then
-    DRAWTEXT_FILTER="drawtext=fontfile=$FONT_PATH:text='SRC TC\\: ':fontsize=120:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=10:x=(w*0.011):y=(h/2),drawtext=fontfile=$FONT_PATH:timecode='$TC_STRING':timecode_rate=$FPS:fontsize=120:fontcolor=white:x=(w*0.13):y=(h/2),drawtext=fontfile=$FONT_PATH:text=' ---> $CLIP_NAME':fontsize=120:fontcolor=white:x=(w*0.32):y=(h/2)"
+    DRAWTEXT_FILTER="drawtext=fontfile=$FONT_PATH:text='SRC TC\\: ':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(h*0.03),drawtext=fontfile=$FONT_PATH:timecode='$TC_STRING':timecode_rate=$FPS:fontsize=(h*0.025):fontcolor=white:x=(w*0.13):y=(h*0.03),drawtext=fontfile=$FONT_PATH:text=' ---> $CLIP_NAME':fontsize=(h*0.025):fontcolor=white:x=(w*0.32):y=(h*0.03)"
 else
-    DRAWTEXT_FILTER="drawtext=text='SRC TC\\: ':fontsize=120:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=10:x=(w*0.011):y=(h/2),drawtext=timecode='$TC_STRING':timecode_rate=$FPS:fontsize=120:fontcolor=white:x=(w*0.13):y=(h/2),drawtext=text=' ---> $CLIP_NAME':fontsize=120:fontcolor=white:x=(w*0.32):y=(h/2)"
+    DRAWTEXT_FILTER="drawtext=text='SRC TC\\: ':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(h*0.03),drawtext=timecode='$TC_STRING':timecode_rate=$FPS:fontsize=(h*0.025):fontcolor=white:x=(w*0.13):y=(h*0.03),drawtext=text=' ---> $CLIP_NAME':fontsize=(h*0.025):fontcolor=white:x=(w*0.32):y=(h*0.03)"
 fi
 
 echo "📝 Format: SRC TC: [RUNNING] ---> $CLIP_NAME"
