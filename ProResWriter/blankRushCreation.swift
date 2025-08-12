@@ -52,6 +52,11 @@ class BlankFrameCompositor: NSObject, AVVideoCompositing {
             let timecodeFrameRate = getTimecodeFrameRate(sourceFrameRate: frameRate)
             let frameTimecode = calculateTimecodeForFrame(frameNumber, startTimecode: startTimecode, frameRate: timecodeFrameRate)
             
+            // Debug: Log first few frames and any issues
+            if frameNumber < 5 {
+                print("🎨 Compositor frame \(frameNumber): time=\(asyncVideoCompositionRequest.compositionTime.seconds)s, startTC=\(startTimecode), frameTC=\(frameTimecode), frameRate=\(frameRate), tcFrameRate=\(timecodeFrameRate)")
+            }
+            
             // Create black frame with burnt-in timecode
             let baseFileName = sourceClipURL.deletingPathExtension().lastPathComponent
             
@@ -475,11 +480,11 @@ private func createBlackPixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
 // Helper function to get proper timecode frame rate base (24 for 23.976fps, 30 for 29.97fps, etc.)
 private func getTimecodeFrameRate(sourceFrameRate: Float) -> Int32 {
     switch sourceFrameRate {
-    case 23.9...24.1:
+    case 23.0...24.1:
         return 24  // 23.976fps uses 24-frame timecode base (0-23)
-    case 29.9...30.1:
+    case 29.0...30.1:
         return 30  // 29.97fps uses 30-frame timecode base (0-29)
-    case 59.9...60.1:
+    case 59.0...60.1:
         return 60  // 59.94fps uses 60-frame timecode base (0-59)
     default:
         return Int32(round(sourceFrameRate))

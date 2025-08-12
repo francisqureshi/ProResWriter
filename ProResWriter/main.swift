@@ -1789,4 +1789,41 @@ Task {
     exit(0)
 }
 
-RunLoop.main.run()
+//RunLoop.main.run()
+
+
+//--- test AME
+
+// At the end of your main function or in a test function
+func testAMEBridge() {
+    let testFile = URL(fileURLWithPath:
+"/Users/fq/Movies/ProResWriter/testMaterialNonQT/29.97/2003-08-17 15_56_58.mov")
+
+    let proResWriter = ProResWriter() // Create instance if needed
+
+    print("🎬 Starting AME test with file: \(testFile.lastPathComponent)")
+
+    proResWriter.createBlankFramesWithAME(sourceFile: testFile) { result in
+        switch result {
+        case .success(let outputFile):
+            print("✅ AME encoding completed successfully!")
+            print("📁 Output file: \(outputFile.path)")
+
+            // Optional: Monitor if it's still processing
+            proResWriter.monitorAMEProgress { status in
+                print("📊 AME Status: \(status)")
+            }
+
+        case .failure(let error):
+            print("❌ AME encoding failed: \(error.localizedDescription)")
+        }
+    }
+
+    print("🚀 AME command sent, encoding should start...")
+}
+
+// Call it at the end of main
+testAMEBridge()
+
+// Keep app alive for async completion
+RunLoop.main.run(until: Date(timeIntervalSinceNow: 10))
