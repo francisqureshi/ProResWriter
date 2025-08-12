@@ -122,7 +122,7 @@ ffmpeg \
     -map 0:v -map_metadata 1 \
     -metadata timecode="$TC_FULL" \
     -vf "$DRAWTEXT_FILTER" \
-    -c:v prores_ks -profile:v 4 \
+    -c:v prores_videotoolbox -profile:v 4 \
     "$OUTPUT"
 
 if [ $? -eq 0 ]; then
