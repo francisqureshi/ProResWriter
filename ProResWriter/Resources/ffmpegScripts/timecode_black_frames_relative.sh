@@ -3,13 +3,13 @@
 # MXF Timecode Black Frames Script  
 # Usage: ./timecode_black_frames.sh input.mxf [output.mxf]
 # Creates black frames with running timecode burn-in
-# If no output file specified, adds "_black_tc" to the input filename
+# If no output file specified, adds "_blankRush" to the input filename
 
 # Check if input file is provided
 if [ $# -eq 0 ]; then
     echo "Usage: $0 input.mxf [output.mxf]"
     echo "Example: $0 myfile.mxf"
-    echo "Example: $0 myfile.mxf myfile_black_tc.mxf"
+    echo "Example: $0 myfile.mxf myfile_blankRush.mxf"
     exit 1
 fi
 
@@ -25,10 +25,10 @@ fi
 if [ $# -eq 2 ]; then
     OUTPUT="$2"
 else
-    # Generate output filename by adding "_black_tc" before the extension
+    # Generate output filename by adding "_blankRush" before the extension
     BASENAME="${INPUT%.*}"
     EXTENSION="${INPUT##*.}"
-    OUTPUT="${BASENAME}_black_tc.${EXTENSION}"
+    OUTPUT="${BASENAME}_blankRush.${EXTENSION}"
 fi
 
 echo "Processing: $INPUT -> $OUTPUT"
