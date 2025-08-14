@@ -28,7 +28,13 @@ else
     # Generate output filename by adding "_blankRush" before the extension
     BASENAME="${INPUT%.*}"
     EXTENSION="${INPUT##*.}"
-    OUTPUT="${BASENAME}_blankRush.${EXTENSION}"
+    # Convert MXF to MOV for better ProRes compatibility (case insensitive)
+    if [[ "${EXTENSION}" == "mxf" ]] || [[ "${EXTENSION}" == "MXF" ]]; then
+        OUTPUT="${BASENAME}_blankRush.mov"
+        echo "🎬 Converting MXF to MOV container for ProRes compatibility"
+    else
+        OUTPUT="${BASENAME}_blankRush.${EXTENSION}"
+    fi
 fi
 
 echo "Processing: $INPUT -> $OUTPUT"
@@ -137,15 +143,16 @@ fi
 
 echo "📝 Format: SRC TC: [RUNNING] ---> $CLIP_NAME"
 
-# Run ffmpeg to create black frames with timecode burn-in and copy metadata
-echo "⚫ Creating black frames with running timecode, source info, and metadata..."
+# Run ffmpeg to create black frames with timecode burn-in, copy audio tracks and metadata
+echo "⚫ Creating black frames with running timecode, source info, audio, and metadata..."
 ffmpeg \
     -f lavfi -i "color=black:size=${FINAL_WIDTH}x${FINAL_HEIGHT}:duration=${DURATION}:rate=${FPS}" \
     -i "$INPUT" \
-    -map 0:v -map_metadata 1 \
+    -map 0:v -map 1:a? -map_metadata 1 \
     -metadata timecode="$TC_FULL" \
     -vf "$DRAWTEXT_FILTER" \
     -c:v prores_videotoolbox -profile:v 4 \
+    -c:a copy \
     "$OUTPUT"
 
 if [ $? -eq 0 ]; then
