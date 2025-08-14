@@ -59,9 +59,31 @@ if [[ "$FPS" = "" ]]; then
 fi
 echo "Frame rate: $FPS"
 
-# Build the timecode string with proper escaping
-TC_STRING="${TC_HH}\\:${TC_MM}\\:${TC_SS}\\:${TC_FF}"
+# Detect drop-frame timecode and build the timecode string with proper escaping
+if [[ "$TC_FULL" == *";"* ]]; then
+    echo "🎬 Drop-frame timecode detected: $TC_FULL"
+    # Keep semicolon in the timecode string for drop-frame
+    TC_STRING="${TC_HH}\\:${TC_MM}\\:${TC_SS}\\;${TC_FF}"
+    # Use drop-frame rate - for 59.94 use 60000/1001 with drop-frame flag
+    if [[ "$FPS" == "60000/1001" ]] || [[ "$FPS" == "59.94"* ]]; then
+        TC_RATE="60000/1001"
+        echo "🎬 Using 59.94 drop-frame rate: $TC_RATE"
+    elif [[ "$FPS" == "30000/1001" ]] || [[ "$FPS" == "29.97"* ]]; then
+        TC_RATE="30000/1001" 
+        echo "🎬 Using 29.97 drop-frame rate: $TC_RATE"
+    else
+        TC_RATE="$FPS"
+        echo "🎬 Using drop-frame rate: $TC_RATE"
+    fi
+else
+    echo "🎬 Non-drop-frame timecode detected: $TC_FULL"
+    # Use colon for non-drop-frame
+    TC_STRING="${TC_HH}\\:${TC_MM}\\:${TC_SS}\\:${TC_FF}"
+    TC_RATE="$FPS"
+    echo "🎬 Using non-drop-frame rate: $TC_RATE"
+fi
 echo "Timecode string: $TC_STRING"
+echo "Timecode rate: $TC_RATE"
 
 # Get source video properties
 WIDTH=$(ffprobe -v error -select_streams v -show_entries stream=width -of default=noprint_wrappers=1:nokey=1 "$INPUT")
@@ -105,11 +127,12 @@ if [[ ! -f "$FONT_PATH" ]]; then
 fi
 
 # Build video filter with running timecode embedded in source string - TOP LEFT positioning + NO GRADE top right
-# We'll use the timecode parameter but add prefix/suffix text - 2.5% font size relative to height
+# We'll use the timecode parameter but add prefix/suffix text - 2.5% font size relative to height  
+# Use TC_RATE for proper drop-frame calculation
 if [[ -n "$FONT_PATH" ]]; then
-    DRAWTEXT_FILTER="drawtext=fontfile=$FONT_PATH:text='SRC TC\\: ':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(h*0.011):y=(h*0.03),drawtext=fontfile=$FONT_PATH:timecode='$TC_STRING':timecode_rate=$FPS:fontsize=(h*0.025):fontcolor=white:x=(h*0.125):y=(h*0.03),drawtext=fontfile=$FONT_PATH:text=' ---> $CLIP_NAME':fontsize=(h*0.025):fontcolor=white:x=(h*0.31):y=(h*0.03),drawtext=fontfile=$FONT_PATH:text='//// NO GRADE ////':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(h*0.03)"
+    DRAWTEXT_FILTER="drawtext=fontfile=$FONT_PATH:text='SRC TC\\: ':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(h*0.011):y=(h*0.03),drawtext=fontfile=$FONT_PATH:timecode='$TC_STRING':timecode_rate=$TC_RATE:fontsize=(h*0.025):fontcolor=white:x=(h*0.125):y=(h*0.03),drawtext=fontfile=$FONT_PATH:text=' ---> $CLIP_NAME':fontsize=(h*0.025):fontcolor=white:x=(h*0.31):y=(h*0.03),drawtext=fontfile=$FONT_PATH:text='//// NO GRADE ////':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(h*0.03)"
 else
-    DRAWTEXT_FILTER="drawtext=text='SRC TC\\: ':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(h*0.03),drawtext=timecode='$TC_STRING':timecode_rate=$FPS:fontsize=(h*0.025):fontcolor=white:x=(w*0.13):y=(h*0.03),drawtext=text=' ---> $CLIP_NAME':fontsize=(h*0.025):fontcolor=white:x=(w*0.32):y=(h*0.03),drawtext=text='//// NO GRADE ////':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(h*0.03)"
+    DRAWTEXT_FILTER="drawtext=text='SRC TC\\: ':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(h*0.03),drawtext=timecode='$TC_STRING':timecode_rate=$TC_RATE:fontsize=(h*0.025):fontcolor=white:x=(w*0.13):y=(h*0.03),drawtext=text=' ---> $CLIP_NAME':fontsize=(h*0.025):fontcolor=white:x=(w*0.32):y=(h*0.03),drawtext=text='//// NO GRADE ////':fontsize=(h*0.025):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(h*0.03)"
 fi
 
 echo "📝 Format: SRC TC: [RUNNING] ---> $CLIP_NAME"
