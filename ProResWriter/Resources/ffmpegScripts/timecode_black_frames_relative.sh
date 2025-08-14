@@ -25,16 +25,10 @@ fi
 if [ $# -eq 2 ]; then
     OUTPUT="$2"
 else
-    # Generate output filename by adding "_blankRush" before the extension
+    # Generate output filename by adding "_blankRush" - always output as MOV ProRes
     BASENAME="${INPUT%.*}"
-    EXTENSION="${INPUT##*.}"
-    # Convert MXF to MOV for better ProRes compatibility (case insensitive)
-    if [[ "${EXTENSION}" == "mxf" ]] || [[ "${EXTENSION}" == "MXF" ]]; then
-        OUTPUT="${BASENAME}_blankRush.mov"
-        echo "🎬 Converting MXF to MOV container for ProRes compatibility"
-    else
-        OUTPUT="${BASENAME}_blankRush.${EXTENSION}"
-    fi
+    OUTPUT="${BASENAME}_blankRush.mov"
+    echo "🎬 Converting to MOV container for ProRes compatibility"
 fi
 
 echo "Processing: $INPUT -> $OUTPUT"
