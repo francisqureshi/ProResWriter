@@ -333,8 +333,7 @@ class ProResVideoCompositor: NSObject {
         // Try to parse segment number from filename (e.g., "S01", "S02")
         let segmentNumber = parseSegmentNumber(from: filename)
 
-        // Try to parse start time from filename or metadata
-        let startTime = try await parseStartTime(from: asset, filename: filename)
+        // Start time will be determined from timecode tracks
 
         // Extract timecode information
         let sourceTimecode = try await extractSourceTimecode(from: asset)
@@ -344,7 +343,7 @@ class ProResVideoCompositor: NSObject {
             url: url,
             filename: filename,
             duration: duration,
-            startTime: startTime,
+            startTime: nil,
             segmentNumber: segmentNumber,
             sourceTimecode: sourceTimecode,
             sourceStartTimecode: sourceStartTimecode
@@ -366,53 +365,6 @@ class ProResVideoCompositor: NSObject {
         return nil
     }
 
-    private func parseStartTime(from asset: AVAsset, filename: String) async throws -> CMTime? {
-        // Try to get start time from metadata
-        return try await getStartTimeFromMetadata(asset)
-    }
-
-    private func getStartTimeFromMetadata(_ asset: AVAsset) async throws -> CMTime? {
-        // Try to get start time from various metadata sources
-        let metadata = try await asset.load(.metadata)
-
-        for item in metadata {
-            if let key = item.commonKey?.rawValue,
-                key == "startTime" || key == "time"
-            {
-                // Parse time value from metadata
-                if let value = try? await item.load(.value) as? String {
-                    return parseTimeString(value)
-                }
-            }
-        }
-
-        return nil
-    }
-
-
-    private func parseTimeString(_ timeString: String) -> CMTime? {
-        // Parse various time formats
-        let components = timeString.components(separatedBy: ":")
-        if components.count == 2 {
-            // MM:SS format
-            if let minutes = Int(components[0]), let seconds = Int(components[1]) {
-                return CMTime(seconds: Double(minutes * 60 + seconds), preferredTimescale: 600)
-            }
-        } else if components.count == 3 {
-            // HH:MM:SS format
-            if let hours = Int(components[0]), let minutes = Int(components[1]),
-                let seconds = Int(components[2])
-            {
-                return CMTime(
-                    seconds: Double(hours * 3600 + minutes * 60 + seconds), preferredTimescale: 600)
-            }
-        } else if let seconds = Double(timeString) {
-            // Just seconds
-            return CMTime(seconds: seconds, preferredTimescale: 600)
-        }
-
-        return nil
-    }
 
     // MARK: - Timecode Handling using TimecodeKit (RESTORED)
     private func extractSourceTimecode(from asset: AVAsset) async throws -> String? {
