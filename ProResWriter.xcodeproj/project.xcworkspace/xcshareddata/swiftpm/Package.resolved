@@ -1,6 +1,15 @@
 {
-  "originHash" : "bed5f2e076370f88b42ea0b5f6e11b1f9a4d791e7168bbff1b2014e9291660bd",
+  "originHash" : "1c7bb2a9caf8ecd2ad73cc42724393097a95dfb44ffa0151815ca95454957625",
   "pins" : [
+    {
+      "identity" : "swiftffmpeg",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sunlubo/SwiftFFmpeg",
+      "state" : {
+        "revision" : "e3621a95f90e106f3e7228737c718dfc8b580bc1",
+        "version" : "1.6.0"
+      }
+    },
     {
       "identity" : "timecodekit",
       "kind" : "remoteSourceControl",

@@ -11,6 +11,7 @@
 		0726D6EB2E3590260050CF6F /* TimecodeKitAV in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EA2E3590260050CF6F /* TimecodeKitAV */; };
 		0726D6ED2E3590260050CF6F /* TimecodeKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EC2E3590260050CF6F /* TimecodeKitCore */; };
 		0726D6EF2E3590260050CF6F /* TimecodeKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EE2E3590260050CF6F /* TimecodeKitUI */; };
+		079084972E4FD606001C44FE /* SwiftFFmpeg in Frameworks */ = {isa = PBXBuildFile; productRef = 079084962E4FD606001C44FE /* SwiftFFmpeg */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -57,6 +58,7 @@
 			files = (
 				0726D6EB2E3590260050CF6F /* TimecodeKitAV in Frameworks */,
 				0726D6EF2E3590260050CF6F /* TimecodeKitUI in Frameworks */,
+				079084972E4FD606001C44FE /* SwiftFFmpeg in Frameworks */,
 				0726D6E92E3590260050CF6F /* TimecodeKit in Frameworks */,
 				0726D6ED2E3590260050CF6F /* TimecodeKitCore in Frameworks */,
 			);
@@ -105,6 +107,7 @@
 				0726D6EA2E3590260050CF6F /* TimecodeKitAV */,
 				0726D6EC2E3590260050CF6F /* TimecodeKitCore */,
 				0726D6EE2E3590260050CF6F /* TimecodeKitUI */,
+				079084962E4FD606001C44FE /* SwiftFFmpeg */,
 			);
 			productName = ProResWriter;
 			productReference = 0726D6DB2E353E950050CF6F /* ProResWriter */;
@@ -136,6 +139,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */,
+				079084952E4FD606001C44FE /* XCRemoteSwiftPackageReference "SwiftFFmpeg" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0726D6DC2E353E950050CF6F /* Products */;
@@ -332,6 +336,14 @@
 				minimumVersion = 2.3.3;
 			};
 		};
+		079084952E4FD606001C44FE /* XCRemoteSwiftPackageReference "SwiftFFmpeg" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sunlubo/SwiftFFmpeg";
+			requirement = {
+				kind = exactVersion;
+				version = 1.6.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -354,6 +366,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
 			productName = TimecodeKitUI;
+		};
+		079084962E4FD606001C44FE /* SwiftFFmpeg */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 079084952E4FD606001C44FE /* XCRemoteSwiftPackageReference "SwiftFFmpeg" */;
+			productName = SwiftFFmpeg;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
