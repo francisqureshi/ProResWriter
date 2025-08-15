@@ -1,0 +1,36 @@
+Next steps
+
+
+Ok so now we have some working processes
+
+- We have the ability to take a source file and use “timecode_black_frames_relative.sh” which will make us a “BlankRush” that has burnt in TC and can we be used for our base of our mirrored source roundtrip files. 
+- main.swift can handle taking the blank rush placing the graded segments into it and saving that via ProRes passthrough very quickly.
+
+
+—— 
+
+The top line goal:  Create a GUI Utility App that user can make a Project, import Graded Segments, as well point to the source editing files (OCF or ingested source files).  The App then pairs the segments to the original source files.
+Once paired, the app creates a blankRush file and we save those in the grade intermediate folder. 
+Once the blankrush is made, we  can have everything ready to build the “mirrored source roundtrip files” via the process in runComposition() in main.swift which combines the graded segments with the blankrush which is then used for Online and delivery in PrPro.  
+--- 
+
+Let's keep GUI in mind but start with making all the components I think.
+
+The App will likely be MacOS Only to get real ProRes. 
+---
+
+
+Pairing workflow 
+
+Render MM clips from grade project to live intermediate Segments folder as ProRes 4444
+
+Add MM to app Segment group
+
+Add the OCF to app OCF group
+
+Pair them using:
+OCF name as the Key 
++ Resolution
++ FPS 
++ SRC TC 
++ Reel Name if available 

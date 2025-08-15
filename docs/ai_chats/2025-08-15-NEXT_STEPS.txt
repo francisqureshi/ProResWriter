@@ -1,0 +1,1731 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/mac10/Projects/ProResWriter         │
+╰───────────────────────────────────────────────────╯
+
+> as per @docs/nextsteps.txt 
+
+  Next steps
+
+
+  Ok so now we have some working processes
+
+  - We have the ability to take a source file and use “timecode_black_frames_relative.sh” which will make us a 
+  “BlankRush” that has burnt in TC and can we be used for our base of our mirrored source roundtrip files. 
+  - main.swift can handle taking the blank rush placing the graded segments into it and saving that via ProRes 
+  passthrough very quickly.
+
+
+  —— 
+
+  The top line goal:  Create a GUI Utility App that user can make a Project, import Graded Segments, as well point to 
+  the source editing files (OCF or ingested source files).  The App then pairs the segments to the original source 
+  files.
+  Once paired, the app creates a blankRush file and we save those in the grade intermediate folder. 
+  Once the blankrush is made, we  can have everything ready to build the “mirrored source roundtrip files” via the 
+  process in runComposition() in main.swift which combines the graded segments with the blankrush which is then used for
+   Online and delivery in PrPro.  
+  --- 
+
+  Let's keep GUI in mind but start with making all the components I think.
+
+  The App will likely be MacOS Only to get real ProRes. 
+  ---
+
+
+  Pairing workflow 
+
+  Render MM clips from grade project to live intermediate Segments folder as ProRes 4444
+
+  Add MM to app Segment group
+
+  Add the OCF to app OCF group
+
+  Pair them using:
+  OCF name as the Key 
+  + Resolution
+  + FPS 
+  + SRC TC 
+  + Reel Name if available 
+
+  This  is what i want to archieve.
+
+  I think we should move the @ProResWriter/main.swift runcomposition()  process to the @ProResWriter/printProcess.swift 
+  file then look at setting up the import process and pairing process in the their respective files 
+  @ProResWriter/importProcess.swift @ProResWriter/pairingProcess.swift
+  ⎿  Read docs/nextsteps.txt (36 lines)
+  ⎿  Read ProResWriter/main.swift (692 lines)
+  ⎿  Read ProResWriter/printProcess.swift (8 lines)
+  ⎿  Read ProResWriter/importProcess.swift (8 lines)
+  ⎿  Read ProResWriter/pairingProcess.swift (8 lines)
+
+⏺ I'll help you refactor the code according to the requirements in docs/nextsteps.txt. Let me create a todo list to
+  track this refactoring work.
+
+⏺ Update Todos
+  ⎿  ☐ Move runComposition() function from main.swift to printProcess.swift
+     ☐ Create import process functionality in importProcess.swift
+     ☐ Create pairing process functionality in pairingProcess.swift
+     ☐ Update main.swift to use the refactored components
+
+⏺ Let me start by moving the runComposition() function to printProcess.swift:
+
+⏺ Update Todos
+  ⎿  ☐ Move runComposition() function from main.swift to printProcess.swift
+     ☐ Create import process functionality in importProcess.swift
+     ☐ Create pairing process functionality in pairingProcess.swift
+     ☐ Update main.swift to use the refactored components
+
+⏺ Update(ProResWriter/printProcess.swift)
+  ⎿  Updated ProResWriter/printProcess.swift with 130 additions                                                         
+         5    //  Created by mac10 on 15/08/2025.
+         6    //
+         7    
+         8 +  import AVFoundation
+         9 +  import CoreMedia
+        10 +  import TimecodeKit
+        11 +  
+        12 +  // MARK: - Print/Export Process
+        13 +  func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL) async {
+        14 +      print("🎬 Starting ProRes Composition...")
+        15 +  
+        16 +      let compositor = ProResVideoCompositor()
+        17 +  
+        18 +      do {
+        19 +          // Discover and parse segments automatically
+        20 +          print("🔍 Discovering segments in: \(segmentsDirectoryURL.path)")
+        21 +          let segmentInfos = try await compositor.discoverSegments(in: segmentsDirectoryURL)
+        22 +  
+        23 +          print("📊 Found \(segmentInfos.count) segments:")
+        24 +          for (index, info) in segmentInfos.enumerated() {
+        25 +              print("  \(index + 1). \(info.filename)")
+        26 +              print(
+        27 +                  "     Duration: \(info.duration.seconds)s (\(Int(info.duration.seconds * 25)) frames)"
+        28 +              )
+        29 +              if let segmentNumber = info.segmentNumber {
+        30 +                  print("     Segment #: \(segmentNumber)")
+        31 +              }
+        32 +              if let startTime = info.startTime {
+        33 +                  let frameNumber = Int(startTime.seconds * 25)
+        34 +                  let timecode = compositor.cmTimeToTimecode(startTime, frameRate: 25)
+        35 +                  print(
+        36 +                      "     Start Time: \(startTime.seconds)s (Frame \(frameNumber), TC: \(timecode))"
+        37 +                  )
+        38 +              }
+        39 +              if let sourceTimecode = info.sourceTimecode {
+        40 +                  print("     Source Timecode: \(sourceTimecode)")
+        41 +              }
+        42 +              if let sourceStartTimecode = info.sourceStartTimecode {
+        43 +                  print("     Start Timecode: \(sourceStartTimecode)")
+        44 +              }
+        45 +          }
+        46 +  
+        47 +          // Get base video properties and duration for timing calculations
+        48 +          let blankRush = AVURLAsset(url: blankRushURL)
+        49 +          let baseTrack = try await compositor.getVideoTrack(from: blankRush)
+        50 +          let baseProperties = try await compositor.getVideoProperties(from: baseTrack)
+        51 +          let baseDuration = try await blankRush.load(.duration)
+        52 +          let totalFrames = Int(baseDuration.seconds * Double(baseProperties.frameRate))
+        53 +  
+        54 +          // Log the extracted timecode for debugging
+        55 +          if let sourceTimecode = baseProperties.sourceTimecode {
+        56 +              print("📹 Extracted base timecode: \(sourceTimecode)")
+        57 +          } else {
+        58 +              print("📹 No timecode found in base video")
+        59 +          }
+        60 +  
+        61 +          print("📹 Base video duration: \(baseDuration.seconds)s (\(totalFrames) frames)")
+        62 +          print(
+        63 +              "📹 Base video properties: \(baseProperties.width)x\(baseProperties.height) @ 
+           + \(baseProperties.frameRate)fps"
+        64 +          )
+        65 +          if let sourceTimecode = baseProperties.sourceTimecode {
+        66 +              print("📹 Base video source timecode: \(sourceTimecode)")
+        67 +          }
+        68 +  
+        69 +          // Create graded segments from discovered info
+        70 +          let segments = compositor.createGradedSegments(
+        71 +              from: segmentInfos, baseDuration: baseDuration, baseProperties: baseProperties)
+        72 +  
+        73 +          print("🎬 Created \(segments.count) graded segments:")
+        74 +          for (index, segment) in segments.enumerated() {
+        75 +              print("  \(index + 1). \(segment.url.lastPathComponent)")
+        76 +              let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRate))
+        77 +              let endFrame =
+        78 +                  startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRate))
+        79 +              let startTimecode = compositor.cmTimeToTimecode(
+        80 +                  segment.startTime, frameRate: baseProperties.frameRate)
+        81 +              let endTimecode = compositor.cmTimeToTimecode(
+        82 +                  CMTimeAdd(segment.startTime, segment.duration), frameRate: baseProperties.frameRate)
+        83 +              print(
+        84 +                  "     Start: Frame \(startFrame) (\(startTimecode)), Duration: 
+     \(segment.duration.seconds)s
+           +  (\(Int(segment.duration.seconds * Double(baseProperties.frameRate))) frames)"
+        85 +              )
+        86 +              print("     End: Frame \(endFrame) (\(endTimecode))")
+        87 +              if let sourceTimecode = baseProperties.sourceTimecode {
+        88 +                  print("     Base Source TC: \(sourceTimecode)")
+        89 +              }
+        90 +          }
+        91 +  
+        92 +          // Render phase: Press Enter to start
+        93 +          print("\n🎬 Timeline ready! Press Enter to start render...")
+        94 +          print("📊 This will measure only the export time (like DaVinci Resolve)")
+        95 +          _ = readLine()
+        96 +          print("🚀 Starting render...")
+        97 +  
+        98 +          let settings = CompositorSettings(
+        99 +              outputURL: outputURL,
+       100 +              baseVideoURL: blankRushURL,
+       101 +              gradedSegments: segments,
+       102 +              proResType: .proRes422HQ
+       103 +          )
+       104 +  
+       105 +          // Setup progress callback for command line
+       106 +          compositor.progressHandler = { progress in
+       107 +              let percentage = Int(progress * 100)
+       108 +              let progressBar = String(repeating: "█", count: percentage / 2)
+       109 +              let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
+       110 +              print("\r📹 Progress: [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
+       111 +              fflush(stdout)
+       112 +          }
+       113 +  
+       114 +          // Setup completion handler and wait for completion
+       115 +          await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+       116 +              compositor.completionHandler = { result in
+       117 +                  print("\n")  // New line after progress bar
+       118 +                  switch result {
+       119 +                  case .success(let outputURL):
+       120 +                      print("✅ Composition complete!")
+       121 +                      print("📁 Output file: \(outputURL.path)")
+       122 +                      continuation.resume()
+       123 +                  case .failure(let error):
+       124 +                      print("❌ Composition failed: \(error.localizedDescription)")
+       125 +                      continuation.resume()
+       126 +                  }
+       127 +              }
+       128 +  
+       129 +              // Start the composition
+       130 +              compositor.composeVideo(with: settings)
+       131 +          }
+       132 +  
+       133 +      } catch {
+       134 +          print("❌ Failed to discover or parse segments: \(error.localizedDescription)")
+       135 +      }
+       136 +  }
+       137 +  
+
+⏺ Update Todos
+  ⎿  ☒ Move runComposition() function from main.swift to printProcess.swift
+     ☐ Create import process functionality in importProcess.swift
+     ☐ Create pairing process functionality in pairingProcess.swift
+     ☐ Update main.swift to use the refactored components
+
+⏺ Now let me work on creating the import process functionality:
+
+⏺ Update Todos
+  ⎿  ☒ Move runComposition() function from main.swift to printProcess.swift
+     ☐ Create import process functionality in importProcess.swift
+     ☐ Create pairing process functionality in pairingProcess.swift
+     ☐ Update main.swift to use the refactored components
+
+⏺ Update(ProResWriter/importProcess.swift)
+  ⎿  User rejected update to ProResWriter/importProcess.swift
+         5    //  Created by mac10 on 15/08/2025.
+         6    //
+         7    
+         8 +  import AVFoundation
+         9 +  import CoreMedia
+        10 +  import TimecodeKit
+        11 +  
+        12 +  // MARK: - Media File Information
+        13 +  struct MediaFileInfo {
+        14 +      let url: URL
+        15 +      let filename: String
+        16 +      let duration: CMTime
+        17 +      let resolution: CGSize
+        18 +      let frameRate: Float
+        19 +      let sourceTimecode: String?
+        20 +      let reelName: String?
+        21 +      let mediaType: MediaType
+        22 +  }
+        23 +  
+        24 +  enum MediaType {
+        25 +      case gradedSegment
+        26 +      case originalCameraFile
+        27 +  }
+        28 +  
+        29 +  // MARK: - Import Process
+        30 +  class ImportProcess {
+        31 +      
+        32 +      // MARK: - Graded Segments Import
+        33 +      func importGradedSegments(from directoryURL: URL) async throws -> [MediaFileInfo] {
+        34 +          print("🎬 Importing graded segments from: \(directoryURL.path)")
+        35 +          
+        36 +          let fileManager = FileManager.default
+        37 +          let segmentURLs = try fileManager.contentsOfDirectory(
+        38 +              at: directoryURL, includingPropertiesForKeys: nil
+        39 +          )
+        40 +          .filter { 
+        41 +              let ext = $0.pathExtension.lowercased()
+        42 +              return ext == "mov" || ext == "mp4" || ext == "mxf"
+        43 +          }
+        44 +          .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        45 +          
+        46 +          var gradedSegments: [MediaFileInfo] = []
+        47 +          
+        48 +          for url in segmentURLs {
+        49 +              print("  📹 Processing: \(url.lastPathComponent)")
+        50 +              let mediaInfo = try await extractMediaInfo(from: url, type: .gradedSegment)
+        51 +              gradedSegments.append(mediaInfo)
+        52 +              
+        53 +              print("    Duration: \(mediaInfo.duration.seconds)s")
+        54 +              print("    Resolution: 
+     \(Int(mediaInfo.resolution.width))x\(Int(mediaInfo.resolution.height))")
+        55 +              print("    Frame Rate: \(mediaInfo.frameRate)fps")
+        56 +              if let timecode = mediaInfo.sourceTimecode {
+        57 +                  print("    Source Timecode: \(timecode)")
+        58 +              }
+        59 +              if let reel = mediaInfo.reelName {
+        60 +                  print("    Reel Name: \(reel)")
+        61 +              }
+        62 +          }
+        63 +          
+        64 +          print("✅ Imported \(gradedSegments.count) graded segments")
+        65 +          return gradedSegments
+        66 +      }
+        67 +      
+        68 +      // MARK: - Original Camera Files Import
+        69 +      func importOriginalCameraFiles(from directoryURL: URL) async throws -> [MediaFileInfo] {
+        70 +          print("📹 Importing original camera files from: \(directoryURL.path)")
+        71 +          
+        72 +          let fileManager = FileManager.default
+        73 +          let cameraFileURLs = try fileManager.contentsOfDirectory(
+        74 +              at: directoryURL, includingPropertiesForKeys: nil
+        75 +          )
+        76 +          .filter { 
+        77 +              let ext = $0.pathExtension.lowercased()
+        78 +              return ext == "mov" || ext == "mp4" || ext == "mxf" || ext == "r3d" || ext == "braw"
+        79 +          }
+        80 +          .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        81 +          
+        82 +          var cameraFiles: [MediaFileInfo] = []
+        83 +          
+        84 +          for url in cameraFileURLs {
+        85 +              print("  📹 Processing: \(url.lastPathComponent)")
+        86 +              let mediaInfo = try await extractMediaInfo(from: url, type: .originalCameraFile)
+        87 +              cameraFiles.append(mediaInfo)
+        88 +              
+        89 +              print("    Duration: \(mediaInfo.duration.seconds)s")
+        90 +              print("    Resolution: 
+     \(Int(mediaInfo.resolution.width))x\(Int(mediaInfo.resolution.height))")
+        91 +              print("    Frame Rate: \(mediaInfo.frameRate)fps")
+        92 +              if let timecode = mediaInfo.sourceTimecode {
+        93 +                  print("    Source Timecode: \(timecode)")
+        94 +              }
+        95 +              if let reel = mediaInfo.reelName {
+        96 +                  print("    Reel Name: \(reel)")
+        97 +              }
+        98 +          }
+        99 +          
+       100 +          print("✅ Imported \(cameraFiles.count) original camera files")
+       101 +          return cameraFiles
+       102 +      }
+       103 +      
+       104 +      // MARK: - Media Information Extraction
+       105 +      private func extractMediaInfo(from url: URL, type: MediaType) async throws -> MediaFileInfo {
+       106 +          let asset = AVURLAsset(url: url)
+       107 +          
+       108 +          // Extract basic properties
+       109 +          let duration = try await asset.load(.duration)
+       110 +          let tracks = try await asset.loadTracks(withMediaType: .video)
+       111 +          guard let videoTrack = tracks.first else {
+       112 +              throw ImportError.noVideoTrack
+       113 +          }
+       114 +          
+       115 +          let naturalSize = try await videoTrack.load(.naturalSize)
+       116 +          let nominalFrameRate = try await videoTrack.load(.nominalFrameRate)
+       117 +          
+       118 +          // Extract timecode
+       119 +          let sourceTimecode = try await extractSourceTimecode(from: asset)
+       120 +          
+       121 +          // Extract reel name from metadata or filename
+       122 +          let reelName = await extractReelName(from: asset, filename: url.lastPathComponent)
+       123 +          
+       124 +          return MediaFileInfo(
+       125 +              url: url,
+       126 +              filename: url.lastPathComponent,
+       127 +              duration: duration,
+       128 +              resolution: naturalSize,
+       129 +              frameRate: nominalFrameRate,
+       130 +              sourceTimecode: sourceTimecode,
+       131 +              reelName: reelName,
+       132 +              mediaType: type
+       133 +          )
+       134 +      }
+       135 +      
+       136 +      private func extractSourceTimecode(from asset: AVAsset) async throws -> String? {
+       137 +          do {
+       138 +              // Try to auto-detect frame rate first
+       139 +              let frameRate = try await asset.timecodeFrameRate()
+       140 +              
+       141 +              // Read start timecode using TimecodeKit
+       142 +              if let startTimecode = try await asset.startTimecode(at: frameRate) {
+       143 +                  return startTimecode.stringValue()
+       144 +              } else {
+       145 +                  return nil
+       146 +              }
+       147 +          } catch {
+       148 +              return nil
+       149 +          }
+       150 +      }
+       151 +      
+       152 +      private func extractReelName(from asset: AVAsset, filename: String) async -> String? {
+       153 +          // Try to extract reel name from metadata
+       154 +          let metadata = try? await asset.load(.metadata)
+       155 +          
+       156 +          if let metadata = metadata {
+       157 +              for item in metadata {
+       158 +                  if let key = item.commonKey,
+       159 +                     key == .commonKeyTitle || key.rawValue.contains("reel") {
+       160 +                      if let value = try? await item.load(.stringValue) {
+       161 +                          return value
+       162 +                      }
+       163 +                  }
+       164 +              }
+       165 +          }
+       166 +          
+       167 +          // Fallback: extract from filename pattern
+       168 +          return extractReelNameFromFilename(filename)
+       169 +      }
+       170 +      
+       171 +      private func extractReelNameFromFilename(_ filename: String) -> String? {
+       172 +          // Common patterns for reel names in filenames
+       173 +          let patterns = [
+       174 +              "(?:^|_)([A-Z]{2,4}\\d{3})(?:_|\\.|$)",  // e.g., "LR001", "A001"
+       175 +              "(?:^|_)(\\d{3}[A-Z])(?:_|\\.|$)",       // e.g., "001A"
+       176 +              "(?:^|_)([A-Z]\\d{3})(?:_|\\.|$)"       // e.g., "A001"
+       177 +          ]
+       178 +          
+       179 +          for pattern in patterns {
+       180 +              let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+       181 +              let range = NSRange(filename.startIndex..<filename.endIndex, in: filename)
+       182 +              
+       183 +              if let match = regex?.firstMatch(in: filename, range: range),
+       184 +                 let reelRange = Range(match.range(at: 1), in: filename) {
+       185 +                  return String(filename[reelRange])
+       186 +              }
+       187 +          }
+       188 +          
+       189 +          return nil
+       190 +      }
+       191 +  }
+       192 +  
+       193 +  // MARK: - Import Errors
+       194 +  enum ImportError: Error {
+       195 +      case noVideoTrack
+       196 +      case unsupportedFormat
+       197 +      case fileNotFound
+       198 +  }
+       199 +  
+
+> wait, i want to move everything in @ProResWriter/main.swift to @ProResWriter/printProcess.swift - lets do that first
+  ⎿  Read ProResWriter/main.swift (692 lines)
+  ⎿  Read ProResWriter/printProcess.swift (138 lines)
+
+⏺ I'll move everything from main.swift to printProcess.swift. Let me replace the entire content of printProcess.swift
+  with everything from main.swift:
+
+⏺ Write(ProResWriter/printProcess.swift)
+  ⎿  Updated ProResWriter/printProcess.swift with 543 additions and 3 removals                                         
+         9    import CoreMedia
+        10    import TimecodeKit
+        11    
+        12 -  // MARK: - Print/Export Process
+        12 +  // MARK: - Data Models
+        13 +  struct GradedSegment {
+        14 +      let url: URL
+        15 +      let startTime: CMTime  // Start time in the final timeline
+        16 +      let duration: CMTime  // Duration of the segment
+        17 +      let sourceStartTime: CMTime  // Start time in the source segment file
+        18 +  }
+        19 +  
+        20 +  struct CompositorSettings {
+        21 +      let outputURL: URL
+        22 +      let baseVideoURL: URL
+        23 +      let gradedSegments: [GradedSegment]
+        24 +      let proResType: AVVideoCodecType  // .proRes422, .proRes422HQ, etc.
+        25 +  }
+        26 +  
+        27 +  // MARK: - Main Compositor Class
+        28 +  class ProResVideoCompositor: NSObject {
+        29 +  
+        30 +      // Progress callback
+        31 +      var progressHandler: ((Double) -> Void)?
+        32 +      var completionHandler: ((Result<URL, Error>) -> Void)?
+        33 +  
+        34 +      // MARK: - Public Interface
+        35 +      func composeVideo(with settings: CompositorSettings) {
+        36 +          Task {
+        37 +              do {
+        38 +                  let outputURL = try await processComposition(settings: settings)
+        39 +                  await MainActor.run {
+        40 +                      completionHandler?(.success(outputURL))
+        41 +                  }
+        42 +              } catch {
+        43 +                  print("❌ Composition error: \(error)")
+        44 +                  await MainActor.run {
+        45 +                      completionHandler?(.failure(error))
+        46 +                  }
+        47 +              }
+        48 +          }
+        49 +      }
+        50 +  
+        51 +      // MARK: - Core Processing
+        52 +      private func processComposition(settings: CompositorSettings) async throws -> URL {
+        53 +  
+        54 +          print("🔍 Starting composition process...")
+        55 +  
+        56 +          // 1. Analyze base video to get properties
+        57 +          let analysisStartTime = CFAbsoluteTimeGetCurrent()
+        58 +          print("📹 Analyzing base video...")
+        59 +  
+        60 +          let assetOptions: [String: Any] = [
+        61 +              AVURLAssetPreferPreciseDurationAndTimingKey: true
+        62 +          ]
+        63 +          let baseAsset = AVURLAsset(url: settings.baseVideoURL, options: assetOptions)
+        64 +  
+        65 +          let baseTrack = try await getVideoTrack(from: baseAsset)
+        66 +          let baseProperties = try await getVideoProperties(from: baseTrack)
+        67 +          let analysisEndTime = CFAbsoluteTimeGetCurrent()
+        68 +          print(
+        69 +              "📹 Video analysis completed in: \(String(format: "%.2f", analysisEndTime - 
+           + analysisStartTime))s"
+        70 +          )
+        71 +  
+        72 +          // Log the extracted timecode for debugging
+        73 +          if let sourceTimecode = baseProperties.sourceTimecode {
+        74 +              print("📹 Extracted base timecode: \(sourceTimecode)")
+        75 +          } else {
+        76 +              print("📹 No timecode found in base video")
+        77 +          }
+        78 +  
+        79 +          print(
+        80 +              "✅ Base video properties: \(baseProperties.width)x\(baseProperties.height) @ 
+           + \(baseProperties.frameRate)fps"
+        81 +          )
+        82 +  
+        83 +          // 2. Use AVMutableComposition with trimming for overlay
+        84 +          let exportStartTime = CFAbsoluteTimeGetCurrent()
+        85 +          print("🚀 Using AVMutableComposition with trimming for fast overlay...")
+        86 +  
+        87 +          // Create composition
+        88 +          let composition = AVMutableComposition()
+        89 +          let videoTrack = composition.addMutableTrack(
+        90 +              withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        91 +  
+        92 +          // Add timecode track to composition
+        93 +          let timecodeTrack = composition.addMutableTrack(
+        94 +              withMediaType: .timecode, preferredTrackID: kCMPersistentTrackID_Invalid)
+        95 +  
+        96 +          // Add base video to composition
+        97 +          let baseVideoTrack = try await getVideoTrack(from: baseAsset)
+        98 +          let baseDuration = try await baseAsset.load(.duration)
+        99 +          try videoTrack?.insertTimeRange(
+       100 +              CMTimeRange(start: .zero, duration: baseDuration), of: baseVideoTrack, at: .zero)
+       101 +  
+       102 +          print("🎬 Base video added to composition: \(baseDuration.seconds)s")
+       103 +  
+       104 +          // Copy existing timecode track from base asset if it exists
+       105 +          if let timecodeTrack = timecodeTrack {
+       106 +              print("⏰ Looking for existing timecode track in base asset...")
+       107 +  
+       108 +              // Check if base asset has timecode tracks
+       109 +              let baseTimecodeTracks = try await baseAsset.loadTracks(withMediaType: .timecode)
+       110 +              print("🔍 Base asset has \(baseTimecodeTracks.count) timecode tracks")
+       111 +  
+       112 +              if let baseTimecodeTrack = baseTimecodeTracks.first {
+       113 +                  print("✅ Found existing timecode track in base asset - copying directly...")
+       114 +  
+       115 +                  // Copy the timecode track directly from base asset
+       116 +                  try timecodeTrack.insertTimeRange(
+       117 +                      CMTimeRange(start: .zero, duration: baseDuration),
+       118 +                      of: baseTimecodeTrack,
+       119 +                      at: .zero
+       120 +                  )
+       121 +                  print("✅ Timecode track copied directly from base asset")
+       122 +  
+       123 +                  // Verify the track was actually added
+       124 +                  let finalTimecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+       125 +                  print("🔍 Composition now has \(finalTimecodeTracks.count) timecode tracks")
+       126 +              } else {
+       127 +                  print("⚠️ No existing timecode track found in base asset - skipping timecode track")
+       128 +              }
+       129 +          } else {
+       130 +              print("⚠️ Failed to create timecode track in composition")
+       131 +          }
+       132 +  
+       133 +          // Sort segments by start time for trimming
+       134 +          let sortedSegments = settings.gradedSegments.sorted { $0.startTime < $1.startTime }
+       135 +  
+       136 +          // Create asset loader for segments
+       137 +          let assetLoader = { (segment: GradedSegment) -> AVAsset in
+       138 +              let assetOptions: [String: Any] = [
+       139 +                  AVURLAssetPreferPreciseDurationAndTimingKey: true
+       140 +              ]
+       141 +              return AVURLAsset(url: segment.url, options: assetOptions)
+       142 +          }
+       143 +  
+       144 +          print("🎬 Processing \(sortedSegments.count) segments...")
+       145 +  
+       146 +          // Process segments in reverse order to avoid time shifting
+       147 +          for (index, segment) in sortedSegments.reversed().enumerated() {
+       148 +              print(
+       149 +                  "   Processing segment \(sortedSegments.count - index): \(segment.url.lastPathComponent)"
+       150 +              )
+       151 +  
+       152 +              // Remove the base video section that this segment will replace
+       153 +              videoTrack?.removeTimeRange(
+       154 +                  CMTimeRange(start: segment.startTime, duration: segment.duration))
+       155 +  
+       156 +              // Load asset on-demand and immediately release after use
+       157 +              let segmentAsset = assetLoader(segment)
+       158 +              let segmentVideoTrack = try? await getVideoTrack(from: segmentAsset)
+       159 +              try? videoTrack?.insertTimeRange(
+       160 +                  CMTimeRange(start: .zero, duration: segment.duration),
+       161 +                  of: segmentVideoTrack!,
+       162 +                  at: segment.startTime
+       163 +              )
+       164 +  
+       165 +              // Memory cleanup after each segment
+       166 +              autoreleasepool {}
+       167 +          }
+       168 +          print("   ✅ All segments processed")
+       169 +  
+       170 +          // Get final composition duration
+       171 +          let finalDuration = try await composition.load(.duration)
+       172 +          print("📹 Final composition duration: \(finalDuration.seconds)s")
+       173 +  
+       174 +          // Debug: Check what tracks are in the composition
+       175 +          let allTracks = try await composition.loadTracks(withMediaType: .video)
+       176 +          let timecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+       177 +          print(
+       178 +              "🔍 Composition tracks: \(allTracks.count) video tracks, \(timecodeTracks.count) timecode 
+           + tracks"
+       179 +          )
+       180 +  
+       181 +          if timecodeTracks.count > 0 {
+       182 +              print("✅ Timecode track found in composition - should be exported")
+       183 +  
+       184 +              // Associate timecode track with video track for export
+       185 +              if let videoTrack = videoTrack, let timecodeTrack = timecodeTracks.first {
+       186 +                  // Note: AVMutableComposition doesn't support addTrackAssociation,
+       187 +                  // but AVAssetExportSession should preserve the timecode track
+       188 +                  print("🔗 Video and timecode tracks ready for export")
+       189 +              }
+       190 +          } else {
+       191 +              print("❌ No timecode track found in composition")
+       192 +          }
+       193 +  
+       194 +          // Remove existing file if it exists
+       195 +          if FileManager.default.fileExists(atPath: settings.outputURL.path) {
+       196 +              try FileManager.default.removeItem(at: settings.outputURL)
+       197 +          }
+       198 +  
+       199 +          print("🚀 Starting export...")
+       200 +          let exportStart = CFAbsoluteTimeGetCurrent()
+       201 +  
+       202 +          // Create export session
+       203 +          guard
+       204 +              let exportSession = AVAssetExportSession(
+       205 +                  asset: composition, presetName: AVAssetExportPresetPassthrough)
+       206 +          else {
+       207 +              throw CompositorError.setupFailed
+       208 +          }
+       209 +  
+       210 +          exportSession.outputURL = settings.outputURL
+       211 +          exportSession.outputFileType = .mov
+       212 +          exportSession.timeRange = CMTimeRange(start: .zero, duration: finalDuration)
+       213 +  
+       214 +          // Start export with progress monitoring using async approach
+       215 +          print("🚀 Export Progress:")
+       216 +  
+       217 +          // Use concurrent tasks for export and progress monitoring
+       218 +          await withTaskGroup(of: Void.self) { group in
+       219 +              // Task 1: Start the export
+       220 +              group.addTask {
+       221 +                  do {
+       222 +                      try await exportSession.export(to: settings.outputURL, as: .mov)
+       223 +                  } catch {
+       224 +                      // Export error handled by main task
+       225 +                  }
+       226 +              }
+       227 +  
+       228 +              // Task 2: Monitor progress with updating ASCII bar
+       229 +              group.addTask {
+       230 +                  while !Task.isCancelled {
+       231 +                      let progress = exportSession.progress
+       232 +                      let percentage = Int(progress * 100)
+       233 +                      let progressBar = String(repeating: "█", count: percentage / 2)
+       234 +                      let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
+       235 +                      print("\r📹 [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
+       236 +                      fflush(stdout)
+       237 +  
+       238 +                      // Break if export is complete
+       239 +                      if progress >= 1.0 {
+       240 +                          break
+       241 +                      }
+       242 +  
+       243 +                      try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+       244 +                  }
+       245 +              }
+       246 +  
+       247 +              // Wait for export to complete first, then cancel progress monitoring
+       248 +              await group.next()
+       249 +              group.cancelAll()
+       250 +          }
+       251 +  
+       252 +          print("")  // New line after progress bar
+       253 +  
+       254 +          let exportEndTime = CFAbsoluteTimeGetCurrent()
+       255 +          let exportDuration = exportEndTime - exportStart
+       256 +          print("🚀 Export completed in: \(String(format: "%.2f", exportDuration))s")
+       257 +  
+       258 +          return settings.outputURL
+       259 +      }
+       260 +  
+       261 +      // MARK: - Helper Methods
+       262 +      func getVideoTrack(from asset: AVAsset) async throws -> AVAssetTrack {
+       263 +          let tracks = try await asset.loadTracks(withMediaType: .video)
+       264 +          guard let videoTrack = tracks.first else {
+       265 +              throw CompositorError.noVideoTrack
+       266 +          }
+       267 +          return videoTrack
+       268 +      }
+       269 +  
+       270 +      func getVideoProperties(from track: AVAssetTrack) async throws -> VideoProperties {
+       271 +          let naturalSize = try await track.load(.naturalSize)
+       272 +          let nominalFrameRate = try await track.load(.nominalFrameRate)
+       273 +          let formatDescriptions = try await track.load(.formatDescriptions)
+       274 +  
+       275 +          var colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+       276 +          var transferFunction = AVVideoTransferFunction_ITU_R_709_2
+       277 +          var yCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+       278 +  
+       279 +          // Extract color information if available
+       280 +          if let formatDescription = formatDescriptions.first {
+       281 +              let extensions = CMFormatDescriptionGetExtensions(formatDescription)
+       282 +              if let extensionsDict = extensions as? [String: Any] {
+       283 +                  if let colorProperties = extensionsDict[
+       284 +                      kCMFormatDescriptionExtension_ColorPrimaries as String] as? String
+       285 +                  {
+       286 +                      colorPrimaries = colorProperties
+       287 +                  }
+       288 +                  if let transferProperties = extensionsDict[
+       289 +                      kCMFormatDescriptionExtension_TransferFunction as String] as? String
+       290 +                  {
+       291 +                      transferFunction = transferProperties
+       292 +                  }
+       293 +                  if let matrixProperties = extensionsDict[
+       294 +                      kCMFormatDescriptionExtension_YCbCrMatrix as String] as? String
+       295 +                  {
+       296 +                      yCbCrMatrix = matrixProperties
+       297 +                  }
+       298 +              }
+       299 +          }
+       300 +  
+       301 +          // Extract timecode information
+       302 +          let sourceTimecode = try await extractSourceTimecode(
+       303 +              from: track.asset ?? AVURLAsset(url: URL(fileURLWithPath: "")))
+       304 +  
+       305 +          return VideoProperties(
+       306 +              width: Int(naturalSize.width),
+       307 +              height: Int(naturalSize.height),
+       308 +              frameRate: Int32(nominalFrameRate),
+       309 +              colorPrimaries: colorPrimaries,
+       310 +              transferFunction: transferFunction,
+       311 +              yCbCrMatrix: yCbCrMatrix,
+       312 +              sourceTimecode: sourceTimecode
+       313 +          )
+       314 +      }
+       315 +  
+       316 +      // MARK: - Segment Discovery and Parsing
+       317 +      func discoverSegments(in directoryURL: URL) async throws -> [SegmentInfo] {
+       318 +          let fileManager = FileManager.default
+       319 +          let segmentURLs = try fileManager.contentsOfDirectory(
+       320 +              at: directoryURL, includingPropertiesForKeys: nil
+       321 +          )
+       322 +          .filter { $0.pathExtension.lowercased() == "mov" }
+       323 +          .sorted { $0.lastPathComponent < $1.lastPathComponent }
+       324 +  
+       325 +          var segments: [SegmentInfo] = []
+       326 +  
+       327 +          for url in segmentURLs {
+       328 +              let segmentInfo = try await parseSegmentInfo(from: url)
+       329 +              segments.append(segmentInfo)
+       330 +          }
+       331 +  
+       332 +          return segments
+       333 +      }
+       334 +  
+       335 +      private func parseSegmentInfo(from url: URL) async throws -> SegmentInfo {
+       336 +          let asset = AVURLAsset(url: url)
+       337 +          let duration = try await asset.load(.duration)
+       338 +          let filename = url.lastPathComponent
+       339 +  
+       340 +          // Try to parse segment number from filename (e.g., "S01", "S02")
+       341 +          let segmentNumber = parseSegmentNumber(from: filename)
+       342 +  
+       343 +          // Start time will be determined from timecode tracks
+       344 +  
+       345 +          // Extract timecode information
+       346 +          let sourceTimecode = try await extractSourceTimecode(from: asset)
+       347 +          let sourceStartTimecode = try await extractSourceTimecode(from: asset)
+       348 +  
+       349 +          return SegmentInfo(
+       350 +              url: url,
+       351 +              filename: filename,
+       352 +              duration: duration,
+       353 +              startTime: nil,
+       354 +              segmentNumber: segmentNumber,
+       355 +              sourceTimecode: sourceTimecode,
+       356 +              sourceStartTimecode: sourceStartTimecode
+       357 +          )
+       358 +      }
+       359 +  
+       360 +      private func parseSegmentNumber(from filename: String) -> Int? {
+       361 +          // Look for patterns like "S01", "S02", etc.
+       362 +          let pattern = "S(\\d+)"
+       363 +          let regex = try? NSRegularExpression(pattern: pattern)
+       364 +          let range = NSRange(filename.startIndex..<filename.endIndex, in: filename)
+       365 +  
+       366 +          if let match = regex?.firstMatch(in: filename, range: range),
+       367 +              let numberRange = Range(match.range(at: 1), in: filename)
+       368 +          {
+       369 +              return Int(filename[numberRange])
+       370 +          }
+       371 +  
+       372 +          return nil
+       373 +      }
+       374 +  
+       375 +      // MARK: - Timecode Handling using TimecodeKit (RESTORED)
+       376 +      private func extractSourceTimecode(from asset: AVAsset) async throws -> String? {
+       377 +          print("🔍 Extracting timecode using TimecodeKit...")
+       378 +  
+       379 +          do {
+       380 +              // Try to auto-detect frame rate first
+       381 +              let frameRate = try await asset.timecodeFrameRate()
+       382 +              print("    📹 Auto-detected frame rate: \(frameRate)")
+       383 +  
+       384 +              // Read start timecode using TimecodeKit
+       385 +              if let startTimecode = try await asset.startTimecode(at: frameRate) {
+       386 +                  print("    ✅ Found start timecode: \(startTimecode)")
+       387 +                  return startTimecode.stringValue()
+       388 +              } else {
+       389 +                  print("    ❌ No start timecode found")
+       390 +                  return nil
+       391 +              }
+       392 +          } catch {
+       393 +              print("    ❌ Failed to extract timecode with auto-detected frame rate: \(error)")
+       394 +              print("❌ No timecode found in video")
+       395 +              return nil
+       396 +          }
+       397 +      }
+       398 +  
+       399 +      private func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil)
+       400 +          -> CMTime?
+       401 +      {
+       402 +          // Parse timecode in format HH:MM:SS:FF (frames)
+       403 +          let components = timecode.components(separatedBy: ":")
+       404 +          guard components.count == 4,
+       405 +              let hours = Int(components[0]),
+       406 +              let minutes = Int(components[1]),
+       407 +              let seconds = Int(components[2]),
+       408 +              let frames = Int(components[3])
+       409 +          else {
+       410 +              return nil
+       411 +          }
+       412 +  
+       413 +          // If we have a base timecode, calculate relative offset
+       414 +          if let baseTimecode = baseTimecode {
+       415 +              let baseComponents = baseTimecode.components(separatedBy: ":")
+       416 +              guard baseComponents.count == 4,
+       417 +                  let baseHours = Int(baseComponents[0]),
+       418 +                  let baseMinutes = Int(baseComponents[1]),
+       419 +                  let baseSeconds = Int(baseComponents[2]),
+       420 +                  let baseFrames = Int(baseComponents[3])
+       421 +              else {
+       422 +                  return nil
+       423 +              }
+       424 +  
+       425 +              // Calculate the difference in seconds and frames
+       426 +              let totalSeconds =
+       427 +                  (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
+       428 +              let frameDifference = frames - baseFrames
+       429 +              let frameTime = Double(frameDifference) / Double(frameRate)
+       430 +  
+       431 +              return CMTime(
+       432 +                  seconds: Double(totalSeconds) + frameTime,
+       433 +                  preferredTimescale: CMTimeScale(frameRate))
+       434 +          } else {
+       435 +              // Absolute timecode (for base timecode itself)
+       436 +              let totalSeconds = hours * 3600 + minutes * 60 + seconds
+       437 +              let frameTime = Double(frames) / Double(frameRate)
+       438 +              return CMTime(
+       439 +                  seconds: Double(totalSeconds) + frameTime,
+       440 +                  preferredTimescale: CMTimeScale(frameRate))
+       441 +          }
+       442 +      }
+       443 +  
+       444 +      func cmTimeToTimecode(_ time: CMTime, frameRate: Int32) -> String {
+       445 +          let totalSeconds = time.seconds
+       446 +          let hours = Int(totalSeconds) / 3600
+       447 +          let minutes = (Int(totalSeconds) % 3600) / 60
+       448 +          let seconds = Int(totalSeconds) % 60
+       449 +          let frames = Int((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate))
+       450 +  
+       451 +          return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
+       452 +      }
+       453 +  
+       454 +      func createGradedSegments(
+       455 +          from segmentInfos: [SegmentInfo], baseDuration: CMTime, baseProperties: VideoProperties
+       456 +      ) -> [GradedSegment] {
+       457 +          var segments: [GradedSegment] = []
+       458 +  
+       459 +          // Sort segments by segment number if available, otherwise by filename
+       460 +          let sortedSegments = segmentInfos.sorted { seg1, seg2 in
+       461 +              if let num1 = seg1.segmentNumber, let num2 = seg2.segmentNumber {
+       462 +                  return num1 < num2
+       463 +              }
+       464 +              return seg1.filename < seg2.filename
+       465 +          }
+       466 +  
+       467 +          for segmentInfo in sortedSegments {
+       468 +              let startTime: CMTime
+       469 +              let sourceStartTime: CMTime
+       470 +  
+       471 +              // Use extracted timecode-based timing
+       472 +              if let sourceTimecode = segmentInfo.sourceStartTimecode,
+       473 +                  let timecodeTime = timecodeToCMTime(
+       474 +                      sourceTimecode, frameRate: baseProperties.frameRate,
+       475 +                      baseTimecode: baseProperties.sourceTimecode)
+       476 +              {
+       477 +                  // Use extracted timecode-based timing
+       478 +                  startTime = timecodeTime
+       479 +                  sourceStartTime = .zero
+       480 +                  let frameNumber = Int(timecodeTime.seconds * Double(baseProperties.frameRate))
+       481 +                  let outputTimecode = cmTimeToTimecode(
+       482 +                      timecodeTime, frameRate: baseProperties.frameRate)
+       483 +                  print("🎬 Using extracted timecode for \(segmentInfo.filename):")
+       484 +                  print(
+       485 +                      "   Extracted TC: \(sourceTimecode) → Frame \(frameNumber) (\(outputTimecode))")
+       486 +              } else if let parsedStartTime = segmentInfo.startTime {
+       487 +                  // Use parsed start time if available
+       488 +                  startTime = parsedStartTime
+       489 +                  sourceStartTime = .zero
+       490 +                  let frameNumber = Int(parsedStartTime.seconds * Double(baseProperties.frameRate))
+       491 +                  let outputTimecode = cmTimeToTimecode(
+       492 +                      parsedStartTime, frameRate: baseProperties.frameRate)
+       493 +                  print("🎬 Using parsed start time for \(segmentInfo.filename):")
+       494 +                  print(
+       495 +                      "   Parsed: \(parsedStartTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))"
+       496 +                  )
+       497 +              } else {
+       498 +                  // Fallback to sequential timing
+       499 +                  let currentTime =
+       500 +                      segments.isEmpty
+       501 +                      ? .zero : CMTimeAdd(segments.last!.startTime, segments.last!.duration)
+       502 +                  startTime = currentTime
+       503 +                  sourceStartTime = .zero
+       504 +                  let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
+       505 +                  let outputTimecode = cmTimeToTimecode(
+       506 +                      currentTime, frameRate: baseProperties.frameRate)
+       507 +                  print("🎬 Using sequential timing for \(segmentInfo.filename):")
+       508 +                  print(
+       509 +                      "   Sequential: \(currentTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))"
+       510 +                  )
+       511 +              }
+       512 +  
+       513 +              let segment = GradedSegment(
+       514 +                  url: segmentInfo.url,
+       515 +                  startTime: startTime,
+       516 +                  duration: segmentInfo.duration,
+       517 +                  sourceStartTime: sourceStartTime
+       518 +              )
+       519 +  
+       520 +              segments.append(segment)
+       521 +          }
+       522 +  
+       523 +          return segments
+       524 +      }
+       525 +  }
+       526 +  
+       527 +  // MARK: - Supporting Types
+       528 +  struct VideoProperties {
+       529 +      let width: Int
+       530 +      let height: Int
+       531 +      let frameRate: Int32
+       532 +      let colorPrimaries: String
+       533 +      let transferFunction: String
+       534 +      let yCbCrMatrix: String
+       535 +      let sourceTimecode: String?  // Source timecode from the base video
+       536 +  }
+       537 +  
+       538 +  struct SegmentInfo {
+       539 +      let url: URL
+       540 +      let filename: String
+       541 +      let duration: CMTime
+       542 +      let startTime: CMTime?  // Optional: can be parsed from filename or metadata
+       543 +      let segmentNumber: Int?  // Optional: can be parsed from filename
+       544 +      let sourceTimecode: String?  // Source timecode from the segment file
+       545 +      let sourceStartTimecode: String?  // Start timecode of the segment
+       546 +  }
+       547 +  
+       548 +  enum CompositorError: Error {
+       549 +      case setupFailed
+       550 +      case noVideoTrack
+       551 +  }
+       552 +  
+       553 +  // MARK: - Command Line Entry Point
+       554    func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL) async {
+       555        print("🎬 Starting ProRes Composition...")
+       556    
+     ...
+       133        } catch {
+       134            print("❌ Failed to discover or parse segments: \(error.localizedDescription)")
+       135        }
+       136 -  }
+       137 -  
+       136 +  }
+       137   \ No newline at end of file
+
+⏺ Now let me update main.swift to only have the Task and RunLoop code that calls the function from printProcess.swift:
+
+⏺ Write(ProResWriter/main.swift)
+  ⎿  Updated ProResWriter/main.swift with 2 additions and 671 removals                                                  
+         1 -  import AVFoundation
+         2 -  import CoreMedia
+         3 -  import TimecodeKit
+         1 +  import Foundation
+         2    
+         3 -  // MARK: - Data Models
+         4 -  struct GradedSegment {
+         5 -      let url: URL
+         6 -      let startTime: CMTime  // Start time in the final timeline
+         7 -      let duration: CMTime  // Duration of the segment
+         8 -      let sourceStartTime: CMTime  // Start time in the source segment file
+         9 -  }
+        10 -  
+        11 -  struct CompositorSettings {
+        12 -      let outputURL: URL
+        13 -      let baseVideoURL: URL
+        14 -      let gradedSegments: [GradedSegment]
+        15 -      let proResType: AVVideoCodecType  // .proRes422, .proRes422HQ, etc.
+        16 -  }
+        17 -  
+        18 -  // MARK: - Main Compositor Class
+        19 -  class ProResVideoCompositor: NSObject {
+        20 -  
+        21 -      // Progress callback
+        22 -      var progressHandler: ((Double) -> Void)?
+        23 -      var completionHandler: ((Result<URL, Error>) -> Void)?
+        24 -  
+        25 -      // MARK: - Public Interface
+        26 -      func composeVideo(with settings: CompositorSettings) {
+        27 -          Task {
+        28 -              do {
+        29 -                  let outputURL = try await processComposition(settings: settings)
+        30 -                  await MainActor.run {
+        31 -                      completionHandler?(.success(outputURL))
+        32 -                  }
+        33 -              } catch {
+        34 -                  print("❌ Composition error: \(error)")
+        35 -                  await MainActor.run {
+        36 -                      completionHandler?(.failure(error))
+        37 -                  }
+        38 -              }
+        39 -          }
+        40 -      }
+        41 -  
+        42 -      // MARK: - Core Processing
+        43 -      private func processComposition(settings: CompositorSettings) async throws -> URL {
+        44 -  
+        45 -          print("🔍 Starting composition process...")
+        46 -  
+        47 -          // 1. Analyze base video to get properties
+        48 -          let analysisStartTime = CFAbsoluteTimeGetCurrent()
+        49 -          print("📹 Analyzing base video...")
+        50 -  
+        51 -          let assetOptions: [String: Any] = [
+        52 -              AVURLAssetPreferPreciseDurationAndTimingKey: true
+        53 -          ]
+        54 -          let baseAsset = AVURLAsset(url: settings.baseVideoURL, options: assetOptions)
+        55 -  
+        56 -          let baseTrack = try await getVideoTrack(from: baseAsset)
+        57 -          let baseProperties = try await getVideoProperties(from: baseTrack)
+        58 -          let analysisEndTime = CFAbsoluteTimeGetCurrent()
+        59 -          print(
+        60 -              "📹 Video analysis completed in: \(String(format: "%.2f", analysisEndTime - 
+           - analysisStartTime))s"
+        61 -          )
+        62 -  
+        63 -          // Log the extracted timecode for debugging
+        64 -          if let sourceTimecode = baseProperties.sourceTimecode {
+        65 -              print("📹 Extracted base timecode: \(sourceTimecode)")
+        66 -          } else {
+        67 -              print("📹 No timecode found in base video")
+        68 -          }
+        69 -  
+        70 -          print(
+        71 -              "✅ Base video properties: \(baseProperties.width)x\(baseProperties.height) @ 
+           - \(baseProperties.frameRate)fps"
+        72 -          )
+        73 -  
+        74 -          // 2. Use AVMutableComposition with trimming for overlay
+        75 -          let exportStartTime = CFAbsoluteTimeGetCurrent()
+        76 -          print("🚀 Using AVMutableComposition with trimming for fast overlay...")
+        77 -  
+        78 -          // Create composition
+        79 -          let composition = AVMutableComposition()
+        80 -          let videoTrack = composition.addMutableTrack(
+        81 -              withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        82 -  
+        83 -          // Add timecode track to composition
+        84 -          let timecodeTrack = composition.addMutableTrack(
+        85 -              withMediaType: .timecode, preferredTrackID: kCMPersistentTrackID_Invalid)
+        86 -  
+        87 -          // Add base video to composition
+        88 -          let baseVideoTrack = try await getVideoTrack(from: baseAsset)
+        89 -          let baseDuration = try await baseAsset.load(.duration)
+        90 -          try videoTrack?.insertTimeRange(
+        91 -              CMTimeRange(start: .zero, duration: baseDuration), of: baseVideoTrack, at: .zero)
+        92 -  
+        93 -          print("🎬 Base video added to composition: \(baseDuration.seconds)s")
+        94 -  
+        95 -          // Copy existing timecode track from base asset if it exists
+        96 -          if let timecodeTrack = timecodeTrack {
+        97 -              print("⏰ Looking for existing timecode track in base asset...")
+        98 -  
+        99 -              // Check if base asset has timecode tracks
+       100 -              let baseTimecodeTracks = try await baseAsset.loadTracks(withMediaType: .timecode)
+       101 -              print("🔍 Base asset has \(baseTimecodeTracks.count) timecode tracks")
+       102 -  
+       103 -              if let baseTimecodeTrack = baseTimecodeTracks.first {
+       104 -                  print("✅ Found existing timecode track in base asset - copying directly...")
+       105 -  
+       106 -                  // Copy the timecode track directly from base asset
+       107 -                  try timecodeTrack.insertTimeRange(
+       108 -                      CMTimeRange(start: .zero, duration: baseDuration),
+       109 -                      of: baseTimecodeTrack,
+       110 -                      at: .zero
+       111 -                  )
+       112 -                  print("✅ Timecode track copied directly from base asset")
+       113 -  
+       114 -                  // Verify the track was actually added
+       115 -                  let finalTimecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+       116 -                  print("🔍 Composition now has \(finalTimecodeTracks.count) timecode tracks")
+       117 -              } else {
+       118 -                  print("⚠️ No existing timecode track found in base asset - skipping timecode track")
+       119 -              }
+       120 -          } else {
+       121 -              print("⚠️ Failed to create timecode track in composition")
+       122 -          }
+       123 -  
+       124 -          // Sort segments by start time for trimming
+       125 -          let sortedSegments = settings.gradedSegments.sorted { $0.startTime < $1.startTime }
+       126 -  
+       127 -          // Create asset loader for segments
+       128 -          let assetLoader = { (segment: GradedSegment) -> AVAsset in
+       129 -              let assetOptions: [String: Any] = [
+       130 -                  AVURLAssetPreferPreciseDurationAndTimingKey: true
+       131 -              ]
+       132 -              return AVURLAsset(url: segment.url, options: assetOptions)
+       133 -          }
+       134 -  
+       135 -          print("🎬 Processing \(sortedSegments.count) segments...")
+       136 -  
+       137 -          // Process segments in reverse order to avoid time shifting
+       138 -          for (index, segment) in sortedSegments.reversed().enumerated() {
+       139 -              print(
+       140 -                  "   Processing segment \(sortedSegments.count - index): \(segment.url.lastPathComponent)"
+       141 -              )
+       142 -  
+       143 -              // Remove the base video section that this segment will replace
+       144 -              videoTrack?.removeTimeRange(
+       145 -                  CMTimeRange(start: segment.startTime, duration: segment.duration))
+       146 -  
+       147 -              // Load asset on-demand and immediately release after use
+       148 -              let segmentAsset = assetLoader(segment)
+       149 -              let segmentVideoTrack = try? await getVideoTrack(from: segmentAsset)
+       150 -              try? videoTrack?.insertTimeRange(
+       151 -                  CMTimeRange(start: .zero, duration: segment.duration),
+       152 -                  of: segmentVideoTrack!,
+       153 -                  at: segment.startTime
+       154 -              )
+       155 -  
+       156 -              // Memory cleanup after each segment
+       157 -              autoreleasepool {}
+       158 -          }
+       159 -          print("   ✅ All segments processed")
+       160 -  
+       161 -          // Get final composition duration
+       162 -          let finalDuration = try await composition.load(.duration)
+       163 -          print("📹 Final composition duration: \(finalDuration.seconds)s")
+       164 -  
+       165 -          // Debug: Check what tracks are in the composition
+       166 -          let allTracks = try await composition.loadTracks(withMediaType: .video)
+       167 -          let timecodeTracks = try await composition.loadTracks(withMediaType: .timecode)
+       168 -          print(
+       169 -              "🔍 Composition tracks: \(allTracks.count) video tracks, \(timecodeTracks.count) timecode 
+           - tracks"
+       170 -          )
+       171 -  
+       172 -          if timecodeTracks.count > 0 {
+       173 -              print("✅ Timecode track found in composition - should be exported")
+       174 -  
+       175 -              // Associate timecode track with video track for export
+       176 -              if let videoTrack = videoTrack, let timecodeTrack = timecodeTracks.first {
+       177 -                  // Note: AVMutableComposition doesn't support addTrackAssociation,
+       178 -                  // but AVAssetExportSession should preserve the timecode track
+       179 -                  print("🔗 Video and timecode tracks ready for export")
+       180 -              }
+       181 -          } else {
+       182 -              print("❌ No timecode track found in composition")
+       183 -          }
+       184 -  
+       185 -          // Remove existing file if it exists
+       186 -          if FileManager.default.fileExists(atPath: settings.outputURL.path) {
+       187 -              try FileManager.default.removeItem(at: settings.outputURL)
+       188 -          }
+       189 -  
+       190 -          print("🚀 Starting export...")
+       191 -          let exportStart = CFAbsoluteTimeGetCurrent()
+       192 -  
+       193 -          // Create export session
+       194 -          guard
+       195 -              let exportSession = AVAssetExportSession(
+       196 -                  asset: composition, presetName: AVAssetExportPresetPassthrough)
+       197 -          else {
+       198 -              throw CompositorError.setupFailed
+       199 -          }
+       200 -  
+       201 -          exportSession.outputURL = settings.outputURL
+       202 -          exportSession.outputFileType = .mov
+       203 -          exportSession.timeRange = CMTimeRange(start: .zero, duration: finalDuration)
+       204 -  
+       205 -          // Start export with progress monitoring using async approach
+       206 -          print("🚀 Export Progress:")
+       207 -  
+       208 -          // Use concurrent tasks for export and progress monitoring
+       209 -          await withTaskGroup(of: Void.self) { group in
+       210 -              // Task 1: Start the export
+       211 -              group.addTask {
+       212 -                  do {
+       213 -                      try await exportSession.export(to: settings.outputURL, as: .mov)
+       214 -                  } catch {
+       215 -                      // Export error handled by main task
+       216 -                  }
+       217 -              }
+       218 -  
+       219 -              // Task 2: Monitor progress with updating ASCII bar
+       220 -              group.addTask {
+       221 -                  while !Task.isCancelled {
+       222 -                      let progress = exportSession.progress
+       223 -                      let percentage = Int(progress * 100)
+       224 -                      let progressBar = String(repeating: "█", count: percentage / 2)
+       225 -                      let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
+       226 -                      print("\r📹 [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
+       227 -                      fflush(stdout)
+       228 -  
+       229 -                      // Break if export is complete
+       230 -                      if progress >= 1.0 {
+       231 -                          break
+       232 -                      }
+       233 -  
+       234 -                      try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+       235 -                  }
+       236 -              }
+       237 -  
+       238 -              // Wait for export to complete first, then cancel progress monitoring
+       239 -              await group.next()
+       240 -              group.cancelAll()
+       241 -          }
+       242 -  
+       243 -          print("")  // New line after progress bar
+       244 -  
+       245 -          let exportEndTime = CFAbsoluteTimeGetCurrent()
+       246 -          let exportDuration = exportEndTime - exportStart
+       247 -          print("🚀 Export completed in: \(String(format: "%.2f", exportDuration))s")
+       248 -  
+       249 -          return settings.outputURL
+       250 -      }
+       251 -  
+       252 -      // MARK: - Helper Methods
+       253 -      func getVideoTrack(from asset: AVAsset) async throws -> AVAssetTrack {
+       254 -          let tracks = try await asset.loadTracks(withMediaType: .video)
+       255 -          guard let videoTrack = tracks.first else {
+       256 -              throw CompositorError.noVideoTrack
+       257 -          }
+       258 -          return videoTrack
+       259 -      }
+       260 -  
+       261 -      func getVideoProperties(from track: AVAssetTrack) async throws -> VideoProperties {
+       262 -          let naturalSize = try await track.load(.naturalSize)
+       263 -          let nominalFrameRate = try await track.load(.nominalFrameRate)
+       264 -          let formatDescriptions = try await track.load(.formatDescriptions)
+       265 -  
+       266 -          var colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+       267 -          var transferFunction = AVVideoTransferFunction_ITU_R_709_2
+       268 -          var yCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+       269 -  
+       270 -          // Extract color information if available
+       271 -          if let formatDescription = formatDescriptions.first {
+       272 -              let extensions = CMFormatDescriptionGetExtensions(formatDescription)
+       273 -              if let extensionsDict = extensions as? [String: Any] {
+       274 -                  if let colorProperties = extensionsDict[
+       275 -                      kCMFormatDescriptionExtension_ColorPrimaries as String] as? String
+       276 -                  {
+       277 -                      colorPrimaries = colorProperties
+       278 -                  }
+       279 -                  if let transferProperties = extensionsDict[
+       280 -                      kCMFormatDescriptionExtension_TransferFunction as String] as? String
+       281 -                  {
+       282 -                      transferFunction = transferProperties
+       283 -                  }
+       284 -                  if let matrixProperties = extensionsDict[
+       285 -                      kCMFormatDescriptionExtension_YCbCrMatrix as String] as? String
+       286 -                  {
+       287 -                      yCbCrMatrix = matrixProperties
+       288 -                  }
+       289 -              }
+       290 -          }
+       291 -  
+       292 -          // Extract timecode information
+       293 -          let sourceTimecode = try await extractSourceTimecode(
+       294 -              from: track.asset ?? AVURLAsset(url: URL(fileURLWithPath: "")))
+       295 -  
+       296 -          return VideoProperties(
+       297 -              width: Int(naturalSize.width),
+       298 -              height: Int(naturalSize.height),
+       299 -              frameRate: Int32(nominalFrameRate),
+       300 -              colorPrimaries: colorPrimaries,
+       301 -              transferFunction: transferFunction,
+       302 -              yCbCrMatrix: yCbCrMatrix,
+       303 -              sourceTimecode: sourceTimecode
+       304 -          )
+       305 -      }
+       306 -  
+       307 -      // MARK: - Segment Discovery and Parsing
+       308 -      func discoverSegments(in directoryURL: URL) async throws -> [SegmentInfo] {
+       309 -          let fileManager = FileManager.default
+       310 -          let segmentURLs = try fileManager.contentsOfDirectory(
+       311 -              at: directoryURL, includingPropertiesForKeys: nil
+       312 -          )
+       313 -          .filter { $0.pathExtension.lowercased() == "mov" }
+       314 -          .sorted { $0.lastPathComponent < $1.lastPathComponent }
+       315 -  
+       316 -          var segments: [SegmentInfo] = []
+       317 -  
+       318 -          for url in segmentURLs {
+       319 -              let segmentInfo = try await parseSegmentInfo(from: url)
+       320 -              segments.append(segmentInfo)
+       321 -          }
+       322 -  
+       323 -          return segments
+       324 -      }
+       325 -  
+       326 -      private func parseSegmentInfo(from url: URL) async throws -> SegmentInfo {
+       327 -          let asset = AVURLAsset(url: url)
+       328 -          let duration = try await asset.load(.duration)
+       329 -          let filename = url.lastPathComponent
+       330 -  
+       331 -          // Try to parse segment number from filename (e.g., "S01", "S02")
+       332 -          let segmentNumber = parseSegmentNumber(from: filename)
+       333 -  
+       334 -          // Start time will be determined from timecode tracks
+       335 -  
+       336 -          // Extract timecode information
+       337 -          let sourceTimecode = try await extractSourceTimecode(from: asset)
+       338 -          let sourceStartTimecode = try await extractSourceTimecode(from: asset)
+       339 -  
+       340 -          return SegmentInfo(
+       341 -              url: url,
+       342 -              filename: filename,
+       343 -              duration: duration,
+       344 -              startTime: nil,
+       345 -              segmentNumber: segmentNumber,
+       346 -              sourceTimecode: sourceTimecode,
+       347 -              sourceStartTimecode: sourceStartTimecode
+       348 -          )
+       349 -      }
+       350 -  
+       351 -      private func parseSegmentNumber(from filename: String) -> Int? {
+       352 -          // Look for patterns like "S01", "S02", etc.
+       353 -          let pattern = "S(\\d+)"
+       354 -          let regex = try? NSRegularExpression(pattern: pattern)
+       355 -          let range = NSRange(filename.startIndex..<filename.endIndex, in: filename)
+       356 -  
+       357 -          if let match = regex?.firstMatch(in: filename, range: range),
+       358 -              let numberRange = Range(match.range(at: 1), in: filename)
+       359 -          {
+       360 -              return Int(filename[numberRange])
+       361 -          }
+       362 -  
+       363 -          return nil
+       364 -      }
+       365 -  
+       366 -      // MARK: - Timecode Handling using TimecodeKit (RESTORED)
+       367 -      private func extractSourceTimecode(from asset: AVAsset) async throws -> String? {
+       368 -          print("🔍 Extracting timecode using TimecodeKit...")
+       369 -  
+       370 -          do {
+       371 -              // Try to auto-detect frame rate first
+       372 -              let frameRate = try await asset.timecodeFrameRate()
+       373 -              print("    📹 Auto-detected frame rate: \(frameRate)")
+       374 -  
+       375 -              // Read start timecode using TimecodeKit
+       376 -              if let startTimecode = try await asset.startTimecode(at: frameRate) {
+       377 -                  print("    ✅ Found start timecode: \(startTimecode)")
+       378 -                  return startTimecode.stringValue()
+       379 -              } else {
+       380 -                  print("    ❌ No start timecode found")
+       381 -                  return nil
+       382 -              }
+       383 -          } catch {
+       384 -              print("    ❌ Failed to extract timecode with auto-detected frame rate: \(error)")
+       385 -              print("❌ No timecode found in video")
+       386 -              return nil
+       387 -          }
+       388 -      }
+       389 -  
+       390 -      private func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil)
+       391 -          -> CMTime?
+       392 -      {
+       393 -          // Parse timecode in format HH:MM:SS:FF (frames)
+       394 -          let components = timecode.components(separatedBy: ":")
+       395 -          guard components.count == 4,
+       396 -              let hours = Int(components[0]),
+       397 -              let minutes = Int(components[1]),
+       398 -              let seconds = Int(components[2]),
+       399 -              let frames = Int(components[3])
+       400 -          else {
+       401 -              return nil
+       402 -          }
+       403 -  
+       404 -          // If we have a base timecode, calculate relative offset
+       405 -          if let baseTimecode = baseTimecode {
+       406 -              let baseComponents = baseTimecode.components(separatedBy: ":")
+       407 -              guard baseComponents.count == 4,
+       408 -                  let baseHours = Int(baseComponents[0]),
+       409 -                  let baseMinutes = Int(baseComponents[1]),
+       410 -                  let baseSeconds = Int(baseComponents[2]),
+       411 -                  let baseFrames = Int(baseComponents[3])
+       412 -              else {
+       413 -                  return nil
+       414 -              }
+       415 -  
+       416 -              // Calculate the difference in seconds and frames
+       417 -              let totalSeconds =
+       418 -                  (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
+       419 -              let frameDifference = frames - baseFrames
+       420 -              let frameTime = Double(frameDifference) / Double(frameRate)
+       421 -  
+       422 -              return CMTime(
+       423 -                  seconds: Double(totalSeconds) + frameTime,
+       424 -                  preferredTimescale: CMTimeScale(frameRate))
+       425 -          } else {
+       426 -              // Absolute timecode (for base timecode itself)
+       427 -              let totalSeconds = hours * 3600 + minutes * 60 + seconds
+       428 -              let frameTime = Double(frames) / Double(frameRate)
+       429 -              return CMTime(
+       430 -                  seconds: Double(totalSeconds) + frameTime,
+       431 -                  preferredTimescale: CMTimeScale(frameRate))
+       432 -          }
+       433 -      }
+       434 -  
+       435 -      func cmTimeToTimecode(_ time: CMTime, frameRate: Int32) -> String {
+       436 -          let totalSeconds = time.seconds
+       437 -          let hours = Int(totalSeconds) / 3600
+       438 -          let minutes = (Int(totalSeconds) % 3600) / 60
+       439 -          let seconds = Int(totalSeconds) % 60
+       440 -          let frames = Int((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate))
+       441 -  
+       442 -          return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
+       443 -      }
+       444 -  
+       445 -      func createGradedSegments(
+       446 -          from segmentInfos: [SegmentInfo], baseDuration: CMTime, baseProperties: VideoProperties
+       447 -      ) -> [GradedSegment] {
+       448 -          var segments: [GradedSegment] = []
+       449 -  
+       450 -          // Sort segments by segment number if available, otherwise by filename
+       451 -          let sortedSegments = segmentInfos.sorted { seg1, seg2 in
+       452 -              if let num1 = seg1.segmentNumber, let num2 = seg2.segmentNumber {
+       453 -                  return num1 < num2
+       454 -              }
+       455 -              return seg1.filename < seg2.filename
+       456 -          }
+       457 -  
+       458 -          for segmentInfo in sortedSegments {
+       459 -              let startTime: CMTime
+       460 -              let sourceStartTime: CMTime
+       461 -  
+       462 -              // Use extracted timecode-based timing
+       463 -              if let sourceTimecode = segmentInfo.sourceStartTimecode,
+       464 -                  let timecodeTime = timecodeToCMTime(
+       465 -                      sourceTimecode, frameRate: baseProperties.frameRate,
+       466 -                      baseTimecode: baseProperties.sourceTimecode)
+       467 -              {
+       468 -                  // Use extracted timecode-based timing
+       469 -                  startTime = timecodeTime
+       470 -                  sourceStartTime = .zero
+       471 -                  let frameNumber = Int(timecodeTime.seconds * Double(baseProperties.frameRate))
+       472 -                  let outputTimecode = cmTimeToTimecode(
+       473 -                      timecodeTime, frameRate: baseProperties.frameRate)
+       474 -                  print("🎬 Using extracted timecode for \(segmentInfo.filename):")
+       475 -                  print(
+       476 -                      "   Extracted TC: \(sourceTimecode) → Frame \(frameNumber) (\(outputTimecode))")
+       477 -              } else if let parsedStartTime = segmentInfo.startTime {
+       478 -                  // Use parsed start time if available
+       479 -                  startTime = parsedStartTime
+       480 -                  sourceStartTime = .zero
+       481 -                  let frameNumber = Int(parsedStartTime.seconds * Double(baseProperties.frameRate))
+       482 -                  let outputTimecode = cmTimeToTimecode(
+       483 -                      parsedStartTime, frameRate: baseProperties.frameRate)
+       484 -                  print("🎬 Using parsed start time for \(segmentInfo.filename):")
+       485 -                  print(
+       486 -                      "   Parsed: \(parsedStartTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))"
+       487 -                  )
+       488 -              } else {
+       489 -                  // Fallback to sequential timing
+       490 -                  let currentTime =
+       491 -                      segments.isEmpty
+       492 -                      ? .zero : CMTimeAdd(segments.last!.startTime, segments.last!.duration)
+       493 -                  startTime = currentTime
+       494 -                  sourceStartTime = .zero
+       495 -                  let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
+       496 -                  let outputTimecode = cmTimeToTimecode(
+       497 -                      currentTime, frameRate: baseProperties.frameRate)
+       498 -                  print("🎬 Using sequential timing for \(segmentInfo.filename):")
+       499 -                  print(
+       500 -                      "   Sequential: \(currentTime.seconds)s → Frame \(frameNumber) (\(outputTimecode))"
+       501 -                  )
+       502 -              }
+       503 -  
+       504 -              let segment = GradedSegment(
+       505 -                  url: segmentInfo.url,
+       506 -                  startTime: startTime,
+       507 -                  duration: segmentInfo.duration,
+       508 -                  sourceStartTime: sourceStartTime
+       509 -              )
+       510 -  
+       511 -              segments.append(segment)
+       512 -          }
+       513 -  
+       514 -          return segments
+       515 -      }
+       516 -  }
+       517 -  
+       518 -  // MARK: - Supporting Types
+       519 -  struct VideoProperties {
+       520 -      let width: Int
+       521 -      let height: Int
+       522 -      let frameRate: Int32
+       523 -      let colorPrimaries: String
+       524 -      let transferFunction: String
+       525 -      let yCbCrMatrix: String
+       526 -      let sourceTimecode: String?  // Source timecode from the base video
+       527 -  }
+       528 -  
+       529 -  struct SegmentInfo {
+       530 -      let url: URL
+       531 -      let filename: String
+       532 -      let duration: CMTime
+       533 -      let startTime: CMTime?  // Optional: can be parsed from filename or metadata
+       534 -      let segmentNumber: Int?  // Optional: can be parsed from filename
+       535 -      let sourceTimecode: String?  // Source timecode from the segment file
+       536 -      let sourceStartTimecode: String?  // Start timecode of the segment
+       537 -  }
+       538 -  
+       539 -  enum CompositorError: Error {
+       540 -      case setupFailed
+       541 -      case noVideoTrack
+       542 -  }
+       543 -  
+       544 -  // MARK: - Command Line Entry Point
+       545 -  func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL) async {
+       546 -      print("🎬 Starting ProRes Composition...")
+       547 -  
+       548 -      let compositor = ProResVideoCompositor()
+       549 -  
+       550 -      do {
+       551 -          // Discover and parse segments automatically
+       552 -          print("🔍 Discovering segments in: \(segmentsDirectoryURL.path)")
+       553 -          let segmentInfos = try await compositor.discoverSegments(in: segmentsDirectoryURL)
+       554 -  
+       555 -          print("📊 Found \(segmentInfos.count) segments:")
+       556 -          for (index, info) in segmentInfos.enumerated() {
+       557 -              print("  \(index + 1). \(info.filename)")
+       558 -              print(
+       559 -                  "     Duration: \(info.duration.seconds)s (\(Int(info.duration.seconds * 25)) frames)"
+       560 -              )
+       561 -              if let segmentNumber = info.segmentNumber {
+       562 -                  print("     Segment #: \(segmentNumber)")
+       563 -              }
+       564 -              if let startTime = info.startTime {
+       565 -                  let frameNumber = Int(startTime.seconds * 25)
+       566 -                  let timecode = compositor.cmTimeToTimecode(startTime, frameRate: 25)
+       567 -                  print(
+       568 -                      "     Start Time: \(startTime.seconds)s (Frame \(frameNumber), TC: \(timecode))"
+       569 -                  )
+       570 -              }
+       571 -              if let sourceTimecode = info.sourceTimecode {
+       572 -                  print("     Source Timecode: \(sourceTimecode)")
+       573 -              }
+       574 -              if let sourceStartTimecode = info.sourceStartTimecode {
+       575 -                  print("     Start Timecode: \(sourceStartTimecode)")
+       576 -              }
+       577 -          }
+       578 -  
+       579 -          // Get base video properties and duration for timing calculations
+       580 -          let blankRush = AVURLAsset(url: blankRushURL)
+       581 -          let baseTrack = try await compositor.getVideoTrack(from: blankRush)
+       582 -          let baseProperties = try await compositor.getVideoProperties(from: baseTrack)
+       583 -          let baseDuration = try await blankRush.load(.duration)
+       584 -          let totalFrames = Int(baseDuration.seconds * Double(baseProperties.frameRate))
+       585 -  
+       586 -          // Log the extracted timecode for debugging
+       587 -          if let sourceTimecode = baseProperties.sourceTimecode {
+       588 -              print("📹 Extracted base timecode: \(sourceTimecode)")
+       589 -          } else {
+       590 -              print("📹 No timecode found in base video")
+       591 -          }
+       592 -  
+       593 -          print("📹 Base video duration: \(baseDuration.seconds)s (\(totalFrames) frames)")
+       594 -          print(
+       595 -              "📹 Base video properties: \(baseProperties.width)x\(baseProperties.height) @ 
+           - \(baseProperties.frameRate)fps"
+       596 -          )
+       597 -          if let sourceTimecode = baseProperties.sourceTimecode {
+       598 -              print("📹 Base video source timecode: \(sourceTimecode)")
+       599 -          }
+       600 -  
+       601 -          // Create graded segments from discovered info
+       602 -          let segments = compositor.createGradedSegments(
+       603 -              from: segmentInfos, baseDuration: baseDuration, baseProperties: baseProperties)
+       604 -  
+       605 -          print("🎬 Created \(segments.count) graded segments:")
+       606 -          for (index, segment) in segments.enumerated() {
+       607 -              print("  \(index + 1). \(segment.url.lastPathComponent)")
+       608 -              let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRate))
+       609 -              let endFrame =
+       610 -                  startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRate))
+       611 -              let startTimecode = compositor.cmTimeToTimecode(
+       612 -                  segment.startTime, frameRate: baseProperties.frameRate)
+       613 -              let endTimecode = compositor.cmTimeToTimecode(
+       614 -                  CMTimeAdd(segment.startTime, segment.duration), frameRate: baseProperties.frameRate)
+       615 -              print(
+       616 -                  "     Start: Frame \(startFrame) (\(startTimecode)), Duration: 
+     \(segment.duration.seconds)s
+           -  (\(Int(segment.duration.seconds * Double(baseProperties.frameRate))) frames)"
+       617 -              )
+       618 -              print("     End: Frame \(endFrame) (\(endTimecode))")
+       619 -              if let sourceTimecode = baseProperties.sourceTimecode {
+       620 -                  print("     Base Source TC: \(sourceTimecode)")
+       621 -              }
+       622 -          }
+       623 -  
+       624 -          // Render phase: Press Enter to start
+       625 -          print("\n🎬 Timeline ready! Press Enter to start render...")
+       626 -          print("📊 This will measure only the export time (like DaVinci Resolve)")
+       627 -          _ = readLine()
+       628 -          print("🚀 Starting render...")
+       629 -  
+       630 -          let settings = CompositorSettings(
+       631 -              outputURL: outputURL,
+       632 -              baseVideoURL: blankRushURL,
+       633 -              gradedSegments: segments,
+       634 -              proResType: .proRes422HQ
+       635 -          )
+       636 -  
+       637 -          // Setup progress callback for command line
+       638 -          compositor.progressHandler = { progress in
+       639 -              let percentage = Int(progress * 100)
+       640 -              let progressBar = String(repeating: "█", count: percentage / 2)
+       641 -              let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
+       642 -              print("\r📹 Progress: [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
+       643 -              fflush(stdout)
+       644 -          }
+       645 -  
+       646 -          // Setup completion handler and wait for completion
+       647 -          await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+       648 -              compositor.completionHandler = { result in
+       649 -                  print("\n")  // New line after progress bar
+       650 -                  switch result {
+       651 -                  case .success(let outputURL):
+       652 -                      print("✅ Composition complete!")
+       653 -                      print("📁 Output file: \(outputURL.path)")
+       654 -                      continuation.resume()
+       655 -                  case .failure(let error):
+       656 -                      print("❌ Composition failed: \(error.localizedDescription)")
+       657 -                      continuation.resume()
+       658 -                  }
+       659 -              }
+       660 -  
+       661 -              // Start the composition
+       662 -              compositor.composeVideo(with: settings)
+       663 -          }
+       664 -  
+       665 -      } catch {
+       666 -          print("❌ Failed to discover or parse segments: \(error.localizedDescription)")
+       667 -      }
+       668 -  }
+       669 -  
+         3    Task {
+         4        // Paths
+         5        let blankRushURL = URL(
+     ...
+       688        exit(0)
+       689    }
+       690    
+       691 -  RunLoop.main.run()
+       691 +  RunLoop.main.run()
+       692   \ No newline at end of file
+
+⏺ Update Todos
+  ⎿  ☒ Move runComposition() function from main.swift to printProcess.swift
+     ☒ Create import process functionality in importProcess.swift
+     ☒ Update main.swift to use the refactored components
+     ☐ Create pairing process functionality in pairingProcess.swift
+
+⏺ Perfect! I've successfully moved everything from main.swift to printProcess.swift. Now main.swift only contains the
+  Task entry point that calls the runComposition function from printProcess.swift.
+
+  The refactoring is complete:
+  - ✅ Moved all the core ProRes composition functionality to printProcess.swift:547
+  - ✅ Updated main.swift to be minimal with just the entry point code
+  - ✅ Ready for you to continue with the import and pairing process implementations
+
+> nice! and just to check, can we make the runComposition() work from @ProResWriter/main.swift
+  ⎿  Read ProResWriter/main.swift (22 lines)
+
+⏺ The code should work from main.swift, but there's one issue - main.swift doesn't import the modules needed to access
+  the runComposition() function. Let me fix that:
+
+⏺ Update(ProResWriter/main.swift)
+  ⎿  Updated ProResWriter/main.swift with 3 additions
+       1    import Foundation
+       2 +  import AVFoundation
+       3 +  import CoreMedia
+       4 +  import TimecodeKit
+       5    
+       6    Task {
+       7        // Paths
+
+⏺ Now it should work! The runComposition() function is defined as a global function in printProcess.swift, so main.swift
+   can call it directly as long as it has the necessary imports. The Swift compiler will automatically link all the
+  Swift files in the same target together.
+
