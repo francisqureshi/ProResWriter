@@ -10,7 +10,7 @@ Task {
     let importProcess = ImportProcess()
     // let segmentsDirectoryURL = URL(fileURLWithPath: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM")
     let segmentsDirectoryURL = URL(
-        fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/30.00")
+        fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/29.97/")
 
     do {
         let gradedSegments = try await importProcess.importGradedSegments(

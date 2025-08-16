@@ -2,7 +2,7 @@
 //  importProcess.swift
 //  ProResWriter
 //
-//  Created by mac10 on 15/08/2025.
+//  Created by francisqureshi on 15/08/2025.
 //
 
 import Foundation
@@ -27,77 +27,128 @@ enum MediaType {
 
 // MARK: - Media Analysis
 class MediaAnalyzer {
-    
+
     func analyzeMediaFile(at url: URL, type: MediaType) async throws -> MediaFileInfo {
         // Try to get real properties using SwiftFFmpeg
-        var resolution = CGSize(width: 1920, height: 1080) // fallback
-        var frameRate: Float = 25.0 // fallback
-        
+        var resolution = CGSize(width: 1920, height: 1080)  // fallback
+        var frameRate: Float = 25.0  // fallback
+        var sourceTimecode: String? = nil
+        var reelName: String? = nil
+
         do {
             let fmtCtx = try AVFormatContext(url: url.path)
             try fmtCtx.findStreamInfo()
-            
+
             // Find video stream manually since the API seems different
             for i in 0..<fmtCtx.streamCount {
                 let stream = fmtCtx.streams[Int(i)]
                 let codecPar = stream.codecParameters
-                
+
                 // Check if this is a video stream by checking if it has width/height
                 if codecPar.width > 0 && codecPar.height > 0 {
-                    resolution = CGSize(width: CGFloat(codecPar.width), height: CGFloat(codecPar.height))
-                    
-                    // Try to extract frame rate using realFramerate
-                    let realFR = stream.realFramerate
-                    if realFR.den > 0 {
-                        frameRate = Float(realFR.num) / Float(realFR.den)
+                    resolution = CGSize(
+                        width: CGFloat(codecPar.width), height: CGFloat(codecPar.height))
+
+                    // Extract frame rate using averageFramerate
+                    let avgFR = stream.averageFramerate
+                    if avgFR.den > 0 {
+                        frameRate = Float(avgFR.num) / Float(avgFR.den)
+                        print("    📊 averageFramerate: \(frameRate)fps (\(avgFR.num)/\(avgFR.den))")
                     }
                     
+                    // Explore additional stream properties
+                    print("    🔍 Additional stream info:")
+                    
+                    // frameCount
+                    print("    🎞️ frameCount: \(stream.frameCount)")
+                    
+                    // startTime
+                    print("    🚀 startTime: \(stream.startTime)")
+                    
+                    // duration
+                    print("    ⏱️ duration: \(stream.duration)")
+                    
+                    // Stream metadata
+                    if !stream.metadata.isEmpty {
+                        print("    📋 Stream metadata:")
+                        for (key, value) in stream.metadata {
+                            print("      \(key): \(value)")
+                        }
+                    } else {
+                        print("    📋 No stream metadata found")
+                    }
+
+                    // Extract timecode using same approach as ffmpeg script
+                    sourceTimecode = extractTimecode(from: fmtCtx, stream: stream)
+                    
+                    // Extract reel name from metadata
+                    reelName = extractReelName(from: fmtCtx)
+
                     break
                 }
             }
         } catch {
             print("    ⚠️ FFmpeg analysis failed: \(error) - using fallback values")
         }
+
         
         return MediaFileInfo(
             fileName: url.lastPathComponent,
             url: url,
             resolution: resolution,
             frameRate: frameRate,
-            sourceTimecode: nil, // placeholder for now
-            reelName: nil, // placeholder for now
+            sourceTimecode: sourceTimecode,
+            reelName: reelName,
             mediaType: type
         )
     }
-    
-    private func extractTimecode(from formatContext: AVFormatContext) -> String? {
-        // Check for timecode in metadata
+
+    private func extractTimecode(from formatContext: AVFormatContext, stream: AVStream) -> String? {
+        // Method 1: Check format metadata first (like ffprobe format_tags=timecode)
         if let timecode = formatContext.metadata["timecode"] {
+            print("    🎬 Found timecode in format metadata: \(timecode)")
             return timecode
         }
+
+        // Method 2: Check stream metadata (like ffprobe stream_tags=timecode)  
+        if let timecode = stream.metadata["timecode"] {
+            print("    🎬 Found timecode in stream metadata: \(timecode)")
+            return timecode
+        }
+
+        // Method 3: Check additional common timecode metadata keys
+        let timecodeKeys = ["SMPTE_time_code", "tc", "TimeCode", "start_timecode"]
         
-        // Check for common timecode metadata keys
-        let timecodeKeys = ["timecode", "SMPTE_time_code", "tc", "TimeCode"]
-        
+        // Check format level first
         for key in timecodeKeys {
             if let value = formatContext.metadata[key] {
+                print("    🎬 Found timecode in format metadata (\(key)): \(value)")
                 return value
             }
         }
         
+        // Then check stream level
+        for key in timecodeKeys {
+            if let value = stream.metadata[key] {
+                print("    🎬 Found timecode in stream metadata (\(key)): \(value)")
+                return value
+            }
+        }
+
+        print("    ⚠️ No timecode found in metadata")
         return nil
     }
-    
+
     private func extractReelName(from formatContext: AVFormatContext) -> String? {
         // Common reel name metadata keys
         let reelKeys = ["reel", "reel_name", "tape_name", "source_reel", "camera_name"]
-        
+
         for key in reelKeys {
             if let value = formatContext.metadata[key] {
                 return value
             }
         }
-        
+
         return nil
     }
 }
@@ -111,39 +162,45 @@ enum MediaAnalysisError: Error {
 // MARK: - Import Process
 class ImportProcess {
     private let analyzer = MediaAnalyzer()
-    
+
     // Import graded segments from a directory
     func importGradedSegments(from directoryURL: URL) async throws -> [MediaFileInfo] {
         print("🎬 Importing graded segments from: \(directoryURL.path)")
         return try await importMediaFiles(from: directoryURL, type: .gradedSegment)
     }
-    
+
     // Import original camera files from a directory
     func importOriginalCameraFiles(from directoryURL: URL) async throws -> [MediaFileInfo] {
         print("📹 Importing original camera files from: \(directoryURL.path)")
         return try await importMediaFiles(from: directoryURL, type: .originalCameraFile)
     }
-    
+
     // Generic function to import media files
-    private func importMediaFiles(from directoryURL: URL, type: MediaType) async throws -> [MediaFileInfo] {
+    private func importMediaFiles(from directoryURL: URL, type: MediaType) async throws
+        -> [MediaFileInfo]
+    {
         let fileManager = FileManager.default
-        
+
         // Get all video files from directory
-        let fileURLs = try fileManager.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil)
-            .filter { isVideoFile($0) }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        
+        let fileURLs = try fileManager.contentsOfDirectory(
+            at: directoryURL, includingPropertiesForKeys: nil
+        )
+        .filter { isVideoFile($0) }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
         var mediaFiles: [MediaFileInfo] = []
-        
+
         for url in fileURLs {
             print("  📂 Processing: \(url.lastPathComponent)")
-            
+
             do {
                 let mediaInfo = try await analyzer.analyzeMediaFile(at: url, type: type)
                 mediaFiles.append(mediaInfo)
-                
+
                 // Print extracted info
-                print("    Resolution: \(Int(mediaInfo.resolution.width))x\(Int(mediaInfo.resolution.height))")
+                print(
+                    "    Resolution: \(Int(mediaInfo.resolution.width))x\(Int(mediaInfo.resolution.height))"
+                )
                 print("    Frame Rate: \(mediaInfo.frameRate)fps")
                 if let timecode = mediaInfo.sourceTimecode {
                     print("    Source Timecode: \(timecode)")
@@ -151,16 +208,18 @@ class ImportProcess {
                 if let reel = mediaInfo.reelName {
                     print("    Reel Name: \(reel)")
                 }
-                
+
             } catch {
                 print("    ⚠️ Failed to analyze: \(error)")
             }
         }
-        
-        print("✅ Imported \(mediaFiles.count) \(type == .gradedSegment ? "graded segments" : "original camera files")")
+
+        print(
+            "✅ Imported \(mediaFiles.count) \(type == .gradedSegment ? "graded segments" : "original camera files")"
+        )
         return mediaFiles
     }
-    
+
     // Check if file is a supported video format
     private func isVideoFile(_ url: URL) -> Bool {
         let videoExtensions = ["mov", "mp4", "mxf", "avi", "mkv", "m4v", "prores"]
@@ -168,4 +227,3 @@ class ImportProcess {
         return videoExtensions.contains(ext)
     }
 }
-
