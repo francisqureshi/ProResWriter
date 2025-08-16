@@ -17,6 +17,8 @@ struct MediaFileInfo {
     let frameRate: Float
     let sourceTimecode: String?
     let reelName: String?
+    let isInterlaced: Bool
+    let fieldOrder: String?
     let mediaType: MediaType
 }
 
@@ -34,6 +36,8 @@ class MediaAnalyzer {
         var frameRate: Float = 25.0  // fallback
         var sourceTimecode: String? = nil
         var reelName: String? = nil
+        var isInterlaced: Bool = false  // fallback to progressive
+        var fieldOrder: String? = nil
 
         do {
             let fmtCtx = try AVFormatContext(url: url.path)
@@ -83,6 +87,11 @@ class MediaAnalyzer {
                     
                     // Extract reel name from metadata
                     reelName = extractReelName(from: fmtCtx)
+                    
+                    // Detect interlaced vs progressive
+                    let (interlaced, order) = detectInterlacing(from: stream)
+                    isInterlaced = interlaced
+                    fieldOrder = order
 
                     break
                 }
@@ -99,6 +108,8 @@ class MediaAnalyzer {
             frameRate: frameRate,
             sourceTimecode: sourceTimecode,
             reelName: reelName,
+            isInterlaced: isInterlaced,
+            fieldOrder: fieldOrder,
             mediaType: type
         )
     }
@@ -151,6 +162,89 @@ class MediaAnalyzer {
 
         return nil
     }
+    
+    private func detectInterlacing(from stream: AVStream) -> (Bool, String?) {
+        // Method 1: Check codec parameters for field order
+        let codecPar = stream.codecParameters
+        
+        // Check for field order in codec parameters - this is the most reliable
+        if codecPar.fieldOrder.rawValue != 0 { // AV_FIELD_UNKNOWN = 0
+            let fieldOrderName = getFieldOrderName(codecPar.fieldOrder)
+            let isInterlaced = fieldOrderName != "progressive"
+            
+            print("    🎬 Field order from codec: \(fieldOrderName) (interlaced: \(isInterlaced))")
+            return (isInterlaced, fieldOrderName)
+        }
+        
+        // Method 2: Check metadata for interlacing hints
+        let interlacedKeys = ["field_order", "interlaced", "scan_type", "progressive"]
+        
+        for key in interlacedKeys {
+            if let value = stream.metadata[key] {
+                print("    🎬 Found scan info in stream metadata (\(key)): \(value)")
+                
+                let isInterlaced = determineInterlacingFromMetadata(key: key, value: value)
+                return (isInterlaced, value)
+            }
+        }
+        
+        // Method 3: Heuristic based on frame rate and resolution
+        let frameRate = stream.averageFramerate  // Note: different capitalization in SwiftFFmpeg
+        if frameRate.den > 0 {
+            let fps = Float(frameRate.num) / Float(frameRate.den)
+            let height = codecPar.height
+            
+            // Common interlaced formats
+            if height == 480 && (abs(fps - 29.97) < 0.1 || abs(fps - 59.94) < 0.1) {
+                print("    🎬 NTSC SD detected - likely interlaced")
+                return (true, "ntsc_interlaced")
+            } else if height == 576 && abs(fps - 25.0) < 0.1 {
+                print("    🎬 PAL SD detected - likely interlaced")
+                return (true, "pal_interlaced")
+            } else if height >= 720 {
+                print("    🎬 HD/4K detected - likely progressive")
+                return (false, "progressive")
+            }
+        }
+        
+        print("    🎬 No interlacing info found - assuming progressive")
+        return (false, "progressive")
+    }
+    
+    private func getFieldOrderName(_ fieldOrder: AVFieldOrder) -> String {
+        // Use numeric values instead of constants for compatibility
+        switch fieldOrder.rawValue {
+        case 1: // Progressive
+            return "progressive"
+        case 2: // Top field first
+            return "top_field_first"
+        case 3: // Bottom field first
+            return "bottom_field_first"
+        case 4: // Top then bottom
+            return "top_bottom"
+        case 5: // Bottom then top
+            return "bottom_top"
+        default:
+            return "unknown"
+        }
+    }
+    
+    private func determineInterlacingFromMetadata(key: String, value: String) -> Bool {
+        let lowerValue = value.lowercased()
+        
+        switch key {
+        case "progressive":
+            return lowerValue == "0" || lowerValue == "false"
+        case "interlaced":
+            return lowerValue == "1" || lowerValue == "true"
+        case "scan_type":
+            return lowerValue.contains("interlac")
+        case "field_order":
+            return !lowerValue.contains("prog")
+        default:
+            return false
+        }
+    }
 }
 
 enum MediaAnalysisError: Error {
@@ -202,6 +296,10 @@ class ImportProcess {
                     "    Resolution: \(Int(mediaInfo.resolution.width))x\(Int(mediaInfo.resolution.height))"
                 )
                 print("    Frame Rate: \(mediaInfo.frameRate)fps")
+                print("    Scan Type: \(mediaInfo.isInterlaced ? "Interlaced" : "Progressive")")
+                if let fieldOrder = mediaInfo.fieldOrder {
+                    print("    Field Order: \(fieldOrder)")
+                }
                 if let timecode = mediaInfo.sourceTimecode {
                     print("    Source Timecode: \(timecode)")
                 }
