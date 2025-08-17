@@ -13,13 +13,91 @@ import TimecodeKit
 struct MediaFileInfo {
     let fileName: String
     let url: URL
-    let resolution: CGSize
-    let frameRate: Float
+    let resolution: CGSize?  // Coded resolution (actual pixel dimensions)
+    let displayResolution: CGSize?  // Display resolution (SAR-corrected)
+    let sampleAspectRatio: String?  // SAR like "139:140"
+    let frameRate: Float?  // nil = unknown
     let sourceTimecode: String?
     let reelName: String?
-    let isInterlaced: Bool
+    let isInterlaced: Bool?  // nil = unknown, true = interlaced, false = progressive
     let fieldOrder: String?
     let mediaType: MediaType
+
+    // MARK: - Computed Properties
+
+    /// Effective display resolution (SAR-corrected for ARRI, or coded resolution for others)
+    var effectiveDisplayResolution: CGSize? {
+        if let displayRes = displayResolution {
+            return displayRes
+        }
+        // Calculate from SAR if we have sensor cropping data but missing displayResolution
+        if let resolution = resolution, let sar = sampleAspectRatio, sar != "1:1" {
+            let components = sar.split(separator: ":")
+            if components.count == 2,
+                let num = Float(components[0]),
+                let den = Float(components[1])
+            {
+                let displayWidth = Float(resolution.width) * num / den
+                return CGSize(width: CGFloat(displayWidth), height: resolution.height)
+            }
+        }
+        return resolution
+    }
+
+    /// Does this file have sensor cropping/padding?
+    var hasSensorCropping: Bool {
+        return sampleAspectRatio != "1:1" && sampleAspectRatio != nil
+    }
+
+    /// Scan type description
+    var scanTypeDescription: String {
+        guard let isInterlaced = isInterlaced else { return "Unknown" }
+        return isInterlaced ? "Interlaced" : "Progressive"
+    }
+
+    /// Frame rate description with precision info
+    var frameRateDescription: String {
+        guard let frameRate = frameRate else { return "Unknown" }
+
+        // Common frame rates with precision info
+        if abs(frameRate - 23.976) < 0.001 {
+            return "23.976fps (24000/1001)"
+        } else if abs(frameRate - 29.97) < 0.001 {
+            return "29.97fps (30000/1001)"
+        } else if abs(frameRate - 59.94) < 0.001 {
+            return "59.94fps (60000/1001)"
+        } else if frameRate == 24.0 {
+            return "24fps"
+        } else if frameRate == 25.0 {
+            return "25fps"
+        } else if frameRate == 30.0 {
+            return "30fps"
+        } else {
+            return "\(frameRate)fps"
+        }
+    }
+
+    /// Technical summary for display
+    var technicalSummary: String {
+        var summary: [String] = []
+
+        if let resolution = resolution {
+            summary.append("📐 \(Int(resolution.width))x\(Int(resolution.height))")
+        }
+
+        if hasSensorCropping, let effectiveRes = effectiveDisplayResolution {
+            summary.append("📺 \(Int(effectiveRes.width))x\(Int(effectiveRes.height)) (cropped)")
+        }
+
+        summary.append("🎬 \(frameRateDescription)")
+        summary.append("📺 \(scanTypeDescription)")
+
+        if let timecode = sourceTimecode {
+            summary.append("⏰ \(timecode)")
+        }
+
+        return summary.joined(separator: " • ")
+    }
 }
 
 enum MediaType {
@@ -31,12 +109,14 @@ enum MediaType {
 class MediaAnalyzer {
 
     func analyzeMediaFile(at url: URL, type: MediaType) async throws -> MediaFileInfo {
-        // Try to get real properties using SwiftFFmpeg
-        var resolution = CGSize(width: 1920, height: 1080)  // fallback
-        var frameRate: Float = 25.0  // fallback
+        // Extract properties using SwiftFFmpeg - no fallbacks, only real data
+        var resolution: CGSize? = nil
+        var displayResolution: CGSize? = nil
+        var sampleAspectRatio: String? = nil
+        var frameRate: Float? = nil
         var sourceTimecode: String? = nil
         var reelName: String? = nil
-        var isInterlaced: Bool = false  // fallback to progressive
+        var isInterlaced: Bool? = nil  // unknown until determined by FFmpeg
         var fieldOrder: String? = nil
 
         do {
@@ -53,25 +133,44 @@ class MediaAnalyzer {
                     resolution = CGSize(
                         width: CGFloat(codecPar.width), height: CGFloat(codecPar.height))
 
-                    // Extract frame rate using averageFramerate
-                    let avgFR = stream.averageFramerate
-                    if avgFR.den > 0 {
-                        frameRate = Float(avgFR.num) / Float(avgFR.den)
-                        print("    📊 averageFramerate: \(frameRate)fps (\(avgFR.num)/\(avgFR.den))")
+                    // Extract Sample Aspect Ratio for reference (sensor crop/padding info)
+                    let sar = stream.sampleAspectRatio
+                    if sar.den > 0 && sar.num > 0 {
+                        sampleAspectRatio = "\(sar.num):\(sar.den)"
+                        print(
+                            "    📐 Sample Aspect Ratio: \(sampleAspectRatio!) (sensor crop/padding)"
+                        )
                     }
-                    
+
+                    // Extract frame rate - try different SwiftFFmpeg properties in order of reliability
+                    // Try realFramerate first (equivalent to r_frame_rate)
+                    let realFR = stream.realFramerate
+                    if realFR.den > 0 {
+                        frameRate = Float(realFR.num) / Float(realFR.den)
+                        print("    📊 realFramerate: \(frameRate!)fps (\(realFR.num)/\(realFR.den))")
+                    } else {
+                        // Fallback to averageFramerate if realFramerate is unavailable
+                        let avgFR = stream.averageFramerate
+                        if avgFR.den > 0 {
+                            frameRate = Float(avgFR.num) / Float(avgFR.den)
+                            print(
+                                "    📊 averageFramerate (fallback): \(frameRate!)fps (\(avgFR.num)/\(avgFR.den))"
+                            )
+                        }
+                    }
+
                     // Explore additional stream properties
                     print("    🔍 Additional stream info:")
-                    
+
                     // frameCount
                     print("    🎞️ frameCount: \(stream.frameCount)")
-                    
+
                     // startTime
                     print("    🚀 startTime: \(stream.startTime)")
-                    
+
                     // duration
                     print("    ⏱️ duration: \(stream.duration)")
-                    
+
                     // Stream metadata
                     if !stream.metadata.isEmpty {
                         print("    📋 Stream metadata:")
@@ -84,10 +183,10 @@ class MediaAnalyzer {
 
                     // Extract timecode using same approach as ffmpeg script
                     sourceTimecode = extractTimecode(from: fmtCtx, stream: stream)
-                    
+
                     // Extract reel name from metadata
                     reelName = extractReelName(from: fmtCtx)
-                    
+
                     // Detect interlaced vs progressive
                     let (interlaced, order) = detectInterlacing(from: stream)
                     isInterlaced = interlaced
@@ -97,14 +196,15 @@ class MediaAnalyzer {
                 }
             }
         } catch {
-            print("    ⚠️ FFmpeg analysis failed: \(error) - using fallback values")
+            print("    ⚠️ FFmpeg analysis failed: \(error) - no media properties available")
         }
 
-        
         return MediaFileInfo(
             fileName: url.lastPathComponent,
             url: url,
             resolution: resolution,
+            displayResolution: displayResolution,
+            sampleAspectRatio: sampleAspectRatio,
             frameRate: frameRate,
             sourceTimecode: sourceTimecode,
             reelName: reelName,
@@ -121,7 +221,7 @@ class MediaAnalyzer {
             return timecode
         }
 
-        // Method 2: Check stream metadata (like ffprobe stream_tags=timecode)  
+        // Method 2: Check stream metadata (like ffprobe stream_tags=timecode)
         if let timecode = stream.metadata["timecode"] {
             print("    🎬 Found timecode in stream metadata: \(timecode)")
             return timecode
@@ -129,7 +229,7 @@ class MediaAnalyzer {
 
         // Method 3: Check additional common timecode metadata keys
         let timecodeKeys = ["SMPTE_time_code", "tc", "TimeCode", "start_timecode"]
-        
+
         // Check format level first
         for key in timecodeKeys {
             if let value = formatContext.metadata[key] {
@@ -137,7 +237,7 @@ class MediaAnalyzer {
                 return value
             }
         }
-        
+
         // Then check stream level
         for key in timecodeKeys {
             if let value = stream.metadata[key] {
@@ -162,88 +262,89 @@ class MediaAnalyzer {
 
         return nil
     }
-    
-    private func detectInterlacing(from stream: AVStream) -> (Bool, String?) {
-        // Method 1: Check codec parameters for field order
+
+    private func detectInterlacing(from stream: AVStream) -> (Bool?, String?) {
+        // Method 1: Check codec parameters for field order - most reliable
         let codecPar = stream.codecParameters
-        
-        // Check for field order in codec parameters - this is the most reliable
-        if codecPar.fieldOrder.rawValue != 0 { // AV_FIELD_UNKNOWN = 0
+
+        if codecPar.fieldOrder.rawValue != 0 {  // AV_FIELD_UNKNOWN = 0
             let fieldOrderName = getFieldOrderName(codecPar.fieldOrder)
-            let isInterlaced = fieldOrderName != "progressive"
-            
+            let isInterlaced = fieldOrderName != "progressive" && fieldOrderName != "unknown"
+
             print("    🎬 Field order from codec: \(fieldOrderName) (interlaced: \(isInterlaced))")
             return (isInterlaced, fieldOrderName)
         }
-        
-        // Method 2: Check metadata for interlacing hints
+
+        // Method 2: Check metadata for explicit interlacing information
         let interlacedKeys = ["field_order", "interlaced", "scan_type", "progressive"]
-        
+
         for key in interlacedKeys {
             if let value = stream.metadata[key] {
                 print("    🎬 Found scan info in stream metadata (\(key)): \(value)")
-                
-                let isInterlaced = determineInterlacingFromMetadata(key: key, value: value)
-                return (isInterlaced, value)
+
+                if let isInterlaced = determineInterlacingFromMetadata(key: key, value: value) {
+                    return (isInterlaced, value)
+                }
             }
         }
-        
-        // Method 3: Heuristic based on frame rate and resolution
-        let frameRate = stream.averageFramerate  // Note: different capitalization in SwiftFFmpeg
-        if frameRate.den > 0 {
-            let fps = Float(frameRate.num) / Float(frameRate.den)
-            let height = codecPar.height
-            
-            // Common interlaced formats
-            if height == 480 && (abs(fps - 29.97) < 0.1 || abs(fps - 59.94) < 0.1) {
-                print("    🎬 NTSC SD detected - likely interlaced")
-                return (true, "ntsc_interlaced")
-            } else if height == 576 && abs(fps - 25.0) < 0.1 {
-                print("    🎬 PAL SD detected - likely interlaced")
-                return (true, "pal_interlaced")
-            } else if height >= 720 {
-                print("    🎬 HD/4K detected - likely progressive")
-                return (false, "progressive")
-            }
-        }
-        
-        print("    🎬 No interlacing info found - assuming progressive")
-        return (false, "progressive")
+
+        // No definitive interlacing information found in FFmpeg data
+        print("    ⚠️ No definitive interlacing information found in FFmpeg")
+        return (nil, nil)
     }
-    
+
     private func getFieldOrderName(_ fieldOrder: AVFieldOrder) -> String {
         // Use numeric values instead of constants for compatibility
         switch fieldOrder.rawValue {
-        case 1: // Progressive
+        case 1:  // Progressive
             return "progressive"
-        case 2: // Top field first
+        case 2:  // Top field first
             return "top_field_first"
-        case 3: // Bottom field first
+        case 3:  // Bottom field first
             return "bottom_field_first"
-        case 4: // Top then bottom
+        case 4:  // Top then bottom
             return "top_bottom"
-        case 5: // Bottom then top
+        case 5:  // Bottom then top
             return "bottom_top"
         default:
             return "unknown"
         }
     }
-    
-    private func determineInterlacingFromMetadata(key: String, value: String) -> Bool {
+
+    private func determineInterlacingFromMetadata(key: String, value: String) -> Bool? {
         let lowerValue = value.lowercased()
-        
+
         switch key {
         case "progressive":
-            return lowerValue == "0" || lowerValue == "false"
+            if lowerValue == "0" || lowerValue == "false" {
+                return true  // progressive=false means interlaced
+            } else if lowerValue == "1" || lowerValue == "true" {
+                return false  // progressive=true means not interlaced
+            }
         case "interlaced":
-            return lowerValue == "1" || lowerValue == "true"
+            if lowerValue == "1" || lowerValue == "true" {
+                return true  // interlaced=true
+            } else if lowerValue == "0" || lowerValue == "false" {
+                return false  // interlaced=false
+            }
         case "scan_type":
-            return lowerValue.contains("interlac")
+            if lowerValue.contains("interlac") {
+                return true
+            } else if lowerValue.contains("prog") {
+                return false
+            }
         case "field_order":
-            return !lowerValue.contains("prog")
+            if lowerValue.contains("prog") {
+                return false  // progressive
+            } else if lowerValue.contains("top") || lowerValue.contains("bottom") {
+                return true  // has field order info = interlaced
+            }
         default:
-            return false
+            break
         }
+
+        // Return nil if we can't definitively determine from the metadata value
+        return nil
     }
 }
 
@@ -292,11 +393,24 @@ class ImportProcess {
                 mediaFiles.append(mediaInfo)
 
                 // Print extracted info
-                print(
-                    "    Resolution: \(Int(mediaInfo.resolution.width))x\(Int(mediaInfo.resolution.height))"
-                )
-                print("    Frame Rate: \(mediaInfo.frameRate)fps")
-                print("    Scan Type: \(mediaInfo.isInterlaced ? "Interlaced" : "Progressive")")
+                if let resolution = mediaInfo.resolution {
+                    print("    Resolution: \(Int(resolution.width))x\(Int(resolution.height))")
+                } else {
+                    print("    Resolution: Unknown (no info from FFmpeg)")
+                }
+                if let sar = mediaInfo.sampleAspectRatio {
+                    print("    Sample Aspect Ratio: \(sar)")
+                }
+                if let frameRate = mediaInfo.frameRate {
+                    print("    Frame Rate: \(frameRate)fps")
+                } else {
+                    print("    Frame Rate: Unknown (no info from FFmpeg)")
+                }
+                if let isInterlaced = mediaInfo.isInterlaced {
+                    print("    Scan Type: \(isInterlaced ? "Interlaced" : "Progressive")")
+                } else {
+                    print("    Scan Type: Unknown (no definitive info from FFmpeg)")
+                }
                 if let fieldOrder = mediaInfo.fieldOrder {
                     print("    Field Order: \(fieldOrder)")
                 }
