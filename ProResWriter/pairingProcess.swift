@@ -7,88 +7,118 @@
 
 import Foundation
 
-// MARK: - Pairing Data Structures
+// MARK: - Parent-Child Linking Data Structures
 
-struct SegmentOCFPair {
+struct ChildSegment {
     let segment: MediaFileInfo
-    let ocf: MediaFileInfo?           // nil if no matching OCF found
-    let matchConfidence: MatchConfidence
-    let matchMethod: String           // "filename", "metadata", "manual"
+    let linkConfidence: LinkConfidence
+    let linkMethod: String           // "filename", "metadata", "manual"
 }
 
-enum MatchConfidence {
+struct OCFParent {
+    let ocf: MediaFileInfo
+    let children: [ChildSegment]
+    
+    var childCount: Int {
+        return children.count
+    }
+    
+    var hasChildren: Bool {
+        return !children.isEmpty
+    }
+}
+
+enum LinkConfidence {
     case high       // OCF filename contained in segment filename + tech specs
     case medium     // Good technical specs match (resolution + fps)
     case low        // Partial match or fallback
     case none       // No match found
 }
 
-struct PairingResult {
-    let pairs: [SegmentOCFPair]
+struct LinkingResult {
+    let ocfParents: [OCFParent]
     let unmatchedSegments: [MediaFileInfo]
     let unmatchedOCFs: [MediaFileInfo]
     
+    var totalLinkedSegments: Int {
+        return ocfParents.reduce(0) { $0 + $1.childCount }
+    }
+    
+    var totalSegments: Int {
+        return totalLinkedSegments + unmatchedSegments.count
+    }
+    
     var successRate: Double {
-        let totalSegments = pairs.count + unmatchedSegments.count
         guard totalSegments > 0 else { return 0.0 }
-        let matchedSegments = pairs.filter { $0.ocf != nil }.count
-        return Double(matchedSegments) / Double(totalSegments)
+        return Double(totalLinkedSegments) / Double(totalSegments)
+    }
+    
+    var summary: String {
+        let parentCount = ocfParents.filter { $0.hasChildren }.count
+        return "\(parentCount) OCF parents with \(totalLinkedSegments) child segments (\(Int(successRate * 100))% success)"
     }
 }
 
-// MARK: - Pairing Engine
+// MARK: - Parent-Child Linking Engine
 
-class SegmentOCFPairer {
+class SegmentOCFLinker {
     
-    func pairSegments(_ segments: [MediaFileInfo], withOCFs ocfs: [MediaFileInfo]) -> PairingResult {
-        print("🔗 Pairing \(segments.count) segments with \(ocfs.count) OCF files...")
+    func linkSegments(_ segments: [MediaFileInfo], withOCFParents ocfs: [MediaFileInfo]) -> LinkingResult {
+        print("🔗 Linking \(segments.count) segments with \(ocfs.count) OCF parent files...")
         
-        var pairs: [SegmentOCFPair] = []
+        // Dictionary to group children by OCF parent (using full path as unique key)
+        var ocfToChildren: [String: [ChildSegment]] = [:]
         var unmatchedSegments: [MediaFileInfo] = []
         var usedOCFs: Set<String> = []
         
+        // Initialize dictionary with empty arrays for all OCFs (using full path as key)
+        for ocf in ocfs {
+            ocfToChildren[ocf.url.path] = []
+        }
+        
+        // Link each segment to its best parent OCF
         for segment in segments {
             if let (matchedOCF, confidence, method) = findBestMatch(for: segment, in: ocfs) {
-                pairs.append(SegmentOCFPair(
+                let childSegment = ChildSegment(
                     segment: segment,
-                    ocf: matchedOCF,
-                    matchConfidence: confidence,
-                    matchMethod: method
-                ))
+                    linkConfidence: confidence,
+                    linkMethod: method
+                )
                 
-                // Track which OCF files are being used (for reporting)
+                ocfToChildren[matchedOCF.url.path]?.append(childSegment)
                 usedOCFs.insert(matchedOCF.fileName)
                 
                 print("  ✅ \(segment.fileName) → \(matchedOCF.fileName) (\(confidence), \(method))")
             } else {
-                pairs.append(SegmentOCFPair(
-                    segment: segment,
-                    ocf: nil,
-                    matchConfidence: .none,
-                    matchMethod: "none"
-                ))
                 unmatchedSegments.append(segment)
-                
-                print("  ❌ \(segment.fileName) → No match found")
+                print("  ❌ \(segment.fileName) → No parent OCF found")
             }
+        }
+        
+        // Build OCFParent structures
+        var ocfParents: [OCFParent] = []
+        for ocf in ocfs {
+            let children = ocfToChildren[ocf.url.path] ?? []
+            let parent = OCFParent(ocf: ocf, children: children)
+            ocfParents.append(parent)
         }
         
         // Calculate which OCF files were never used
         let unmatchedOCFs = ocfs.filter { !usedOCFs.contains($0.fileName) }
         
-        let result = PairingResult(
-            pairs: pairs,
+        let result = LinkingResult(
+            ocfParents: ocfParents,
             unmatchedSegments: unmatchedSegments,
             unmatchedOCFs: unmatchedOCFs
         )
         
-        print("🔗 Pairing complete: \(Int(result.successRate * 100))% success rate")
+        print("🔗 Linking complete: \(result.summary)")
         
         return result
     }
     
-    private func findBestMatch(for segment: MediaFileInfo, in ocfs: [MediaFileInfo]) -> (MediaFileInfo, MatchConfidence, String)? {
-        var bestMatch: (MediaFileInfo, MatchConfidence, String)? = nil
+    private func findBestMatch(for segment: MediaFileInfo, in ocfs: [MediaFileInfo]) -> (MediaFileInfo, LinkConfidence, String)? {
+        var bestMatch: (MediaFileInfo, LinkConfidence, String)? = nil
         var bestScore = 0
         
         // Find the OCF with the highest matching score
@@ -99,7 +129,7 @@ class SegmentOCFPairer {
                 bestScore = score.total
                 
                 // Determine confidence based on score and filename match
-                let confidence: MatchConfidence
+                let confidence: LinkConfidence
                 if score.total >= 4 && score.description.contains("filename_contains") {
                     confidence = .high  // OCF name in segment + tech specs
                 } else if score.total >= 2 {

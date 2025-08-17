@@ -119,13 +119,13 @@ func testImport() async -> [MediaFileInfo] {
     return gradedSegments
 }
 
-func testPairing(segments: [MediaFileInfo]) async {
+func testLinking(segments: [MediaFileInfo]) async {
     print("\n" + String(repeating: "=", count: 50))
-    print("🔗 Testing pairing process...")
+    print("🔗 Testing parent-child linking process...")
 
     let importProcess = ImportProcess()
     
-    // Test pairing functionality with multiple OCF directories
+    // Test linking functionality with multiple OCF parent directories
     let ocfDirectoryURLs = [
         URL(
             fileURLWithPath:
@@ -157,18 +157,30 @@ func testPairing(segments: [MediaFileInfo]) async {
             "✅ Successfully imported \(allOCFFiles.count) total OCF files from \(ocfDirectoryURLs.count) directories"
         )
 
-        // Create pairer and test
-        let pairer = SegmentOCFPairer()
-        let pairingResult = pairer.pairSegments(segments, withOCFs: allOCFFiles)
+        // Create linker and test
+        let linker = SegmentOCFLinker()
+        let linkingResult = linker.linkSegments(segments, withOCFParents: allOCFFiles)
 
-        print("\n📊 Pairing Results:")
-        print("  Success Rate: \(Int(pairingResult.successRate * 100))%")
-        print("  Matched Pairs: \(pairingResult.pairs.filter { $0.ocf != nil }.count)")
-        print("  Unmatched Segments: \(pairingResult.unmatchedSegments.count)")
-        print("  Unmatched OCFs: \(pairingResult.unmatchedOCFs.count)")
+        print("\n📊 Linking Results:")
+        print("  📊 \(linkingResult.summary)")
+        print("  📁 OCF Parents: \(linkingResult.ocfParents.count)")
+        print("  📝 Child Segments: \(linkingResult.totalLinkedSegments)")
+        print("  ❌ Unmatched Segments: \(linkingResult.unmatchedSegments.count)")
+        print("  ❌ Unmatched OCFs: \(linkingResult.unmatchedOCFs.count)")
+        
+        // Show parent-child breakdown
+        print("\n🔗 Parent-Child Breakdown:")
+        for parent in linkingResult.ocfParents {
+            if parent.hasChildren {
+                print("  📁 \(parent.ocf.fileName) → \(parent.childCount) children")
+                for child in parent.children {
+                    print("    📝 \(child.segment.fileName) (\(child.linkConfidence))")
+                }
+            }
+        }
 
     } catch {
-        print("❌ OCF import or pairing failed: \(error)")
+        print("❌ OCF import or linking failed: \(error)")
     }
 }
 
@@ -177,9 +189,9 @@ Task {
     testSMPTE()
     // exit(0)
 
-    // Test import and pairing
+    // Test import and linking
     let gradedSegments = await testImport()
-    await testPairing(segments: gradedSegments)
+    await testLinking(segments: gradedSegments)
 
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Starting composition process...")
