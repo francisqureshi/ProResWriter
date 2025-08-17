@@ -171,11 +171,22 @@ class SegmentOCFPairer {
             }
         }
         
-        // 4. Source Timecode match
-        if let segmentTC = segment.sourceTimecode, let ocfTC = ocf.sourceTimecode {
-            if segmentTC == ocfTC {
+        // 4. Source Timecode range match - entire segment should fall within OCF range
+        if let segmentStartTC = segment.sourceTimecode,
+           let segmentEndTC = segment.endTimecode,
+           let ocfStartTC = ocf.sourceTimecode,
+           let ocfEndTC = ocf.endTimecode,
+           let segmentFR = segment.frameRate,
+           let ocfFR = ocf.frameRate,
+           abs(segmentFR - ocfFR) <= 0.1 { // Only compare if frame rates match
+            
+            if isSegmentInOCFRange(segmentStartTimecode: segmentStartTC,
+                                 segmentEndTimecode: segmentEndTC,
+                                 ocfStartTimecode: ocfStartTC, 
+                                 ocfEndTimecode: ocfEndTC, 
+                                 frameRate: segmentFR) {
                 score += 1
-                matches.append("timecode")
+                matches.append("timecode_range")
             }
         }
         
@@ -237,5 +248,43 @@ class SegmentOCFPairer {
         }
         
         return true
+    }
+    
+    private func isSegmentInOCFRange(segmentStartTimecode: String, segmentEndTimecode: String, ocfStartTimecode: String, ocfEndTimecode: String, frameRate: Float) -> Bool {
+        // Use SMPTE library for professional timecode handling
+        let isDropFrame = segmentStartTimecode.contains(";") || segmentEndTimecode.contains(";") || 
+                         ocfStartTimecode.contains(";") || ocfEndTimecode.contains(";")
+        
+        let smpte = SMPTE(fps: Double(frameRate), dropFrame: isDropFrame)
+        
+        do {
+            // Convert all timecodes to frame numbers using SMPTE library
+            let segmentStartFrame = try smpte.getFrames(tc: segmentStartTimecode)
+            let segmentEndFrame = try smpte.getFrames(tc: segmentEndTimecode)
+            let ocfStartFrame = try smpte.getFrames(tc: ocfStartTimecode)
+            let ocfEndFrame = try smpte.getFrames(tc: ocfEndTimecode)
+            
+            // Check if entire segment duration falls within OCF range
+            let segmentStartInRange = segmentStartFrame >= ocfStartFrame && segmentStartFrame <= ocfEndFrame
+            let segmentEndInRange = segmentEndFrame >= ocfStartFrame && segmentEndFrame <= ocfEndFrame
+            let entireSegmentInRange = segmentStartInRange && segmentEndInRange
+            
+            if entireSegmentInRange {
+                let dropFrameInfo = isDropFrame ? " (drop frame)" : ""
+                print("    ✅ Segment range \(segmentStartTimecode)-\(segmentEndTimecode) (frames \(segmentStartFrame)-\(segmentEndFrame)) within OCF range \(ocfStartTimecode)-\(ocfEndTimecode) (frames \(ocfStartFrame)-\(ocfEndFrame))\(dropFrameInfo)")
+            } else {
+                let dropFrameInfo = isDropFrame ? " (drop frame)" : ""
+                print("    ❌ Segment range \(segmentStartTimecode)-\(segmentEndTimecode) (frames \(segmentStartFrame)-\(segmentEndFrame)) NOT within OCF range \(ocfStartTimecode)-\(ocfEndTimecode) (frames \(ocfStartFrame)-\(ocfEndFrame))\(dropFrameInfo)")
+            }
+            
+            return entireSegmentInRange
+            
+        } catch let error as SMPTEError {
+            print("    ⚠️ SMPTE timecode error: \(error.localizedDescription)")
+            return false
+        } catch {
+            print("    ⚠️ Unexpected timecode error: \(error)")
+            return false
+        }
     }
 }

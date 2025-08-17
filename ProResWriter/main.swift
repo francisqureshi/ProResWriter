@@ -4,7 +4,57 @@ import Foundation
 import TimecodeKit
 
 Task {
-    // Test import functionality first
+    // Test SMPTE library first
+    print("🧪 Testing SMPTE library...")
+    
+    // Test 1: Non-drop frame 25fps
+    let smpte25 = SMPTE(fps: 25.0, dropFrame: false)
+    do {
+        let frames = try smpte25.getFrames(tc: "01:00:00:00")
+        let timecode = smpte25.getTC(frames: frames)
+        print("✅ 25fps: 01:00:00:00 = \(frames) frames = \(timecode)")
+        
+        // Test our OCF range
+        let ocfStartFrames = try smpte25.getFrames(tc: "01:00:00:00")
+        let ocfEndFrames = try smpte25.getFrames(tc: "01:07:05:10")
+        print("✅ OCF range: \(ocfStartFrames) to \(ocfEndFrames) frames (\(ocfEndFrames - ocfStartFrames) frame duration)")
+        
+        // Test segment
+        let segmentStartFrames = try smpte25.getFrames(tc: "01:00:07:09")
+        let segmentEndFrames = try smpte25.getFrames(tc: "01:00:09:24")
+        print("✅ Segment range: \(segmentStartFrames) to \(segmentEndFrames) frames (\(segmentEndFrames - segmentStartFrames) frame duration)")
+        
+    } catch {
+        print("❌ SMPTE 25fps test failed: \(error)")
+    }
+    
+    // Test 2: Drop frame 29.97fps
+    let smpte2997 = SMPTE(fps: 29.97, dropFrame: true)
+    do {
+        let frames = try smpte2997.getFrames(tc: "01:00:00;00")
+        let timecode = smpte2997.getTC(frames: frames)
+        print("✅ 29.97fps DF: 01:00:00;00 = \(frames) frames = \(timecode)")
+        
+        // Test the Python example from the library
+        let testFrames = smpte2997.getTC(frames: 1800)
+        print("✅ 29.97fps DF: 1800 frames = \(testFrames) (should match Python example)")
+        
+    } catch {
+        print("❌ SMPTE 29.97fps test failed: \(error)")
+    }
+    
+    // Test 3: 23.976fps
+    let smpte23976 = SMPTE(fps: 23.976, dropFrame: false)
+    do {
+        let frames = try smpte23976.getFrames(tc: "12:25:29:19")
+        let endTimecode = smpte23976.getTC(frames: frames + 565)
+        print("✅ 23.976fps: 12:25:29:19 + 565 frames = \(endTimecode)")
+        
+    } catch {
+        print("❌ SMPTE 23.976fps test failed: \(error)")
+    }
+    
+    print("\n" + String(repeating: "=", count: 50))
     print("🧪 Testing import functionality...")
 
     let importProcess = ImportProcess()

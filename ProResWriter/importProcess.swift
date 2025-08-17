@@ -18,6 +18,8 @@ struct MediaFileInfo {
     let sampleAspectRatio: String?  // SAR like "139:140"
     let frameRate: Float?  // nil = unknown
     let sourceTimecode: String?
+    let endTimecode: String?  // Calculated end timecode
+    let durationInFrames: Int64?  // Duration in frames
     let reelName: String?
     let isInterlaced: Bool?  // nil = unknown, true = interlaced, false = progressive
     let fieldOrder: String?
@@ -115,6 +117,8 @@ class MediaAnalyzer {
         var sampleAspectRatio: String? = nil
         var frameRate: Float? = nil
         var sourceTimecode: String? = nil
+        var endTimecode: String? = nil
+        var durationInFrames: Int64? = nil
         var reelName: String? = nil
         var isInterlaced: Bool? = nil  // unknown until determined by FFmpeg
         var fieldOrder: String? = nil
@@ -183,6 +187,12 @@ class MediaAnalyzer {
 
                     // Extract timecode using same approach as ffmpeg script
                     sourceTimecode = extractTimecode(from: fmtCtx, stream: stream)
+                    
+                    // Calculate end timecode and duration
+                    durationInFrames = Int64(stream.frameCount)
+                    if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames {
+                        endTimecode = calculateEndTimecode(startTimecode: startTC, frameRate: fps, durationFrames: frames)
+                    }
 
                     // Extract reel name from metadata
                     reelName = extractReelName(from: fmtCtx)
@@ -207,11 +217,34 @@ class MediaAnalyzer {
             sampleAspectRatio: sampleAspectRatio,
             frameRate: frameRate,
             sourceTimecode: sourceTimecode,
+            endTimecode: endTimecode,
+            durationInFrames: durationInFrames,
             reelName: reelName,
             isInterlaced: isInterlaced,
             fieldOrder: fieldOrder,
             mediaType: type
         )
+    }
+
+    private func calculateEndTimecode(startTimecode: String, frameRate: Float, durationFrames: Int64) -> String? {
+        // Use SMPTE library for professional timecode calculation
+        let isDropFrame = startTimecode.contains(";")
+        let smpte = SMPTE(fps: Double(frameRate), dropFrame: isDropFrame)
+        
+        do {
+            // Use SMPTE library to add frames to the start timecode
+            let endTimecode = try smpte.addFrames(to: startTimecode, frames: Int(durationFrames))
+            let dropFrameInfo = isDropFrame ? " (drop frame)" : ""
+            print("    ⏰ Calculated end timecode: \(endTimecode) (duration: \(durationFrames) frames)\(dropFrameInfo)")
+            return endTimecode
+            
+        } catch let error as SMPTEError {
+            print("    ⚠️ SMPTE timecode calculation error: \(error.localizedDescription)")
+            return nil
+        } catch {
+            print("    ⚠️ Unexpected timecode calculation error: \(error)")
+            return nil
+        }
     }
 
     private func extractTimecode(from formatContext: AVFormatContext, stream: AVStream) -> String? {
@@ -416,6 +449,12 @@ class ImportProcess {
                 }
                 if let timecode = mediaInfo.sourceTimecode {
                     print("    Source Timecode: \(timecode)")
+                }
+                if let endTimecode = mediaInfo.endTimecode {
+                    print("    End Timecode: \(endTimecode)")
+                }
+                if let duration = mediaInfo.durationInFrames {
+                    print("    Duration: \(duration) frames")
                 }
                 if let reel = mediaInfo.reelName {
                     print("    Reel Name: \(reel)")
