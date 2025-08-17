@@ -184,7 +184,9 @@ class SegmentOCFPairer {
                                  segmentEndTimecode: segmentEndTC,
                                  ocfStartTimecode: ocfStartTC, 
                                  ocfEndTimecode: ocfEndTC, 
-                                 frameRate: segmentFR) {
+                                 frameRate: segmentFR,
+                                 segmentDropFrame: segment.isDropFrame,
+                                 ocfDropFrame: ocf.isDropFrame) {
                 score += 1
                 matches.append("timecode_range")
             }
@@ -250,10 +252,12 @@ class SegmentOCFPairer {
         return true
     }
     
-    private func isSegmentInOCFRange(segmentStartTimecode: String, segmentEndTimecode: String, ocfStartTimecode: String, ocfEndTimecode: String, frameRate: Float) -> Bool {
+    private func isSegmentInOCFRange(segmentStartTimecode: String, segmentEndTimecode: String, ocfStartTimecode: String, ocfEndTimecode: String, frameRate: Float, segmentDropFrame: Bool? = nil, ocfDropFrame: Bool? = nil) -> Bool {
         // Use SMPTE library for professional timecode handling
-        let isDropFrame = segmentStartTimecode.contains(";") || segmentEndTimecode.contains(";") || 
-                         ocfStartTimecode.contains(";") || ocfEndTimecode.contains(";")
+        // Prefer the detected drop frame information, fall back to separator detection
+        let isDropFrame = segmentDropFrame ?? ocfDropFrame ?? 
+                         (segmentStartTimecode.contains(";") || segmentEndTimecode.contains(";") || 
+                          ocfStartTimecode.contains(";") || ocfEndTimecode.contains(";"))
         
         let smpte = SMPTE(fps: Double(frameRate), dropFrame: isDropFrame)
         

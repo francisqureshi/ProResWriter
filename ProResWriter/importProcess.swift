@@ -20,6 +20,7 @@ struct MediaFileInfo {
     let sourceTimecode: String?
     let endTimecode: String?  // Calculated end timecode
     let durationInFrames: Int64?  // Duration in frames
+    let isDropFrame: Bool?  // nil = unknown, true = drop frame, false = non-drop frame
     let reelName: String?
     let isInterlaced: Bool?  // nil = unknown, true = interlaced, false = progressive
     let fieldOrder: String?
@@ -57,25 +58,27 @@ struct MediaFileInfo {
         return isInterlaced ? "Interlaced" : "Progressive"
     }
 
-    /// Frame rate description with precision info
+    /// Frame rate description with precision info and drop frame indication
     var frameRateDescription: String {
         guard let frameRate = frameRate else { return "Unknown" }
+        
+        let dropFrameInfo = isDropFrame == true ? " (drop frame)" : ""
 
         // Common frame rates with precision info
         if abs(frameRate - 23.976) < 0.001 {
-            return "23.976fps (24000/1001)"
+            return "23.976fps (24000/1001)\(dropFrameInfo)"
         } else if abs(frameRate - 29.97) < 0.001 {
-            return "29.97fps (30000/1001)"
+            return "29.97fps (30000/1001)\(dropFrameInfo)"
         } else if abs(frameRate - 59.94) < 0.001 {
-            return "59.94fps (60000/1001)"
+            return "59.94fps (60000/1001)\(dropFrameInfo)"
         } else if frameRate == 24.0 {
-            return "24fps"
+            return "24fps\(dropFrameInfo)"
         } else if frameRate == 25.0 {
-            return "25fps"
+            return "25fps\(dropFrameInfo)"
         } else if frameRate == 30.0 {
-            return "30fps"
+            return "30fps\(dropFrameInfo)"
         } else {
-            return "\(frameRate)fps"
+            return "\(frameRate)fps\(dropFrameInfo)"
         }
     }
 
@@ -119,6 +122,7 @@ class MediaAnalyzer {
         var sourceTimecode: String? = nil
         var endTimecode: String? = nil
         var durationInFrames: Int64? = nil
+        var isDropFrame: Bool? = nil  // unknown until determined by timecode analysis
         var reelName: String? = nil
         var isInterlaced: Bool? = nil  // unknown until determined by FFmpeg
         var fieldOrder: String? = nil
@@ -188,6 +192,11 @@ class MediaAnalyzer {
                     // Extract timecode using same approach as ffmpeg script
                     sourceTimecode = extractTimecode(from: fmtCtx, stream: stream)
                     
+                    // Detect drop frame from timecode format and frame rate
+                    if let timecode = sourceTimecode, let fps = frameRate {
+                        isDropFrame = detectDropFrame(timecode: timecode, frameRate: fps)
+                    }
+                    
                     // Calculate end timecode and duration
                     durationInFrames = Int64(stream.frameCount)
                     if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames {
@@ -219,6 +228,7 @@ class MediaAnalyzer {
             sourceTimecode: sourceTimecode,
             endTimecode: endTimecode,
             durationInFrames: durationInFrames,
+            isDropFrame: isDropFrame,
             reelName: reelName,
             isInterlaced: isInterlaced,
             fieldOrder: fieldOrder,
@@ -244,6 +254,33 @@ class MediaAnalyzer {
         } catch {
             print("    ⚠️ Unexpected timecode calculation error: \(error)")
             return nil
+        }
+    }
+    
+    private func detectDropFrame(timecode: String, frameRate: Float) -> Bool {
+        // Drop frame detection based on timecode format and frame rate
+        let hasDropFrameSeparator = timecode.contains(";")
+        
+        // Common drop frame rates
+        let commonDropFrameRates: [Float] = [29.97, 59.94]
+        let isDropFrameRate = commonDropFrameRates.contains { abs(frameRate - $0) < 0.01 }
+        
+        if hasDropFrameSeparator {
+            if isDropFrameRate {
+                print("    🎬 Drop frame detected: ';' separator with \(frameRate)fps")
+                return true
+            } else {
+                print("    ⚠️ Drop frame separator ';' found but frame rate \(frameRate)fps is unusual for drop frame")
+                return true  // Trust the separator
+            }
+        } else {
+            if isDropFrameRate {
+                print("    ⚠️ Drop frame rate \(frameRate)fps detected but using non-drop frame separator ':'")
+                return false  // Trust the separator format
+            } else {
+                print("    🎬 Non-drop frame detected: ':' separator with \(frameRate)fps")
+                return false
+            }
         }
     }
 
