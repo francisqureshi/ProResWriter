@@ -119,7 +119,7 @@ func testImport() async -> [MediaFileInfo] {
     return gradedSegments
 }
 
-func testLinking(segments: [MediaFileInfo]) async {
+func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
     print("\n" + String(repeating: "=", count: 50))
     print("🔗 Testing parent-child linking process...")
 
@@ -130,10 +130,6 @@ func testLinking(segments: [MediaFileInfo]) async {
         URL(
             fileURLWithPath:
                 "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
-        ),
-        URL(
-            fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG/subfolder"
         ),
         URL(
             fileURLWithPath:
@@ -178,9 +174,32 @@ func testLinking(segments: [MediaFileInfo]) async {
                 }
             }
         }
+        
+        return linkingResult
 
     } catch {
         print("❌ OCF import or linking failed: \(error)")
+    }
+    
+    return nil
+}
+
+func testBlankRushCreation(linkingResult: LinkingResult) async {
+    print("\n" + String(repeating: "=", count: 50))
+    print("🎬 Testing blank rush creation...")
+    
+    print("📊 \(linkingResult.blankRushSummary)")
+    
+    let blankRushCreator = BlankRushCreator()
+    let results = await blankRushCreator.createBlankRushes(from: linkingResult)
+    
+    print("\n📊 Blank Rush Results:")
+    for result in results {
+        if result.success {
+            print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent)")
+        } else {
+            print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
+        }
     }
 }
 
@@ -191,7 +210,9 @@ Task {
 
     // Test import and linking
     let gradedSegments = await testImport()
-    await testLinking(segments: gradedSegments)
+    if let linkingResult = await testLinking(segments: gradedSegments) {
+        await testBlankRushCreation(linkingResult: linkingResult)
+    }
 
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Starting composition process...")

@@ -18,7 +18,16 @@
 		0726D6D92E353E950050CF6F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
-			dstPath = Fonts;
+			dstPath = Resources/Fonts;
+			dstSubfolderSpec = 7;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		079084A22E528EDE001C44FE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Resources/ffmpegScripts;
 			dstSubfolderSpec = 7;
 			files = (
 			);
@@ -38,6 +47,13 @@
 				"Resources/Fonts/FiraCodeNerdFont-Regular.ttf",
 			);
 		};
+		079084A42E528F07001C44FE /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 079084A22E528EDE001C44FE /* CopyFiles */;
+			membershipExceptions = (
+				Resources/ffmpegScripts/timecode_black_frames_relative.sh,
+			);
+		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,6 +61,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
+				079084A42E528F07001C44FE /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
 			);
 			path = ProResWriter;
 			sourceTree = "<group>";
@@ -93,6 +110,7 @@
 				0726D6D72E353E950050CF6F /* Sources */,
 				0726D6D82E353E950050CF6F /* Frameworks */,
 				0726D6D92E353E950050CF6F /* CopyFiles */,
+				079084A22E528EDE001C44FE /* CopyFiles */,
 			);
 			buildRules = (
 			);

@@ -119,8 +119,9 @@ CLIP_NAME=$(basename "$INPUT" .mxf)
 echo "⏱️  Source duration: ${DURATION}s"
 echo "📎 Source clip name: $CLIP_NAME"
 
-# Set up font path for Fira Code
-FONT_PATH="Fonts/FiraCodeNerdFont-Regular.ttf"
+# Set up font path for Fira Code - look relative to script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FONT_PATH="$SCRIPT_DIR/../Fonts/FiraCodeNerdFont-Regular.ttf"
 if [[ ! -f "$FONT_PATH" ]]; then
     echo "⚠️  Fira Code font not found at $FONT_PATH, using system default"
     FONT_PATH=""
