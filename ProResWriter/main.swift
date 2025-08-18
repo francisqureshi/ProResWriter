@@ -115,7 +115,7 @@ func testImport() async -> [MediaFileInfo] {
     } catch {
         print("❌ Import failed: \(error)")
     }
-    
+
     return gradedSegments
 }
 
@@ -124,7 +124,7 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
     print("🔗 Testing parent-child linking process...")
 
     let importProcess = ImportProcess()
-    
+
     // Test linking functionality with multiple OCF parent directories
     let ocfDirectoryURLs = [
         URL(
@@ -163,7 +163,7 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
         print("  📝 Child Segments: \(linkingResult.totalLinkedSegments)")
         print("  ❌ Unmatched Segments: \(linkingResult.unmatchedSegments.count)")
         print("  ❌ Unmatched OCFs: \(linkingResult.unmatchedOCFs.count)")
-        
+
         // Show parent-child breakdown
         print("\n🔗 Parent-Child Breakdown:")
         for parent in linkingResult.ocfParents {
@@ -174,25 +174,25 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
                 }
             }
         }
-        
+
         return linkingResult
 
     } catch {
         print("❌ OCF import or linking failed: \(error)")
     }
-    
+
     return nil
 }
 
 func testBlankRushCreation(linkingResult: LinkingResult) async {
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Testing blank rush creation...")
-    
+
     print("📊 \(linkingResult.blankRushSummary)")
-    
+
     let blankRushCreator = BlankRushCreator()
     let results = await blankRushCreator.createBlankRushes(from: linkingResult)
-    
+
     print("\n📊 Blank Rush Results:")
     for result in results {
         if result.success {
@@ -208,10 +208,35 @@ Task {
     testSMPTE()
     // exit(0)
 
-    // Test import and linking
-    let gradedSegments = await testImport()
-    if let linkingResult = await testLinking(segments: gradedSegments) {
-        await testBlankRushCreation(linkingResult: linkingResult)
+    // Test import and linking - COMMENTED OUT FOR DEBUGGING
+    // let gradedSegments = await testImport()
+    // if let linkingResult = await testLinking(segments: gradedSegments) {
+    //     await testBlankRushCreation(linkingResult: linkingResult)
+    // }
+    
+    // Test blank rush creation directly
+    print("\n" + String(repeating: "=", count: 50))
+    print("🎬 Testing blank rush creation directly...")
+    
+    let blankRushCreator = BlankRushCreator()
+    
+    // Create a minimal test - just try to create one blank rush video
+    let inputPath = "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG/COS AW25_4K_4444_LR001_LOG.mov"
+    let outputPath = "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/test_output.mov"
+    
+    do {
+        let success = try await blankRushCreator.createTimecodeBlackFrames(
+            inputPath: inputPath,
+            outputPath: outputPath
+        )
+        
+        if success {
+            print("✅ Test blank rush creation succeeded!")
+        } else {
+            print("❌ Test blank rush creation failed")
+        }
+    } catch {
+        print("❌ Test blank rush creation error: \(error)")
     }
 
     print("\n" + String(repeating: "=", count: 50))
