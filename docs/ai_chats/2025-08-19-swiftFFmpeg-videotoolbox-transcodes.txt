@@ -1,0 +1,27 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/mac10/Projects/ProResWriter         │
+╰───────────────────────────────────────────────────╯
+⏺ Compact summary (ctrl+r to expand)
+  ⎿  Read ProResWriter/blankRushCreator.swift (634 lines)
+  ⎿ Read build/Build/Intermediates.noindex/ProResWriter.build/Release/ProResWriter.build/Objects-normal/arm64/ProResWrit
+    er.SwiftFileList (10 lines)
+  ⎿  Read docs/SwiftFFmpeg_Examples/filtering_video.swift (147 lines)
+  ⎿  Read docs/SwiftFFmpeg_Examples/encode_video.swift (121 lines)
+  ⎿  Read docs/SwiftFFmpeg_Examples/demuxing_decoding.swift (169 lines)
+  ⎿  Todo list read (27 items)
+  ⎿  Claude usage limit reached. Your limit will reset at 8pm (Europe/London).
+
+      • /upgrade to increase your usage limit.
+
+> /export 
+  ⎿  Failed to export conversation: ENOENT: no such file or directory, open 
+     '/Users/mac10/Projects/ProResWriter/docs/ai-chats/2025-08-19-swiftFFmpeg-videotoolbox-transcodes.txt'
+
+> /export /Users/mac10/Projects/ProResWriter/docs/ai_chats/2025-08-19-swiftFFmpeg-videotoolbox-transcodes.txt
+  ⎿ Failed to export conversation: ENOENT: no such file or directory, open '/Users/mac10/Projects/ProResWriter/Users/mac
+    10/Projects/ProResWriter/docs/ai_chats/2025-08-19-swiftFFmpeg-videotoolbox-transcodes.txt'
+
