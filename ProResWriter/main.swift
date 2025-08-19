@@ -69,7 +69,7 @@ func testImport() async -> [MediaFileInfo] {
     let segmentsDirectoryURL = URL(
         fileURLWithPath:
             // actual source file ---> // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light/"
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
+            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
     )
 
     var gradedSegments: [MediaFileInfo] = []
@@ -129,11 +129,11 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
     let ocfDirectoryURLs = [
         URL(
             fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
+                "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
         ),
         URL(
             fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/testMaterialNonQT/59.94 DF"
+                "/Users/mac10/Movies/ProResWriter/testMaterialNonQT/59.94 DF"
         ),
     ]
 
@@ -205,7 +205,7 @@ func testBlankRushCreation(linkingResult: LinkingResult) async {
 
 Task {
     // Test SMPTE library first
-    testSMPTE()
+    // testSMPTE()
     // exit(0)
 
     // Test import and linking - COMMENTED OUT FOR DEBUGGING
@@ -213,45 +213,45 @@ Task {
     // if let linkingResult = await testLinking(segments: gradedSegments) {
     //     await testBlankRushCreation(linkingResult: linkingResult)
     // }
-    
-    // Test blank rush creation directly
+
+    // Test simple transcoding directly
     print("\n" + String(repeating: "=", count: 50))
-    print("🎬 Testing blank rush creation directly...")
-    
+    print("🎬 Testing simple transcoding...")
+
     let blankRushCreator = BlankRushCreator()
-    
-    // Create a minimal test - just try to create one blank rush video
-    let inputPath = "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG/COS AW25_4K_4444_LR001_LOG.mov"
-    let outputPath = "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/test_output.mov"
-    
+
+    // Create a minimal test - use shorter source file for debugging
+    let inputPath = "/Users/mac10/Desktop/23.98/A003C002_250605_RP4Z.mxf"
+    let outputPath = "/Users/mac10/Desktop/test_simple_transcode.mov"
+
     do {
-        let success = try await blankRushCreator.createTimecodeBlackFrames(
+        let success = try await blankRushCreator.transcodeToProRes(
             inputPath: inputPath,
             outputPath: outputPath
         )
-        
+
         if success {
-            print("✅ Test blank rush creation succeeded!")
+            print("✅ Test simple transcoding succeeded!")
         } else {
-            print("❌ Test blank rush creation failed")
+            print("❌ Test simple transcoding failed")
         }
     } catch {
-        print("❌ Test blank rush creation error: \(error)")
+        print("❌ Test simple transcoding error: \(error)")
     }
 
     print("\n" + String(repeating: "=", count: 50))
-    print("🎬 Starting composition process...")
+    // print("🎬 Starting composition process...")
 
-    // Original paths
-    let blankRushURL = URL(
-        fileURLWithPath:
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/bR_COS AW25_4K_4444_24FPS_LR001_LOG.mov"
-    )
-    let outputURL = URL(
-        fileURLWithPath:
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
-    )
-
+    // // Original paths
+    // let blankRushURL = URL(
+    //     fileURLWithPath:
+    //         "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/bR_COS AW25_4K_4444_24FPS_LR001_LOG.mov"
+    // )
+    // let outputURL = URL(
+    //     fileURLWithPath:
+    //         "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
+    // )
+    //
     // await runComposition(
     //     blankRushURL: blankRushURL, segmentsDirectoryURL: segmentsDirectoryURL, outputURL: outputURL
     // )
