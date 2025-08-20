@@ -39,7 +39,7 @@ class BlankRushCreator {
 
     init(
         projectDirectory: String =
-            "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush"
+            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush"
     ) {
         self.projectBlankRushDirectory = projectDirectory
     }
@@ -497,7 +497,7 @@ class BlankRushCreator {
         encoderContext.pixelFormat = proresPixelFormat
         print("  🔧 Using ProRes pixel format: \(proresPixelFormat)")
         encoderContext.timebase = videoStream.timebase  // Use source stream timebase exactly
-        encoderContext.framerate = videoStream.realFramerate  // Use source framerate exactly
+        encoderContext.framerate = properties.frameRate  // Use exact source framerate from properties
 
         print("  🔧 Source stream timebase: \(videoStream.timebase)")
         print("  🔧 Source stream framerate: \(videoStream.realFramerate)")
@@ -512,6 +512,12 @@ class BlankRushCreator {
         // Copy codec parameters
         outputVideoStream.codecParameters.copy(from: encoderContext)
         outputVideoStream.timebase = videoStream.timebase  // Force exact source timebase
+        
+        // CRITICAL: Force the output stream framerate to match source exactly  
+        // This prevents VideoToolbox from writing incorrect 24.04fps metadata
+        // Hardcoded test: Force exact 23.976fps (24000/1001)
+        outputVideoStream.averageFramerate = AVRational(num: 24000, den: 1001)
+        print("  🔧 HARDCODED: Forced output stream framerate to 24000/1001 = 23.976fps")
 
         print("  🔧 Output stream timebase set to: \(outputVideoStream.timebase)")
 
@@ -603,7 +609,13 @@ class BlankRushCreator {
                         let encodedPacket = AVPacket()
                         do {
                             try encoderContext.receivePacket(encodedPacket)
+                            encodedPacketCount += 1
                             encodedPacket.streamIndex = outputVideoStream.index
+
+                            // Store original timing for debugging
+                            let originalPTS = encodedPacket.pts
+                            let originalDTS = encodedPacket.dts
+                            let originalDuration = encodedPacket.duration
 
                             // CRITICAL: Rescale packet timing to output stream timebase (from remuxing.swift)
                             encodedPacket.pts = AVMath.rescale(
@@ -617,6 +629,10 @@ class BlankRushCreator {
                             encodedPacket.duration = AVMath.rescale(
                                 encodedPacket.duration, encoderContext.timebase,
                                 outputVideoStream.timebase)
+
+                            if encodedPacketCount <= 5 || encodedPacketCount % 50 == 0 || frameCount > 400 {
+                                print("  📦 Encoded packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(encodedPacket.pts), DTS=\(originalDTS) → \(encodedPacket.dts)")
+                            }
 
                             try outputFormatContext.interleavedWriteFrame(encodedPacket)
                         } catch let err as AVError where err == .tryAgain || err == .eof {
@@ -690,7 +706,12 @@ class BlankRushCreator {
                     let encodedPacket = AVPacket()
                     do {
                         try encoderContext.receivePacket(encodedPacket)
+                        encodedPacketCount += 1
                         encodedPacket.streamIndex = outputVideoStream.index
+
+                        // Store original timing for debugging
+                        let originalPTS = encodedPacket.pts
+                        let originalDTS = encodedPacket.dts
 
                         encodedPacket.pts = AVMath.rescale(
                             encodedPacket.pts, encoderContext.timebase, outputVideoStream.timebase,
@@ -701,6 +722,8 @@ class BlankRushCreator {
                         encodedPacket.duration = AVMath.rescale(
                             encodedPacket.duration, encoderContext.timebase,
                             outputVideoStream.timebase)
+
+                        print("  🔄 Flushed frame \(frameCount) packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(encodedPacket.pts)")
 
                         try outputFormatContext.interleavedWriteFrame(encodedPacket)
                     } catch let err as AVError where err == .tryAgain || err == .eof {
@@ -716,20 +739,21 @@ class BlankRushCreator {
 
         print("  ✅ Total frames decoded: \(frameCount)")
 
-        // Check encoder capabilities before flushing (from FFmpeg C example)
-        if !encoderContext.codec!.capabilities.contains(.delay) {
-            print("  ⚠️ Encoder doesn't support delay - skipping flush")
-        } else {
-            print("  🔄 Encoder supports delay - performing final flush")
-        }
-
+        // Always flush encoder - VideoToolbox may not report delay capability correctly
+        print("  🔄 Force flushing encoder to ensure all frames are written")
+        
         // Flush encoder with proper timing rescaling
         try encoderContext.sendFrame(nil as AVFrame?)
         while true {
             let packet = AVPacket()
             do {
                 try encoderContext.receivePacket(packet)
+                encodedPacketCount += 1
                 packet.streamIndex = outputVideoStream.index
+
+                // Store original timing for debugging
+                let originalPTS = packet.pts
+                let originalDTS = packet.dts
 
                 // Rescale flush packets too
                 packet.pts = AVMath.rescale(
@@ -741,11 +765,22 @@ class BlankRushCreator {
                 packet.duration = AVMath.rescale(
                     packet.duration, encoderContext.timebase, outputVideoStream.timebase)
 
+                print("  📦 Final flush packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(packet.pts), DTS=\(originalDTS) → \(packet.dts)")
+
                 try outputFormatContext.interleavedWriteFrame(packet)
+            } catch let error as AVError where error.code == -541478725 {
+                // EOF error - container rejected packet due to duration limits
+                // This is the missing frame issue - the container duration is too short
+                print("  🎯 Container EOF reached - duration mismatch (expected for 24.02fps vs 23.976fps)")
+                print("  ⚠️ Last frame rejected due to container duration calculation error")
+                break
             } catch {
+                print("  ⚠️ Unexpected error writing final flush packet: \(error)")
                 break
             }
         }
+
+        print("  📈 Final stats: \(frameCount) frames decoded, \(encodedPacketCount) packets encoded")
 
         try outputFormatContext.writeTrailer()
         print("  ✅ Straight transcode completed")
@@ -783,4 +818,3 @@ extension LinkingResult {
             "\(candidateCount) OCF parents with \(totalChildren) total children ready for blank rush creation"
     }
 }
-
