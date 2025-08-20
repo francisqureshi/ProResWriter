@@ -515,9 +515,9 @@ class BlankRushCreator {
         
         // CRITICAL: Force the output stream framerate to match source exactly  
         // This prevents VideoToolbox from writing incorrect 24.04fps metadata
-        // Hardcoded test: Force exact 23.976fps (24000/1001)
-        outputVideoStream.averageFramerate = AVRational(num: 24000, den: 1001)
-        print("  🔧 HARDCODED: Forced output stream framerate to 24000/1001 = 23.976fps")
+        // Use the precise framerate from import analysis (extracted via realFramerate or averageFramerate)
+        outputVideoStream.averageFramerate = properties.frameRate  // Exact AVRational from source
+        print("  🔧 Forced output stream framerate to: \(properties.frameRate) = \(Float(properties.frameRate.num)/Float(properties.frameRate.den))fps")
 
         print("  🔧 Output stream timebase set to: \(outputVideoStream.timebase)")
 
@@ -768,11 +768,13 @@ class BlankRushCreator {
                 print("  📦 Final flush packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(packet.pts), DTS=\(originalDTS) → \(packet.dts)")
 
                 try outputFormatContext.interleavedWriteFrame(packet)
+                print("  ✅ Successfully wrote final flush packet \(encodedPacketCount)")
             } catch let error as AVError where error.code == -541478725 {
-                // EOF error - container rejected packet due to duration limits
-                // This is the missing frame issue - the container duration is too short
-                print("  🎯 Container EOF reached - duration mismatch (expected for 24.02fps vs 23.976fps)")
-                print("  ⚠️ Last frame rejected due to container duration calculation error")
+                // EOF error - this could be:
+                // 1. Encoder finished (expected after all frames processed) 
+                // 2. Container rejected packet (would be unexpected with our framerate fix)
+                print("  🏁 Encoder/container EOF reached (frame \(frameCount), packet \(encodedPacketCount))")
+                print("  ℹ️  This is likely expected - encoder finished after processing all frames")
                 break
             } catch {
                 print("  ⚠️ Unexpected error writing final flush packet: \(error)")
