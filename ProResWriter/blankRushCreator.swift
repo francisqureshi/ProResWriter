@@ -98,10 +98,10 @@ class BlankRushCreator {
         let outputFileName = "\(baseName)_blankRush.mov"
         let outputURL = outputDirectory.appendingPathComponent(outputFileName)
 
-        // Simple transcoding using SwiftFFmpeg
+        // Use the new MediaFileInfo-based transcoding (more efficient)
         do {
             let success = try await transcodeToProRes(
-                inputPath: ocf.url.path,
+                ocfFile: ocf,
                 outputPath: outputURL.path
             )
 
@@ -124,7 +124,29 @@ class BlankRushCreator {
 
     // MARK: - Simple ProRes Transcoding
 
-    /// Simple transcoding based on remuxing.swift example
+    /// Simple transcoding with MediaFileInfo struct (uses pre-analyzed metadata)
+    public func transcodeToProRes(ocfFile: MediaFileInfo, outputPath: String) async throws -> Bool {
+        
+        print("  🎬 Starting ProRes transcoding with pre-analyzed metadata...")
+        print("  📝 Input: \(ocfFile.fileName)")
+        print("  📝 Output: \(outputPath)")
+        print("  🎬 Using metadata: \(ocfFile.frameRateDescription), \(ocfFile.durationInFrames ?? 0) frames")
+        
+        do {
+            try await Task {
+                try transcodeToProResSyncWithMetadata(ocfFile: ocfFile, outputPath: outputPath)
+            }.value
+
+            print("  ✅ ProRes transcoding completed successfully!")
+            return true
+
+        } catch {
+            print("  ❌ ProRes transcoding failed: \(error)")
+            return false
+        }
+    }
+
+    /// Simple transcoding based on remuxing.swift example (legacy path-based version)
     public func transcodeToProRes(inputPath: String, outputPath: String) async throws -> Bool {
 
         print("  🎬 Starting simple ProRes transcoding...")
@@ -143,6 +165,73 @@ class BlankRushCreator {
             print("  ❌ ProRes transcoding failed: \(error)")
             return false
         }
+    }
+
+    /// Synchronous implementation using pre-analyzed MediaFileInfo metadata
+    private func transcodeToProResSyncWithMetadata(ocfFile: MediaFileInfo, outputPath: String) throws {
+
+        print("  📝 Processing with metadata: \(ocfFile.fileName) -> \(outputPath)")
+        
+        let inputPath = ocfFile.url.path
+        
+        // Input validation
+        guard FileManager.default.fileExists(atPath: inputPath) else {
+            throw TimecodeBlackFramesError(message: "Input file '\(inputPath)' not found!")
+        }
+
+        // Use pre-analyzed metadata instead of re-extracting
+        guard let frameRate = ocfFile.frameRate else {
+            throw TimecodeBlackFramesError(message: "No frame rate available in MediaFileInfo")
+        }
+        
+        guard let resolution = ocfFile.resolution else {
+            throw TimecodeBlackFramesError(message: "No resolution available in MediaFileInfo")
+        }
+        
+        // Convert float frame rate to proper AVRational for common professional rates
+        let frameRateRational: AVRational
+        if abs(frameRate - 23.976025) < 0.001 {
+            frameRateRational = AVRational(num: 24000, den: 1001)
+        } else if abs(frameRate - 29.97) < 0.001 {
+            frameRateRational = AVRational(num: 30000, den: 1001)
+        } else if abs(frameRate - 59.94006) < 0.001 {
+            frameRateRational = AVRational(num: 60000, den: 1001)
+        } else if abs(frameRate - 24.0) < 0.001 {
+            frameRateRational = AVRational(num: 24, den: 1)
+        } else if abs(frameRate - 25.0) < 0.001 {
+            frameRateRational = AVRational(num: 25, den: 1)
+        } else if abs(frameRate - 30.0) < 0.001 {
+            frameRateRational = AVRational(num: 30, den: 1)
+        } else {
+            // Fallback for unusual frame rates
+            frameRateRational = AVRational(num: Int32(frameRate * 1000), den: 1000)
+        }
+        
+        let sourceProperties = BlankRushVideoProperties(
+            width: Int(resolution.width),
+            height: Int(resolution.height),
+            frameRate: frameRateRational,
+            duration: Double(ocfFile.durationInFrames ?? 0) / Double(frameRate),
+            sampleAspectRatio: nil, // Could parse from ocfFile.sampleAspectRatio if needed
+            company: nil, // Could add to MediaFileInfo if needed
+            finalWidth: Int(resolution.width),
+            finalHeight: Int(resolution.height),
+            timecode: ocfFile.sourceTimecode ?? "00:00:00:00",
+            isDropFrame: ocfFile.isDropFrame ?? false
+        )
+        
+        print("  📝 Using pre-analyzed properties: \(sourceProperties.width)x\(sourceProperties.height) at \(sourceProperties.frameRate)")
+        print("  📝 Duration: \(String(format: "%.2f", sourceProperties.duration))s, \(ocfFile.durationInFrames ?? 0) frames")
+        print("  📝 Timecode: \(sourceProperties.timecode)")
+
+        // Use the same transcode logic as the path-based version
+        try straightTranscodeToProRes(
+            inputPath: inputPath,
+            outputPath: outputPath,
+            properties: sourceProperties
+        )
+
+        print("  ✅ Transcoding with pre-analyzed metadata completed: \(outputPath)")
     }
 
     /// Synchronous implementation: Generate synthetic black frames with metadata from source

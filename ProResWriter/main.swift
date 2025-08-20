@@ -245,7 +245,7 @@ Task {
     // Test import and linking
     let gradedSegments = await testImport()
     if let linkingResult = await testLinking(segments: gradedSegments) {
-        // await testBlankRushCreation(linkingResult: linkingResult)
+        await testBlankRushCreation(linkingResult: linkingResult)
     }
 
     // testTranscodeBlank()
