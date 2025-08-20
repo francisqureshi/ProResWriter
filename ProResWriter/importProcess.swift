@@ -198,8 +198,22 @@ class MediaAnalyzer {
                     }
                     
                     // Calculate end timecode and duration
-                    durationInFrames = Int64(stream.frameCount)
-                    if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames {
+                    // MXF files often have unreliable frameCount metadata, calculate from duration and framerate
+                    if stream.frameCount > 0 {
+                        durationInFrames = Int64(stream.frameCount)
+                        print("    📊 Using stream frameCount: \(durationInFrames) frames")
+                    } else if let fps = frameRate, stream.duration > 0 {
+                        // Calculate frames from duration and framerate
+                        // stream.duration is in stream timebase units, convert to frames
+                        let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / Double(stream.timebase.den)
+                        durationInFrames = Int64(timebaseSeconds * Double(fps))
+                        print("    📊 Calculated from duration: \(durationInFrames) frames (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+                    } else {
+                        durationInFrames = 0
+                        print("    ⚠️ Cannot determine frame count - insufficient duration/framerate info")
+                    }
+                    
+                    if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames, frames > 0 {
                         endTimecode = calculateEndTimecode(startTimecode: startTC, frameRate: fps, durationFrames: frames)
                     }
 

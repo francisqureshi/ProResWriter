@@ -69,7 +69,8 @@ func testImport() async -> [MediaFileInfo] {
     let segmentsDirectoryURL = URL(
         fileURLWithPath:
             // actual source file ---> // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light/"
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
+            // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
+            "/Users/mac10/Desktop/23.98/GRADED"
     )
 
     var gradedSegments: [MediaFileInfo] = []
@@ -129,12 +130,13 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
     let ocfDirectoryURLs = [
         URL(
             fileURLWithPath:
-                "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
-        ),
-        URL(
-            fileURLWithPath:
-                "/Users/mac10/Movies/ProResWriter/testMaterialNonQT/59.94 DF"
-        ),
+                // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
+                "/Users/mac10/Desktop/23.98/OCF"
+        )
+        // URL(
+        //     fileURLWithPath:
+        //         "/Users/mac10/Movies/ProResWriter/testMaterialNonQT/59.94 DF"
+        // ),
     ]
 
     do {
@@ -203,17 +205,7 @@ func testBlankRushCreation(linkingResult: LinkingResult) async {
     }
 }
 
-Task {
-    // Test SMPTE library first
-    // testSMPTE()
-    // exit(0)
-
-    // Test import and linking - COMMENTED OUT FOR DEBUGGING
-    // let gradedSegments = await testImport()
-    // if let linkingResult = await testLinking(segments: gradedSegments) {
-    //     await testBlankRushCreation(linkingResult: linkingResult)
-    // }
-
+func testTranscodeBlank() async {
     // Test simple transcoding directly
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Testing simple transcoding...")
@@ -242,6 +234,22 @@ Task {
     }
 
     print("\n" + String(repeating: "=", count: 50))
+
+}
+
+Task {
+    // Test SMPTE library first
+    // testSMPTE()
+    // exit(0)
+
+    // Test import and linking
+    let gradedSegments = await testImport()
+    if let linkingResult = await testLinking(segments: gradedSegments) {
+        // await testBlankRushCreation(linkingResult: linkingResult)
+    }
+
+    // testTranscodeBlank()
+
     // print("🎬 Starting composition process...")
 
     // // Original paths
