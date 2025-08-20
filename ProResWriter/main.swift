@@ -221,10 +221,10 @@ Task {
     let blankRushCreator = BlankRushCreator()
 
     // Create a minimal test - use shorter source file for debugging
-    // let inputPath = "/Users/mac10/Desktop/23.98/A003C002_250605_RP4Z.mxf"
-    let inputPath = "/Users/mac10/Desktop/59.94/A001C001_2505193L_CANON.MXF"
+    let inputPath = "/Users/mac10/Desktop/23.98/A003C002_250605_RP4Z.mxf"
+    // let inputPath = "/Users/mac10/Desktop/59.94/A001C001_2505193L_CANON.MXF"
     let outputPath =
-        "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/tests/5994fps_422_proxy_transcode.mov"
+        "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/tests/23976fps_422_proxy_transcode.mov"
 
     do {
         let success = try await blankRushCreator.transcodeToProRes(

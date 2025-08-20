@@ -31,6 +31,7 @@ struct BlankRushVideoProperties {
     let finalWidth: Int
     let finalHeight: Int
     let timecode: String
+    let isDropFrame: Bool  // Drop frame timecode information
 }
 
 class BlankRushCreator {
@@ -223,6 +224,8 @@ class BlankRushCreator {
 
         // Extract timecode
         var timecode = "00:00:00:00"
+        var isDropFrame = false
+        
         if let formatTC = inputFormatContext.metadata["timecode"] {
             timecode = formatTC
             print("  📝 Found timecode in format metadata: \(timecode)")
@@ -232,6 +235,11 @@ class BlankRushCreator {
         } else {
             print("  ⚠️ No timecode found, using default: \(timecode)")
         }
+        
+        // Detect drop frame from timecode format and frame rate
+        isDropFrame = detectDropFrameFromTimecode(timecode: timecode, frameRate: frameRate)
+        let dropFrameInfo = isDropFrame ? " (drop frame)" : " (non-drop frame)"
+        print("  🎬 Timecode analysis: \(timecode)\(dropFrameInfo)")
 
         // Calculate final dimensions (simplified for now)
         let finalWidth = width
@@ -246,7 +254,8 @@ class BlankRushCreator {
             company: inputFormatContext.metadata["company_name"],
             finalWidth: finalWidth,
             finalHeight: finalHeight,
-            timecode: timecode
+            timecode: timecode,
+            isDropFrame: isDropFrame
         )
     }
 
@@ -450,6 +459,25 @@ class BlankRushCreator {
 
         // Create output
         let outputFormatContext = try AVFormatContext(format: nil, filename: outputPath)
+        
+        // Set timecode metadata early (before adding streams)
+        let timecodeForOutput: String
+        if properties.isDropFrame {
+            if properties.timecode.contains(";") {
+                timecodeForOutput = properties.timecode
+                print("  🎬 Early timecode setup - preserving drop frame format: \(timecodeForOutput)")
+            } else {
+                if let lastColonRange = properties.timecode.range(of: ":", options: .backwards) {
+                    timecodeForOutput = properties.timecode.replacingCharacters(in: lastColonRange, with: ";")
+                } else {
+                    timecodeForOutput = properties.timecode
+                }
+            }
+        } else {
+            timecodeForOutput = properties.timecode
+        }
+        outputFormatContext.metadata["timecode"] = timecodeForOutput
+        print("  🎬 Set early timecode metadata: \(timecodeForOutput)")
 
         // Find VideoToolbox ProRes encoder (like your shell script: -c:v prores_videotoolbox)
         guard let proresCodec = AVCodec.findEncoderByName("prores_videotoolbox") else {
@@ -525,6 +553,11 @@ class BlankRushCreator {
         if !outputFormatContext.outputFormat!.flags.contains(.noFile) {
             try outputFormatContext.openOutput(url: outputPath, flags: .write)
         }
+        
+        // Timecode metadata was already set earlier - no need to set again
+        let dropFrameInfo = properties.isDropFrame ? " (drop frame)" : " (non-drop frame)"
+        print("  🎬 Timecode metadata ready: \(outputFormatContext.metadata["timecode"] ?? "none")\(dropFrameInfo)")
+        
         try outputFormatContext.writeHeader()
 
         print("  🔄 Transcoding frames with frame counting...")
@@ -786,6 +819,34 @@ class BlankRushCreator {
 
         try outputFormatContext.writeTrailer()
         print("  ✅ Straight transcode completed")
+    }
+
+    /// Detect drop frame from timecode format and frame rate (similar to importProcess.swift)
+    private func detectDropFrameFromTimecode(timecode: String, frameRate: AVRational) -> Bool {
+        let hasDropFrameSeparator = timecode.contains(";")
+        let frameRateFloat = Float(frameRate.num) / Float(frameRate.den)
+        
+        // Common drop frame rates
+        let commonDropFrameRates: [Float] = [29.97, 59.94]
+        let isDropFrameRate = commonDropFrameRates.contains { abs(frameRateFloat - $0) < 0.01 }
+        
+        if hasDropFrameSeparator {
+            if isDropFrameRate {
+                print("  🎬 Drop frame detected: ';' separator with \(frameRateFloat)fps")
+                return true
+            } else {
+                print("  ⚠️ Drop frame separator ';' found but frame rate \(frameRateFloat)fps is unusual for drop frame")
+                return true  // Trust the separator
+            }
+        } else {
+            if isDropFrameRate {
+                print("  ⚠️ Drop frame rate \(frameRateFloat)fps detected but using non-drop frame separator ':'")
+                return false  // Trust the separator format
+            } else {
+                print("  🎬 Non-drop frame detected: ':' separator with \(frameRateFloat)fps")
+                return false
+            }
+        }
     }
 
     /// Create directory if it doesn't exist
