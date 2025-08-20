@@ -1,0 +1,1039 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/mac10/Projects/ProResWriter         │
+╰───────────────────────────────────────────────────╯
+⏺ Compact summary (ctrl+r to expand)
+  ⎿  Read ProResWriter/main.swift (272 lines)
+  ⎿ Read build/Build/Intermediates.noindex/ProResWriter.build/Release/ProResWriter.build/Objects-normal/arm64/ProResWrit
+    er.SwiftFileList (10 lines)
+  ⎿  Read ProResWriter/blankRushCreator.swift (884 lines)
+  ⎿  Read ProResWriter/importProcess.swift (518 lines)
+  ⎿  Todo list read (3 items)
+
+⏺ I can see that your previous build error in main.swift has been resolved. The testTranscodeBlank() function is now
+  properly marked as async on line 208, which was the fix needed for the build error you encountered.
+
+  Looking at the code, your refactoring to organize the transcoding test into a separate function is clean and
+  well-structured. The transcoding functionality appears to be working correctly based on our previous fixes:
+
+  1. Frame count issue resolved: The framerate metadata fix ensures all 407 frames are preserved
+  2. Drop frame timecode support: The system now properly detects and preserves drop frame formatting
+  3. Build error fixed: The async function declaration is now correct
+
+  Your code should now build and run successfully. The transcoding test function testTranscodeBlank() can be called
+  whenever you need to test the transcoding functionality, and it's properly integrated with the async/await pattern
+  used throughout your application.
+
+> just at the ipmort OCF file here: 
+
+  🧪 Testing import functionality...
+  🎬 Importing graded segments from: /Users/mac10/Desktop/23.98/GRADED
+    📂 Processing: A003C002_250605_RP4Z_GRADED.mov
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 46
+      🚀 startTime: 0
+      ⏱️ duration: 46046
+      📋 Stream metadata:
+        timecode: 12:42:00:20
+        vendor_id: appl
+        creation_time: 2025-08-20T16:57:38.000000Z
+        handler_name: VideoHandler
+        encoder: Apple ProRes 4444
+      🎬 Found timecode in stream metadata: 12:42:00:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      ⏰ Calculated end timecode: 12:42:02:18 (duration: 46 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4448x3096
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:42:00:20
+      End Timecode: 12:42:02:18
+      Duration: 46 frames
+  ✅ Imported 1 graded segments
+  ✅ Successfully imported 1 graded segments
+
+  📄 A003C002_250605_RP4Z_GRADED.mov
+    📁 Type: gradedSegment
+    📐 Coded Resolution: 4448x3096
+    🎬 Frame Rate: 23.976fps (24000/1001)
+    📺 Scan Type: Progressive
+    🔄 Field Order: progressive
+    ⏰ Source Timecode: 12:42:00:20
+    📋 Summary: 📐 4448x3096 • 🎬 23.976fps (24000/1001) • 📺 Progressive • ⏰ 12:42:00:20
+
+  ==================================================
+  🔗 Testing parent-child linking process...
+  📹 Importing OCF files from directory 1: OCF
+  📹 Importing original camera files from: /Users/mac10/Desktop/23.98/OCF
+    📂 Processing: A003C002_250605_RP4Z.mxf
+      📐 Sample Aspect Ratio: 139:140 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 407
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D431300000034413945314635362D343230412D3131
+      🎬 Found timecode in format metadata: 12:41:56:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      ⏰ Calculated end timecode: 12:41:56:20 (duration: 0 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4480x3096
+      Sample Aspect Ratio: 139:140
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:41:56:20
+      End Timecode: 12:41:56:20
+      Duration: 0 frames
+  ✅ Imported 1 original camera files
+  ✅ Successfully imported 1 total OCF files from 1 directories
+  🔗 Linking 1 segments with 1 OCF parent files...
+      ❌ Segment range 12:42:00:20-12:42:02:18 (frames 1097300-1097346) NOT within OCF range 12:41:56:20-12:41:56:20 
+  (frames 1097204-1097204)
+    ✅ A003C002_250605_RP4Z_GRADED.mov → A003C002_250605_RP4Z.mxf (high, filename_contains+resolution+fps)
+  🔗 Linking complete: 1 OCF parents with 1 child segments (100% success)
+  📊 Linking Results:
+    📊 1 OCF parents with 1 child segments (100% success)
+    📁 OCF Parents: 1
+    📝 Child Segments: 1
+    ❌ Unmatched Segments: 0
+    ❌ Unmatched OCFs: 0
+
+  🔗 Parent-Child Breakdown:
+    📁 A003C002_250605_RP4Z.mxf → 1 children
+      📝 A003C002_250605_RP4Z_GRADED.mov (high)
+  mac10@mac-10-uptown Release %
+
+  the OC file is reported with 0 frames but it has 407! - whats happening here?
+
+⏺ The issue is that SwiftFFmpeg is reporting frameCount: 0 for your MXF file, but the actual duration shows 407 time
+  units. This is a common issue with MXF files where the frame count metadata isn't properly set or accessible through
+  the standard SwiftFFmpeg properties.
+
+  Let me check how the frame count calculation works in your import process:
+
+⏺ Read(ProResWriter/importProcess.swift)
+  ⎿  Read 10 lines (ctrl+r to expand)
+
+⏺ The problem is on line 201: durationInFrames = Int64(stream.frameCount) - since stream.frameCount is 0, it's using
+  that instead of calculating the correct frame count from duration and framerate.
+
+  For MXF files, we need to calculate the frame count from the duration and framerate when frameCount is unreliable.
+  Here's the fix:
+
+⏺ Update(ProResWriter/importProcess.swift)
+  ⎿  Updated ProResWriter/importProcess.swift with 16 additions and 2 removals                                          
+       198                        }
+       199                        
+       200                        // Calculate end timecode and duration
+       201 -                      durationInFrames = Int64(stream.frameCount)
+       202 -                      if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames {
+       201 +                      // MXF files often have unreliable frameCount metadata, calculate from duration and 
+     framerate
+           + framerate
+       202 +                      if stream.frameCount > 0 {
+       203 +                          durationInFrames = Int64(stream.frameCount)
+       204 +                          print("    📊 Using stream frameCount: \(durationInFrames) frames")
+       205 +                      } else if let fps = frameRate, stream.duration > 0 {
+       206 +                          // Calculate frames from duration and framerate
+       207 +                          // stream.duration is in stream timebase units, convert to frames
+       208 +                          let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / 
+           + Double(stream.timebase.den)
+       209 +                          durationInFrames = Int64(timebaseSeconds * Double(fps))
+       210 +                          print("    📊 Calculated from duration: \(durationInFrames) frames 
+           + (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+       211 +                      } else {
+       212 +                          durationInFrames = 0
+       213 +                          print("    ⚠️ Cannot determine frame count - insufficient duration/framerate 
+     info")
+       214 +                      }
+       215 +                      
+       216 +                      if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames, 
+           + frames > 0 {
+       217                            endTimecode = calculateEndTimecode(startTimecode: startTC, frameRate: fps, 
+             durationFrames: frames)
+       218                        }
+       219    
+
+⏺ Now test the import again to see if it correctly calculates the 407 frames for your MXF file.
+
+> great!! 
+
+  🧪 Testing import functionality...
+  🎬 Importing graded segments from: /Users/mac10/Desktop/23.98/GRADED
+    📂 Processing: A003C002_250605_RP4Z_GRADED.mov
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 46
+      🚀 startTime: 0
+      ⏱️ duration: 46046
+      📋 Stream metadata:
+        handler_name: VideoHandler
+        creation_time: 2025-08-20T16:57:38.000000Z
+        vendor_id: appl
+        encoder: Apple ProRes 4444
+        timecode: 12:42:00:20
+      🎬 Found timecode in stream metadata: 12:42:00:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Using stream frameCount: Optional(46) frames
+      ⏰ Calculated end timecode: 12:42:02:18 (duration: 46 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4448x3096
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:42:00:20
+      End Timecode: 12:42:02:18
+      Duration: 46 frames
+  ✅ Imported 1 graded segments
+  ✅ Successfully imported 1 graded segments
+
+  📄 A003C002_250605_RP4Z_GRADED.mov
+    📁 Type: gradedSegment
+    📐 Coded Resolution: 4448x3096
+    🎬 Frame Rate: 23.976fps (24000/1001)
+    📺 Scan Type: Progressive
+    🔄 Field Order: progressive
+    ⏰ Source Timecode: 12:42:00:20
+    📋 Summary: 📐 4448x3096 • 🎬 23.976fps (24000/1001) • 📺 Progressive • ⏰ 12:42:00:20
+
+  ==================================================
+  🔗 Testing parent-child linking process...
+  📹 Importing OCF files from directory 1: OCF
+  📹 Importing original camera files from: /Users/mac10/Desktop/23.98/OCF
+    📂 Processing: A003C002_250605_RP4Z.mxf
+      📐 Sample Aspect Ratio: 139:140 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 407
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D431300000034413945314635362D343230412D3131
+      🎬 Found timecode in format metadata: 12:41:56:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Calculated from duration: Optional(407) frames (duration=407 timebase=AVRational(num: 1001, den: 24000) 
+  fps=23.976025)
+      ⏰ Calculated end timecode: 12:42:13:19 (duration: 407 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4480x3096
+      Sample Aspect Ratio: 139:140
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:41:56:20
+      End Timecode: 12:42:13:19
+      Duration: 407 frames
+  ✅ Imported 1 original camera files
+  ✅ Successfully imported 1 total OCF files from 1 directories
+  🔗 Linking 1 segments with 1 OCF parent files...
+      ✅ Segment range 12:42:00:20-12:42:02:18 (frames 1097300-1097346) within OCF range 12:41:56:20-12:42:13:19 (frames
+   1097204-1097611)
+    ✅ A003C002_250605_RP4Z_GRADED.mov → A003C002_250605_RP4Z.mxf (high, 
+  filename_contains+resolution+fps+timecode_range)
+  🔗 Linking complete: 1 OCF parents with 1 child segments (100% success)
+
+  📊 Linking Results:
+    📊 1 OCF parents with 1 child segments (100% success)
+    📁 OCF Parents: 1
+    📝 Child Segments: 1
+    ❌ Unmatched Segments: 0
+    ❌ Unmatched OCFs: 0
+
+  🔗 Parent-Child Breakdown:
+    📁 A003C002_250605_RP4Z.mxf → 1 children
+      📝 A003C002_250605_RP4Z_GRADED.mov (high)
+  mac10@mac-10-uptown Release %
+
+⏺ Perfect! The fix worked beautifully. Now your MXF OCF file is correctly showing 407 frames instead of 0, and the
+  linking system is working properly:
+
+  Key improvements:
+
+  1. Correct frame count: The MXF now shows 407 frames calculated from duration and framerate
+  2. Proper timecode range: OCF range is now 12:41:56:20-12:42:13:19 (407 frames total)
+  3. Successful linking: The segment 12:42:00:20-12:42:02:18 is now properly detected as within the OCF range
+  4. High confidence match: The linking shows high confidence with multiple matching criteria:
+  filename_contains+resolution+fps+timecode_range
+
+  The calculation logic correctly handled the MXF format by:
+  - Detecting that stream.frameCount = 0 (unreliable)
+  - Using stream.duration = 407 with timebase = 1001/24000
+  - Converting to frames: 407 × (1001/24000) × 23.976025 ≈ 407 frames
+
+  Your parent-child linking system is now working perfectly with the correct frame count data!
+
+> hmmmmmmm - but then calculating the frames of a Drop Frame TC file is very problematic this way... 
+
+  🧪 Testing import functionality...
+  🎬 Importing graded segments from: /Users/mac10/Desktop/23.98/GRADED
+    📂 Processing: A003C002_250605_RP4Z_GRADED.mov
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 46
+      🚀 startTime: 0
+      ⏱️ duration: 46046
+      📋 Stream metadata:
+        creation_time: 2025-08-20T16:57:38.000000Z
+        encoder: Apple ProRes 4444
+        vendor_id: appl
+        timecode: 12:42:00:20
+        handler_name: VideoHandler
+      🎬 Found timecode in stream metadata: 12:42:00:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Using stream frameCount: Optional(46) frames
+      ⏰ Calculated end timecode: 12:42:02:18 (duration: 46 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4448x3096
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:42:00:20
+      End Timecode: 12:42:02:18
+      Duration: 46 frames
+  ✅ Imported 1 graded segments
+  ✅ Successfully imported 1 graded segments
+
+  📄 A003C002_250605_RP4Z_GRADED.mov
+    📁 Type: gradedSegment
+    📐 Coded Resolution: 4448x3096
+    🎬 Frame Rate: 23.976fps (24000/1001)
+    📺 Scan Type: Progressive
+    🔄 Field Order: progressive
+    ⏰ Source Timecode: 12:42:00:20
+    📋 Summary: 📐 4448x3096 • 🎬 23.976fps (24000/1001) • 📺 Progressive • ⏰ 12:42:00:20
+
+  ==================================================
+  🔗 Testing parent-child linking process...
+  📹 Importing OCF files from directory 1: OCF
+  📹 Importing original camera files from: /Users/mac10/Desktop/23.98/OCF
+    📂 Processing: A003C002_250605_RP4Z.mxf
+      📐 Sample Aspect Ratio: 139:140 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 407
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D431300000034413945314635362D343230412D3131
+      🎬 Found timecode in format metadata: 12:41:56:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Calculated from duration: Optional(407) frames (duration=407 timebase=AVRational(num: 1001, den: 24000) 
+  fps=23.976025)
+      ⏰ Calculated end timecode: 12:42:13:19 (duration: 407 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4480x3096
+      Sample Aspect Ratio: 139:140
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:41:56:20
+      End Timecode: 12:42:13:19
+      Duration: 407 frames
+  ✅ Imported 1 original camera files
+  📹 Importing OCF files from directory 2: 59.94
+  📹 Importing original camera files from: /Users/mac10/Desktop/59.94
+    📂 Processing: A001C001_2505193L_CANON.MXF
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 59.94006fps (60000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 270
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+      🎬 Found timecode in format metadata: 12:31:46;24
+      🎬 Drop frame detected: ';' separator with 59.94006fps
+      📊 Calculated from duration: Optional(269) frames (duration=270 timebase=AVRational(num: 1001, den: 60000) 
+  fps=59.94006)
+      ⏰ Calculated end timecode: 12:31:50;53 (duration: 269 frames) (drop frame)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4096x2160
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 59.94006fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:31:46;24
+      End Timecode: 12:31:50;53
+      Duration: 269 frames
+  ✅ Imported 1 original camera files
+  ✅ Successfully imported 2 total OCF files from 2 directories
+  🔗 Linking 1 segments with 2 OCF parent files...
+      ✅ Segment range 12:42:00:20-12:42:02:18 (frames 1097300-1097346) within OCF range 12:41:56:20-12:42:13:19 (frames
+   1097204-1097611)
+    ✅ A003C002_250605_RP4Z_GRADED.mov → A003C002_250605_RP4Z.mxf (high, 
+  filename_contains+resolution+fps+timecode_range)
+  🔗 Linking complete: 1 OCF parents with 1 child segments (100% success)
+
+  📊 Linking Results:
+    📊 1 OCF parents with 1 child segments (100% success)
+    📁 OCF Parents: 2
+    📝 Child Segments: 1
+    ❌ Unmatched Segments: 0
+    ❌ Unmatched OCFs: 1
+
+  🔗 Parent-Child Breakdown:
+    📁 A003C002_250605_RP4Z.mxf → 1 children
+      📝 A003C002_250605_RP4Z_GRADED.mov (high)
+  mac10@mac-10-uptown Release %
+
+  that 59.94 Fps DF file "A001C001_2505193L_CANON.MXF" has 270 frames but its now calcd as 269...
+
+⏺ You're absolutely right! The issue is that our simple calculation duration × framerate doesn't account for the
+  complexity of drop frame timecode, where frames are "dropped" from the timecode display but still exist in the actual
+  video stream.
+
+  The problem is that we have:
+  - duration = 270 (in timebase units)
+  - timebase = 1001/60000
+  - fps = 59.94006
+
+  But our calculation 270 × (1001/60000) × 59.94006 ≈ 269 is giving us 269 instead of 270.
+
+  The issue is likely rounding precision. For MXF files with unreliable frameCount, we should use a more robust
+  approach. Let me fix this:
+
+⏺ Update(ProResWriter/importProcess.swift)
+  ⎿  Updated ProResWriter/importProcess.swift with 12 additions and 5 removals                                          
+       203                            durationInFrames = Int64(stream.frameCount)
+       204                            print("    📊 Using stream frameCount: \(durationInFrames) frames")
+       205                        } else if let fps = frameRate, stream.duration > 0 {
+       206 -                          // Calculate frames from duration and framerate
+       207 -                          // stream.duration is in stream timebase units, convert to frames
+       208 -                          let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / 
+     Double(stream.timebase.den)
+           - Double(stream.timebase.den)
+       209 -                          durationInFrames = Int64(timebaseSeconds * Double(fps))
+       210 -                          print("    📊 Calculated from duration: \(durationInFrames) frames 
+     (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+           - (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+       206 +                          // For MXF files, duration is often in frame units already, despite timebase
+       207 +                          // Try direct duration first, then fallback to timebase calculation
+       208 +                          if stream.timebase.num == 1001 && (stream.timebase.den == 24000 || 
+     stream.timebase.den == 30000 || stream.timebase.den == 60000) {
+           + stream.timebase.den == 30000 || stream.timebase.den == 60000) {
+       209 +                              // Common professional timebase - duration is likely already in frame units
+       210 +                              durationInFrames = Int64(stream.duration)
+       211 +                              print("    📊 Using duration directly as frame count: \(durationInFrames) 
+           + frames (professional timebase \(stream.timebase))")
+       212 +                          } else {
+       213 +                              // Calculate frames from duration and framerate for other cases
+       214 +                              let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / 
+           + Double(stream.timebase.den)
+       215 +                              durationInFrames = Int64(round(timebaseSeconds * Double(fps)))
+       216 +                              print("    📊 Calculated from duration: \(durationInFrames) frames 
+           + (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+       217 +                          }
+       218                        } else {
+       219                            durationInFrames = 0
+       220                            print("    ⚠️ Cannot determine frame count - insufficient duration/framerate 
+     info")
+
+⏺ Now test again. For professional MXF files with timebases like 1001/60000 (59.94fps), the duration value of 270 should
+   now be used directly as the frame count, giving you the correct 270 frames for your drop frame file.
+
+> OK OK -
+
+  🧪 Testing import functionality...
+  🎬 Importing graded segments from: /Users/mac10/Desktop/23.98/GRADED
+    📂 Processing: A003C002_250605_RP4Z_GRADED.mov
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 46
+      🚀 startTime: 0
+      ⏱️ duration: 46046
+      📋 Stream metadata:
+        handler_name: VideoHandler
+        encoder: Apple ProRes 4444
+        vendor_id: appl
+        creation_time: 2025-08-20T16:57:38.000000Z
+        timecode: 12:42:00:20
+      🎬 Found timecode in stream metadata: 12:42:00:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Using stream frameCount: Optional(46) frames
+      ⏰ Calculated end timecode: 12:42:02:18 (duration: 46 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4448x3096
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:42:00:20
+      End Timecode: 12:42:02:18
+      Duration: 46 frames
+  ✅ Imported 1 graded segments
+  ✅ Successfully imported 1 graded segments
+
+  📄 A003C002_250605_RP4Z_GRADED.mov
+    📁 Type: gradedSegment
+    📐 Coded Resolution: 4448x3096
+    🎬 Frame Rate: 23.976fps (24000/1001)
+    📺 Scan Type: Progressive
+    🔄 Field Order: progressive
+    ⏰ Source Timecode: 12:42:00:20
+    📋 Summary: 📐 4448x3096 • 🎬 23.976fps (24000/1001) • 📺 Progressive • ⏰ 12:42:00:20
+
+  ==================================================
+  🔗 Testing parent-child linking process...
+  📹 Importing OCF files from directory 1: OCF
+  📹 Importing original camera files from: /Users/mac10/Desktop/23.98/OCF
+    📂 Processing: A003C002_250605_RP4Z.mxf
+      📐 Sample Aspect Ratio: 139:140 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 407
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D431300000034413945314635362D343230412D3131
+      🎬 Found timecode in format metadata: 12:41:56:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Using duration directly as frame count: Optional(407) frames (professional timebase AVRational(num: 1001, den: 
+  24000))
+      ⏰ Calculated end timecode: 12:42:13:19 (duration: 407 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4480x3096
+      Sample Aspect Ratio: 139:140
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:41:56:20
+      End Timecode: 12:42:13:19
+      Duration: 407 frames
+  ✅ Imported 1 original camera files
+  📹 Importing OCF files from directory 2: 59.94
+  📹 Importing original camera files from: /Users/mac10/Desktop/59.94
+    📂 Processing: A001C001_2505193L_CANON.MXF
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 59.94006fps (60000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 270
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+      🎬 Found timecode in format metadata: 12:31:46;24
+      🎬 Drop frame detected: ';' separator with 59.94006fps
+      📊 Using duration directly as frame count: Optional(270) frames (professional timebase AVRational(num: 1001, den: 
+  60000))
+      ⏰ Calculated end timecode: 12:31:50;54 (duration: 270 frames) (drop frame)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4096x2160
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 59.94006fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:31:46;24
+      End Timecode: 12:31:50;54
+      Duration: 270 frames
+  ✅ Imported 1 original camera files
+  ✅ Successfully imported 2 total OCF files from 2 directories
+  🔗 Linking 1 segments with 2 OCF parent files...
+      ✅ Segment range 12:42:00:20-12:42:02:18 (frames 1097300-1097346) within OCF range 12:41:56:20-12:42:13:19 (frames
+   1097204-1097611)
+    ✅ A003C002_250605_RP4Z_GRADED.mov → A003C002_250605_RP4Z.mxf (high, 
+  filename_contains+resolution+fps+timecode_range)
+  🔗 Linking complete: 1 OCF parents with 1 child segments (100% success)
+
+  📊 Linking Results:
+    📊 1 OCF parents with 1 child segments (100% success)
+    📁 OCF Parents: 2
+    📝 Child Segments: 1
+    ❌ Unmatched Segments: 0
+    ❌ Unmatched OCFs: 1
+
+  🔗 Parent-Child Breakdown:
+    📁 A003C002_250605_RP4Z.mxf → 1 children
+      📝 A003C002_250605_RP4Z_GRADED.mov (high)
+  mac10@mac-10-uptown Release %
+
+  looks good!
+
+⏺ Perfect! The fix worked exactly as intended:
+
+  Key improvements:
+
+  1. 23.976fps MXF: 407 frames correctly detected using direct duration (professional timebase 1001/24000)
+  2. 59.94fps Drop Frame MXF: 270 frames correctly detected using direct duration (professional timebase 1001/60000)
+  3. Both files: Now using "Using duration directly as frame count" approach for professional timebases
+
+  The logic now properly handles professional MXF files where:
+  - frameCount metadata is unreliable (shows 0)
+  - duration value is already in frame units for standard professional timebases
+  - Drop frame timecode calculations work correctly with the actual frame count
+
+  Your import and linking system is now robust for both regular framerates and drop frame timecode scenarios!
+
+> OK nice! now can we make it so our transcode function can accept an imported OCF file struct ?
+
+⏺ Great idea! Let's modify the transcodeToProRes function to accept a MediaFileInfo struct instead of just file paths.
+  This will allow it to use all the rich metadata we've already extracted during import.
+
+⏺ Read(ProResWriter/blankRushCreator.swift)
+  ⎿  Read 25 lines (ctrl+r to expand)
+
+⏺ Let's add an overloaded version that accepts a MediaFileInfo struct:
+
+⏺ Update(ProResWriter/blankRushCreator.swift)
+  ⎿  Updated ProResWriter/blankRushCreator.swift with 23 additions and 1 removal                                    
+       124    
+       125        // MARK: - Simple ProRes Transcoding
+       126    
+       127 -      /// Simple transcoding based on remuxing.swift example
+       127 +      /// Simple transcoding with MediaFileInfo struct (uses pre-analyzed metadata)
+       128 +      public func transcodeToProRes(ocfFile: MediaFileInfo, outputPath: String) async throws -> Bool {
+       129 +          
+       130 +          print("  🎬 Starting ProRes transcoding with pre-analyzed metadata...")
+       131 +          print("  📝 Input: \(ocfFile.fileName)")
+       132 +          print("  📝 Output: \(outputPath)")
+       133 +          print("  🎬 Using metadata: \(ocfFile.frameRateDescription), \(ocfFile.durationInFrames ?? 0) 
+           + frames")
+       134 +          
+       135 +          do {
+       136 +              try await Task {
+       137 +                  try transcodeToProResSyncWithMetadata(ocfFile: ocfFile, outputPath: outputPath)
+       138 +              }.value
+       139 +  
+       140 +              print("  ✅ ProRes transcoding completed successfully!")
+       141 +              return true
+       142 +  
+       143 +          } catch {
+       144 +              print("  ❌ ProRes transcoding failed: \(error)")
+       145 +              return false
+       146 +          }
+       147 +      }
+       148 +  
+       149 +      /// Simple transcoding based on remuxing.swift example (legacy path-based version)
+       150        public func transcodeToProRes(inputPath: String, outputPath: String) async throws -> Bool {
+       151    
+       152            print("  🎬 Starting simple ProRes transcoding...")
+
+⏺ Now let's create the new sync function that uses the MediaFileInfo metadata:
+
+⏺ Update(ProResWriter/blankRushCreator.swift)
+  ⎿  Updated ProResWriter/blankRushCreator.swift with 49 additions                                                      
+       167            }
+       168        }
+       169    
+       170 +      /// Synchronous implementation using pre-analyzed MediaFileInfo metadata
+       171 +      private func transcodeToProResSyncWithMetadata(ocfFile: MediaFileInfo, outputPath: String) throws {
+       172 +  
+       173 +          print("  📝 Processing with metadata: \(ocfFile.fileName) -> \(outputPath)")
+       174 +          
+       175 +          let inputPath = ocfFile.url.path
+       176 +          
+       177 +          // Input validation
+       178 +          guard FileManager.default.fileExists(atPath: inputPath) else {
+       179 +              throw TimecodeBlackFramesError(message: "Input file '\(inputPath)' not found!")
+       180 +          }
+       181 +  
+       182 +          // Use pre-analyzed metadata instead of re-extracting
+       183 +          guard let frameRate = ocfFile.frameRate else {
+       184 +              throw TimecodeBlackFramesError(message: "No frame rate available in MediaFileInfo")
+       185 +          }
+       186 +          
+       187 +          guard let resolution = ocfFile.resolution else {
+       188 +              throw TimecodeBlackFramesError(message: "No resolution available in MediaFileInfo")
+       189 +          }
+       190 +          
+       191 +          let sourceProperties = BlankRushVideoProperties(
+       192 +              width: Int(resolution.width),
+       193 +              height: Int(resolution.height),
+       194 +              frameRate: AVRational(num: frameRate == 23.976025 ? 24000 : frameRate == 29.97 ? 30000 : 
+           + frameRate == 59.94006 ? 60000 : Int32(frameRate * 1000), 
+       195 +                                   den: frameRate == 23.976025 ? 1001 : frameRate == 29.97 ? 1001 : 
+     frameRate
+           +  == 59.94006 ? 1001 : 1000),
+       196 +              duration: Double(ocfFile.durationInFrames ?? 0) / Double(frameRate),
+       197 +              sampleAspectRatio: nil, // Could parse from ocfFile.sampleAspectRatio if needed
+       198 +              company: nil, // Could add to MediaFileInfo if needed
+       199 +              finalWidth: Int(resolution.width),
+       200 +              finalHeight: Int(resolution.height),
+       201 +              timecode: ocfFile.sourceTimecode ?? "00:00:00:00",
+       202 +              isDropFrame: ocfFile.isDropFrame ?? false
+       203 +          )
+       204 +          
+       205 +          print("  📝 Using pre-analyzed properties: \(sourceProperties.width)x\(sourceProperties.height) at 
+           + \(sourceProperties.frameRate)")
+       206 +          print("  📝 Duration: \(String(format: "%.2f", sourceProperties.duration))s, 
+           + \(ocfFile.durationInFrames ?? 0) frames")
+       207 +          print("  📝 Timecode: \(sourceProperties.timecode)")
+       208 +  
+       209 +          // Use the same transcode logic as the path-based version
+       210 +          try straightTranscodeToProRes(
+       211 +              inputPath: inputPath,
+       212 +              outputPath: outputPath,
+       213 +              properties: sourceProperties
+       214 +          )
+       215 +  
+       216 +          print("  ✅ Transcoding with pre-analyzed metadata completed: \(outputPath)")
+       217 +      }
+       218 +  
+       219        /// Synchronous implementation: Generate synthetic black frames with metadata from source
+       220        private func transcodeToProResSync(inputPath: String, outputPath: String) throws {
+       221    
+
+⏺ Now let's also update the createBlankRush method to use the new MediaFileInfo-based transcoding:
+
+⏺ Update(ProResWriter/blankRushCreator.swift)
+  ⎿  Updated ProResWriter/blankRushCreator.swift with 2 additions and 2 removals            
+        98            let outputFileName = "\(baseName)_blankRush.mov"
+        99            let outputURL = outputDirectory.appendingPathComponent(outputFileName)
+       100    
+       101 -          // Simple transcoding using SwiftFFmpeg
+       101 +          // Use the new MediaFileInfo-based transcoding (more efficient)
+       102            do {
+       103                let success = try await transcodeToProRes(
+       104 -                  inputPath: ocf.url.path,
+       104 +                  ocfFile: ocf,
+       105                    outputPath: outputURL.path
+       106                )
+       107    
+
+⏺ There's one issue with the AVRational conversion. Let me improve that to be more robust:
+
+⏺ Update(ProResWriter/blankRushCreator.swift)
+  ⎿  Updated ProResWriter/blankRushCreator.swift with 20 additions and 2 removals                                       
+       188                throw TimecodeBlackFramesError(message: "No resolution available in MediaFileInfo")
+       189            }
+       190            
+       191 +          // Convert float frame rate to proper AVRational for common professional rates
+       192 +          let frameRateRational: AVRational
+       193 +          if abs(frameRate - 23.976025) < 0.001 {
+       194 +              frameRateRational = AVRational(num: 24000, den: 1001)
+       195 +          } else if abs(frameRate - 29.97) < 0.001 {
+       196 +              frameRateRational = AVRational(num: 30000, den: 1001)
+       197 +          } else if abs(frameRate - 59.94006) < 0.001 {
+       198 +              frameRateRational = AVRational(num: 60000, den: 1001)
+       199 +          } else if abs(frameRate - 24.0) < 0.001 {
+       200 +              frameRateRational = AVRational(num: 24, den: 1)
+       201 +          } else if abs(frameRate - 25.0) < 0.001 {
+       202 +              frameRateRational = AVRational(num: 25, den: 1)
+       203 +          } else if abs(frameRate - 30.0) < 0.001 {
+       204 +              frameRateRational = AVRational(num: 30, den: 1)
+       205 +          } else {
+       206 +              // Fallback for unusual frame rates
+       207 +              frameRateRational = AVRational(num: Int32(frameRate * 1000), den: 1000)
+       208 +          }
+       209 +          
+       210            let sourceProperties = BlankRushVideoProperties(
+       211                width: Int(resolution.width),
+       212                height: Int(resolution.height),
+       213 -              frameRate: AVRational(num: frameRate == 23.976025 ? 24000 : frameRate == 29.97 ? 30000 : 
+     frameRate == 59.94006 ? 60000 : Int32(frameRate * 1000),
+           - frameRate == 59.94006 ? 60000 : Int32(frameRate * 1000), 
+       214 -                                   den: frameRate == 23.976025 ? 1001 : frameRate == 29.97 ? 1001 : 
+     frameRate
+           -  == 59.94006 ? 1001 : 1000),
+       213 +              frameRate: frameRateRational,
+       214                duration: Double(ocfFile.durationInFrames ?? 0) / Double(frameRate),
+       215                sampleAspectRatio: nil, // Could parse from ocfFile.sampleAspectRatio if needed
+       216                company: nil, // Could add to MediaFileInfo if needed
+
+⏺ Perfect! Now you have both transcoding methods:
+
+  New transcoding capabilities:
+
+  1. MediaFileInfo-based transcoding (preferred):
+  let success = try await transcodeToProRes(ocfFile: mediaFileInfo, outputPath: "output.mov")
+    - Uses pre-analyzed metadata from import
+    - More efficient (no re-analysis)
+    - Preserves exact frame counts and timecode info
+  2. Legacy path-based transcoding:
+  let success = try await transcodeToProRes(inputPath: "input.mxf", outputPath: "output.mov")
+    - Re-extracts metadata each time
+    - Still available for backward compatibility
+
+  The createBlankRush method now uses the efficient MediaFileInfo-based approach, and your blank rush creation will
+  benefit from the accurate frame counts and metadata you've already extracted!
+
+> Ok lets tie it all together and add it our main.swif Task block
+
+⏺ Perfect! Let's enable the blank rush creation in the main Task block now that we have the improved MediaFileInfo-based
+   transcoding.
+
+⏺ Read(ProResWriter/main.swift)
+  ⎿  Read 15 lines (ctrl+r to expand)
+
+⏺ Update(ProResWriter/main.swift)
+  ⎿  Updated ProResWriter/main.swift with 1 addition and 1 removal                    
+       245        // Test import and linking
+       246        let gradedSegments = await testImport()
+       247        if let linkingResult = await testLinking(segments: gradedSegments) {
+       248 -          // await testBlankRushCreation(linkingResult: linkingResult)
+       248 +          await testBlankRushCreation(linkingResult: linkingResult)
+       249        }
+       250    
+       251        // testTranscodeBlank()
+
+⏺ Perfect! Now your main Task block will run the complete workflow:
+
+  1. Import graded segments with accurate metadata
+  2. Import OCF files with correct frame counts (including drop frame)
+  3. Link segments to OCF parents using timecode ranges
+  4. Create blank rushes using the new MediaFileInfo-based transcoding
+
+  The blank rush creation will now benefit from:
+  - Pre-analyzed frame counts (407 frames for your 23.976fps MXF, 270 frames for the 59.94fps DF MXF)
+  - Correct drop frame timecode handling
+  - Efficient transcoding without re-extracting metadata
+  - Proper framerate metadata preservation to avoid the "one frame short" issue
+
+  Run your build and test the complete workflow!
+
+> success!
+
+  🧪 Testing import functionality...
+  🎬 Importing graded segments from: /Users/mac10/Desktop/23.98/GRADED
+    📂 Processing: A003C002_250605_RP4Z_GRADED.mov
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 46
+      🚀 startTime: 0
+      ⏱️ duration: 46046
+      📋 Stream metadata:
+        creation_time: 2025-08-20T16:57:38.000000Z
+        vendor_id: appl
+        encoder: Apple ProRes 4444
+        timecode: 12:42:00:20
+        handler_name: VideoHandler
+      🎬 Found timecode in stream metadata: 12:42:00:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Using stream frameCount: Optional(46) frames
+      ⏰ Calculated end timecode: 12:42:02:18 (duration: 46 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4448x3096
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:42:00:20
+      End Timecode: 12:42:02:18
+      Duration: 46 frames
+  ✅ Imported 1 graded segments
+  ✅ Successfully imported 1 graded segments
+
+  📄 A003C002_250605_RP4Z_GRADED.mov
+    📁 Type: gradedSegment
+    📐 Coded Resolution: 4448x3096
+    🎬 Frame Rate: 23.976fps (24000/1001)
+    📺 Scan Type: Progressive
+    🔄 Field Order: progressive
+    ⏰ Source Timecode: 12:42:00:20
+    📋 Summary: 📐 4448x3096 • 🎬 23.976fps (24000/1001) • 📺 Progressive • ⏰ 12:42:00:20
+
+  ==================================================
+  🔗 Testing parent-child linking process...
+  📹 Importing OCF files from directory 1: OCF
+  📹 Importing original camera files from: /Users/mac10/Desktop/23.98/OCF
+    📂 Processing: A003C002_250605_RP4Z.mxf
+      📐 Sample Aspect Ratio: 139:140 (sensor crop/padding)
+      📊 realFramerate: 23.976025fps (24000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 407
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D431300000034413945314635362D343230412D3131
+      🎬 Found timecode in format metadata: 12:41:56:20
+      🎬 Non-drop frame detected: ':' separator with 23.976025fps
+      📊 Using duration directly as frame count: Optional(407) frames (professional timebase AVRational(num: 1001, den: 
+  24000))
+      ⏰ Calculated end timecode: 12:42:13:19 (duration: 407 frames)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4480x3096
+      Sample Aspect Ratio: 139:140
+      Frame Rate: 23.976025fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:41:56:20
+      End Timecode: 12:42:13:19
+      Duration: 407 frames
+  ✅ Imported 1 original camera files
+  📹 Importing OCF files from directory 2: 59.94
+  📹 Importing original camera files from: /Users/mac10/Desktop/59.94
+    📂 Processing: A001C001_2505193L_CANON.MXF
+      📐 Sample Aspect Ratio: 1:1 (sensor crop/padding)
+      📊 realFramerate: 59.94006fps (60000/1001)
+      🔍 Additional stream info:
+      🎞️ frameCount: 0
+      🚀 startTime: 0
+      ⏱️ duration: 270
+      📋 Stream metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+      🎬 Found timecode in format metadata: 12:31:46;24
+      🎬 Drop frame detected: ';' separator with 59.94006fps
+      📊 Using duration directly as frame count: Optional(270) frames (professional timebase AVRational(num: 1001, den: 
+  60000))
+      ⏰ Calculated end timecode: 12:31:50;54 (duration: 270 frames) (drop frame)
+      🎬 Field order from codec: progressive (interlaced: false)
+      Resolution: 4096x2160
+      Sample Aspect Ratio: 1:1
+      Frame Rate: 59.94006fps
+      Scan Type: Progressive
+      Field Order: progressive
+      Source Timecode: 12:31:46;24
+      End Timecode: 12:31:50;54
+      Duration: 270 frames
+  ✅ Imported 1 original camera files
+  ✅ Successfully imported 2 total OCF files from 2 directories
+  🔗 Linking 1 segments with 2 OCF parent files...
+      ✅ Segment range 12:42:00:20-12:42:02:18 (frames 1097300-1097346) within OCF range 12:41:56:20-12:42:13:19 (frames
+   1097204-1097611)
+    ✅ A003C002_250605_RP4Z_GRADED.mov → A003C002_250605_RP4Z.mxf (high, 
+  filename_contains+resolution+fps+timecode_range)
+  🔗 Linking complete: 1 OCF parents with 1 child segments (100% success)
+
+  📊 Linking Results:
+    📊 1 OCF parents with 1 child segments (100% success)
+    📁 OCF Parents: 2
+    📝 Child Segments: 1
+    ❌ Unmatched Segments: 0
+    ❌ Unmatched OCFs: 1
+
+  🔗 Parent-Child Breakdown:
+    📁 A003C002_250605_RP4Z.mxf → 1 children
+      📝 A003C002_250605_RP4Z_GRADED.mov (high)
+
+  ==================================================
+  🎬 Testing blank rush creation...
+  📊 1 OCF parents with 1 total children ready for blank rush creation
+  🎬 Creating blank rushes for 2 OCF parents...
+
+  📁 Processing A003C002_250605_RP4Z.mxf with 1 children...
+    🎬 Starting ProRes transcoding with pre-analyzed metadata...
+    📝 Input: A003C002_250605_RP4Z.mxf
+    📝 Output: /Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 
+  INTERMEDIATE/blankRush/A003C002_250605_RP4Z_blankRush.mov
+    🎬 Using metadata: 23.976fps (24000/1001), 407 frames
+    📝 Processing with metadata: A003C002_250605_RP4Z.mxf -> /Users/mac10/Movies/ProResWriter/9999 - COS AW 
+  ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/A003C002_250605_RP4Z_blankRush.mov
+    📝 Using pre-analyzed properties: 4480x3096 at AVRational(num: 24000, den: 1001)
+    📝 Duration: 16.98s, 407 frames
+    📝 Timecode: 12:41:56:20
+    🔄 Testing proper decode-encode transcode with timing fixes
+  Option 'allow_sw' not found.
+    🎬 Set early timecode metadata: 12:41:56:20
+    🍎 Using VideoToolbox ProRes encoder (hardware acceleration)
+    🔧 Decoder pixel format: yuv444p12le
+    🔄 Using UYVY422 for VideoToolbox encoder
+    🔄 Creating pixel format converter: yuv444p12le → uyvy422
+    🔧 Using ProRes pixel format: uyvy422
+    🔧 Source stream timebase: AVRational(num: 1001, den: 24000)
+    🔧 Source stream framerate: AVRational(num: 24000, den: 1001)
+    🍎 VideoToolbox encoder opened with ProRes 422 Proxy profile
+    🔧 Forced output stream framerate to: AVRational(num: 24000, den: 1001) = 23.976025fps
+    🔧 Output stream timebase set to: AVRational(num: 1001, den: 24000)
+    🎬 Timecode metadata ready: 12:41:56:20 (non-drop frame)
+    🔄 Transcoding frames with frame counting...
+    📦 Decoded frame 1: PTS=0
+  [prores_videotoolbox @ 0x14af08ff0] Color range not set for uyvy422. Using MPEG range.
+    📦 Decoded frame 2: PTS=1
+    📦 Encoded packet 1: orig PTS=0 → 0, DTS=0 → 0
+    📦 Decoded frame 3: PTS=2
+    📦 Encoded packet 2: orig PTS=1 → 1001, DTS=1 → 1001
+    📦 Decoded frame 4: PTS=3
+    📦 Encoded packet 3: orig PTS=2 → 2002, DTS=2 → 2002
+    📦 Decoded frame 5: PTS=4
+    📦 Encoded packet 4: orig PTS=3 → 3003, DTS=3 → 3003
+    📦 Encoded packet 5: orig PTS=4 → 4004, DTS=4 → 4004
+    📦 Decoded frame 50: PTS=49
+    📦 Encoded packet 50: orig PTS=49 → 49049, DTS=49 → 49049
+    📦 Decoded frame 100: PTS=99
+    📦 Encoded packet 100: orig PTS=99 → 99099, DTS=99 → 99099
+    📦 Decoded frame 150: PTS=149
+    📦 Encoded packet 150: orig PTS=149 → 149149, DTS=149 → 149149
+    📦 Decoded frame 200: PTS=199
+    📦 Encoded packet 200: orig PTS=199 → 199199, DTS=199 → 199199
+    📦 Decoded frame 250: PTS=249
+    📦 Encoded packet 250: orig PTS=249 → 249249, DTS=249 → 249249
+    📦 Decoded frame 300: PTS=299
+    📦 Encoded packet 300: orig PTS=299 → 299299, DTS=299 → 299299
+    📦 Decoded frame 350: PTS=349
+    📦 Encoded packet 350: orig PTS=349 → 349349, DTS=349 → 349349
+    📦 Decoded frame 400: PTS=399
+    📦 Decoded frame 401: PTS=400
+    📦 Encoded packet 400: orig PTS=399 → 399399, DTS=399 → 399399
+    📦 Decoded frame 402: PTS=401
+    📦 Encoded packet 401: orig PTS=400 → 400400, DTS=400 → 400400
+    📦 Decoded frame 403: PTS=402
+    📦 Encoded packet 402: orig PTS=401 → 401401, DTS=401 → 401401
+    📦 Decoded frame 404: PTS=403
+    📦 Encoded packet 403: orig PTS=402 → 402402, DTS=402 → 402402
+    📦 Decoded frame 405: PTS=404
+    📦 Encoded packet 404: orig PTS=403 → 403403, DTS=403 → 403403
+    📦 Decoded frame 406: PTS=405
+    📦 Encoded packet 405: orig PTS=404 → 404404, DTS=404 → 404404
+    📦 Decoded frame 407: PTS=406
+    📦 Encoded packet 406: orig PTS=405 → 405405, DTS=405 → 405405
+    📋 End of input reached, processed 407 frames
+    🔄 Flushing decoder...
+    ✅ Total frames decoded: 407
+    🔄 Force flushing encoder to ensure all frames are written
+    📦 Final flush packet 407: orig PTS=406 → 406406, DTS=406 → 406406
+    ✅ Successfully wrote final flush packet 407
+    🏁 Encoder/container EOF reached (frame 407, packet 407)
+    ℹ️  This is likely expected - encoder finished after processing all frames
+    📈 Final stats: 407 frames decoded, 407 packets encoded
+    ✅ Straight transcode completed
+    ✅ Transcoding with pre-analyzed metadata completed: /Users/mac10/Movies/ProResWriter/9999 - COS AW 
+  ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/A003C002_250605_RP4Z_blankRush.mov
+    ✅ ProRes transcoding completed successfully!
+    ✅ Created: A003C002_250605_RP4Z_blankRush.mov
+  📂 Skipping A001C001_2505193L_CANON.MXF (no children)
+
+  🎬 Blank rush creation complete: 1/2 succeeded
+
+  📊 Blank Rush Results:
+    ✅ A003C002_250605_RP4Z.mxf → A003C002_250605_RP4Z_blankRush.mov
+    ❌ A001C001_2505193L_CANON.MXF → No children segments found
+  mac10@mac-10-uptown Release %
+
+⏺ Excellent! 🎉 The complete workflow is working perfectly! Let's break down what just happened:
+
+  Complete Success Story:
+
+  1. Import & Analysis ✅
+
+  - 23.976fps MXF: Correctly detected 407 frames using direct duration method
+  - 59.94fps DF MXF: Correctly detected 270 frames with drop frame timecode
+  - Both files analyzed with accurate metadata
+
+  2. Linking Process ✅
+
+  - Successfully linked graded segment to its OCF parent using timecode range matching
+  - High confidence match with multiple criteria
+
+  3. Blank Rush Creation ✅
+
+  - Pre-analyzed metadata: Used existing MediaFileInfo instead of re-extracting
+  - All 407 frames processed: "407 frames decoded, 407 packets encoded"
+  - Perfect frame preservation: No "one frame short" issue!
+  - Proper timecode: Preserved source timecode 12:41:56:20
+  - Hardware acceleration: VideoToolbox ProRes 422 Proxy encoding
+  - Clean completion: Proper EOF handling without errors
+
+  4. Key Technical Wins 🏆
+
+  - Framerate metadata fix: outputVideoStream.averageFramerate = properties.frameRate
+  - Professional timebase handling: Correct AVRational (24000/1001)
+  - Drop frame support: Ready for both DF and non-DF content
+  - Efficient workflow: No redundant metadata extraction
+
+  The A003C002_250605_RP4Z_blankRush.mov file should now be a perfect 407-frame ProRes 422 Proxy transcode with correct
+  timecode metadata, ready for professional video workflows!
+
