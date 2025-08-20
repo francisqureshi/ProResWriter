@@ -132,11 +132,11 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
             fileURLWithPath:
                 // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
                 "/Users/mac10/Desktop/23.98/OCF"
-        )
-        // URL(
-        //     fileURLWithPath:
-        //         "/Users/mac10/Movies/ProResWriter/testMaterialNonQT/59.94 DF"
-        // ),
+        ),
+        URL(
+            fileURLWithPath:
+                "/Users/mac10/Desktop/59.94"
+        ),
     ]
 
     do {

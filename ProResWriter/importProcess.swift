@@ -203,11 +203,18 @@ class MediaAnalyzer {
                         durationInFrames = Int64(stream.frameCount)
                         print("    📊 Using stream frameCount: \(durationInFrames) frames")
                     } else if let fps = frameRate, stream.duration > 0 {
-                        // Calculate frames from duration and framerate
-                        // stream.duration is in stream timebase units, convert to frames
-                        let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / Double(stream.timebase.den)
-                        durationInFrames = Int64(timebaseSeconds * Double(fps))
-                        print("    📊 Calculated from duration: \(durationInFrames) frames (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+                        // For MXF files, duration is often in frame units already, despite timebase
+                        // Try direct duration first, then fallback to timebase calculation
+                        if stream.timebase.num == 1001 && (stream.timebase.den == 24000 || stream.timebase.den == 30000 || stream.timebase.den == 60000) {
+                            // Common professional timebase - duration is likely already in frame units
+                            durationInFrames = Int64(stream.duration)
+                            print("    📊 Using duration directly as frame count: \(durationInFrames) frames (professional timebase \(stream.timebase))")
+                        } else {
+                            // Calculate frames from duration and framerate for other cases
+                            let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / Double(stream.timebase.den)
+                            durationInFrames = Int64(round(timebaseSeconds * Double(fps)))
+                            print("    📊 Calculated from duration: \(durationInFrames) frames (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+                        }
                     } else {
                         durationInFrames = 0
                         print("    ⚠️ Cannot determine frame count - insufficient duration/framerate info")
