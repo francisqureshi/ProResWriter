@@ -609,13 +609,35 @@ class BlankRushIntermediate {
         guard let drawtextFilter = AVFilter(name: "drawtext") else {
             throw TimecodeBlackFramesError(message: "DrawText filter not found")
         }
-        
-        // Create timecode text with metadata display (inspired by ffmpegScripts/timecode_black_frames_relative.sh)
-        let frameRateFloat = Float(properties.frameRate.num)/Float(properties.frameRate.den)
-        let drawtextArgs = "text='TC: \(properties.timecode) | \(properties.finalWidth)x\(properties.finalHeight) | \(String(format: "%.2f", frameRateFloat))fps':fontcolor=white:fontsize=32:x=50:y=50"
+
+        // Create running timecode with metadata display (inspired by ffmpegScripts/timecode_black_frames_relative.sh)
+        let frameRateFloat = Float(properties.frameRate.num) / Float(properties.frameRate.den)
+
+        // Convert timecode to proper format for FFmpeg drawtext - simpler escaping for SwiftFFmpeg
+        let timecodeString: String
+        let timecodeRate: String
+
+        if properties.isDropFrame {
+            // For drop-frame, preserve semicolon separator
+            timecodeString =
+                properties.timecode.contains(";")
+                ? properties.timecode
+                : properties.timecode.replacingOccurrences(
+                    of: ":", with: ";", options: .backwards,
+                    range: properties.timecode.range(of: ":", options: .backwards))
+            timecodeRate = "\(properties.frameRate.num)/\(properties.frameRate.den)"
+        } else {
+            // For non-drop-frame, use colon separator as-is
+            timecodeString = properties.timecode
+            timecodeRate = "\(properties.frameRate.num)/\(properties.frameRate.den)"
+        }
+
+        let drawtextArgs =
+            "timecode='\(timecodeString)':timecode_rate=\(timecodeRate):fontcolor=white:fontsize=64:x=50:y=150"
         print("  🔧 DrawText args: \(drawtextArgs)")
-        
-        let drawtextCtx = try filterGraph.addFilter(drawtextFilter, name: "drawtext", args: drawtextArgs)
+
+        let drawtextCtx = try filterGraph.addFilter(
+            drawtextFilter, name: "drawtext", args: drawtextArgs)
 
         // Add format filter to convert to VideoToolbox-compatible pixel format
         guard let formatFilter = AVFilter(name: "format") else {
