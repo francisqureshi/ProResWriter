@@ -605,6 +605,18 @@ class BlankRushIntermediate {
             throw TimecodeBlackFramesError(message: "Buffersink filter not found")
         }
 
+        // Add DrawText filter for timecode burn-in
+        guard let drawtextFilter = AVFilter(name: "drawtext") else {
+            throw TimecodeBlackFramesError(message: "DrawText filter not found")
+        }
+        
+        // Create timecode text with metadata display (inspired by ffmpegScripts/timecode_black_frames_relative.sh)
+        let frameRateFloat = Float(properties.frameRate.num)/Float(properties.frameRate.den)
+        let drawtextArgs = "text='TC: \(properties.timecode) | \(properties.finalWidth)x\(properties.finalHeight) | \(String(format: "%.2f", frameRateFloat))fps':fontcolor=white:fontsize=32:x=50:y=50"
+        print("  🔧 DrawText args: \(drawtextArgs)")
+        
+        let drawtextCtx = try filterGraph.addFilter(drawtextFilter, name: "drawtext", args: drawtextArgs)
+
         // Add format filter to convert to VideoToolbox-compatible pixel format
         guard let formatFilter = AVFilter(name: "format") else {
             throw TimecodeBlackFramesError(message: "Format filter not found")
@@ -619,8 +631,9 @@ class BlankRushIntermediate {
         let pixFmts = [AVPixelFormat.UYVY422]  // Match VideoToolbox encoder format
         try buffersinkCtx.set(pixFmts.map({ $0.rawValue }), forKey: "pix_fmts")
 
-        // Link filters: color -> format -> buffersink
-        try colorCtx.link(dst: formatCtx)
+        // Link filters: color -> drawtext -> format -> buffersink
+        try colorCtx.link(dst: drawtextCtx)
+        try drawtextCtx.link(dst: formatCtx)
         try formatCtx.link(dst: buffersinkCtx)
 
         // Configure filter graph
