@@ -22,38 +22,53 @@
 - Drop frame and non-drop frame timecode both supported
 - Hardware-accelerated VideoToolbox encoding functional
 
-## Black Frame Generation Filter Success (2025-08-21)
+## Black Frame Generation with Running Timecode Success (2025-08-21)
 
-### Filter Graph Pipeline Achievement
+### Complete Filter Graph Pipeline Achievement
 - **Synthetic Black Frame Generation**: Successfully created filter graph pipeline generating exact black frames matching source specifications
+- **Running Timecode Burn-in**: DrawText filter with `timecode` parameter creates frame-accurate advancing timecode display
 - **VideoToolbox Integration**: Filter graph outputs `uyvy422` format directly compatible with `prores_videotoolbox` encoder
 - **Perfect Frame Count**: Generates exact 565 frames (matching source transcode) using MediaFileInfo `durationInFrames`
-- **Professional Timing**: Maintains precise `24000/1001` framerate with proper timebase handling
+- **Professional Color Space**: VideoToolbox encoder applies broadcast-standard BT.709 color metadata for DaVinci Resolve compatibility
 
-### Technical Implementation
-- **Filter Chain**: `color → format → buffersink` pipeline with pixel format conversion
+### Technical Implementation Breakthrough
+- **Filter Chain**: `color → drawtext → format → buffersink` pipeline with running timecode and pixel format conversion
 - **MediaFileInfo Integration**: Uses import process data directly for accurate frame counts instead of duration calculation
-- **Hardware Encoding**: VideoToolbox ProRes 422 Proxy with proper timing rescaling
-- **Metadata Preservation**: Maintains timecode, framerate, and resolution from source
+- **Hardware Encoding**: VideoToolbox ProRes 422 Proxy with proper timing rescaling and color metadata
+- **Professional Color Standards**: Broadcast legal range (16-235) with ITU-R BT.709 color space, primaries, and transfer function
 
 ### Filter Graph Components
 ```swift
 // Color filter: generates black frames at source dimensions and framerate
 color=black:size=4480x3096:duration=23.565:rate=24000/1001
 
-// Format filter: converts to VideoToolbox-compatible pixel format
+// DrawText filter: running timecode burn-in with frame-accurate advance
+timecode='12:25:29:19':timecode_rate=24000/1001:fontcolor=white:fontsize=64:x=50:y=150
+
+// Format filter: converts to VideoToolbox-compatible pixel format  
 pix_fmts=uyvy422
 
 // Buffersink: outputs frames ready for encoder
+```
+
+### VideoToolbox Encoder Color Metadata
+```swift
+// Professional broadcast color space for DaVinci Resolve compatibility
+"color_range": "tv",           // Broadcast legal range (16-235)
+"colorspace": "bt709",         // Standard HD color space
+"color_primaries": "bt709",    // Standard HD primaries  
+"color_trc": "bt709"          // Standard HD gamma curve
 ```
 
 ### Verified Success Metrics
 - ✅ **565 frames generated** (exact match with working transcode)
 - ✅ **565 packets encoded** (perfect 1:1 ratio)
 - ✅ **VideoToolbox ProRes 422 Proxy** encoding successful
-- ✅ **Timecode preserved**: `12:25:29:19` (non-drop frame)
+- ✅ **Running timecode burn-in** advancing frame by frame (12:25:29:19 → 12:25:45:19 observed)
 - ✅ **Professional framerate**: `24000/1001 = 23.976025fps`
 - ✅ **Filter graph pipeline** operational with proper pixel format handling
+- ✅ **Color space metadata**: ITU-R BT.709 primaries, transfer function, and YCbCr matrix confirmed in QuickTime
+- ✅ **DaVinci Resolve compatibility**: No "Media Offline" issues, reads perfectly with proper color metadata
 
 ### Testing Requirements & Professional Frame Rates
 **URGENT: Need comprehensive test files for all professional frame rates**

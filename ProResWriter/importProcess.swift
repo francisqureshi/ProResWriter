@@ -141,13 +141,22 @@ class MediaAnalyzer {
                     resolution = CGSize(
                         width: CGFloat(codecPar.width), height: CGFloat(codecPar.height))
 
-                    // Extract Sample Aspect Ratio for reference (sensor crop/padding info)
+                    // Extract Sample Aspect Ratio and calculate display resolution
                     let sar = stream.sampleAspectRatio
                     if sar.den > 0 && sar.num > 0 {
                         sampleAspectRatio = "\(sar.num):\(sar.den)"
                         print(
                             "    📐 Sample Aspect Ratio: \(sampleAspectRatio!) (sensor crop/padding)"
                         )
+                        
+                        // Calculate display resolution (SAR-corrected) during import
+                        if sampleAspectRatio != "1:1" {
+                            let displayWidth = Float(resolution!.width) * Float(sar.num) / Float(sar.den)
+                            displayResolution = CGSize(width: CGFloat(displayWidth), height: resolution!.height)
+                            print(
+                                "    📺 SAR-corrected display resolution: \(Int(displayResolution!.width))x\(Int(displayResolution!.height))"
+                            )
+                        }
                     }
 
                     // Extract frame rate - try different SwiftFFmpeg properties in order of reliability

@@ -193,7 +193,9 @@ class BlankRushIntermediate {
             throw TimecodeBlackFramesError(message: "No frame rate available in MediaFileInfo")
         }
 
-        guard let resolution = ocfFile.resolution else {
+        // Use display resolution (SAR-corrected if available) or fall back to coded resolution
+        let targetResolution = ocfFile.displayResolution ?? ocfFile.resolution
+        guard let resolution = targetResolution else {
             throw TimecodeBlackFramesError(message: "No resolution available in MediaFileInfo")
         }
 
@@ -417,10 +419,14 @@ class BlankRushIntermediate {
         )
         print("  🔧 Using timebase: \(codecContext.timebase) for exact source timing match")
 
-        // Open VideoToolbox encoder with ProRes 422 Proxy profile
+        // Open VideoToolbox encoder with ProRes 422 Proxy profile and color metadata
         try codecContext.openCodec(options: [
             "profile": "0",  // ProRes 422 Proxy (more compatible)
             "allow_sw": "0",  // Force hardware encoding
+            "color_range": "tv",  // Broadcast legal range (16-235) for DaVinci Resolve compatibility
+            "colorspace": "bt709",  // Standard HD color space
+            "color_primaries": "bt709",  // Standard HD primaries
+            "color_trc": "bt709",  // Standard HD gamma curve
         ])
         print("  🍎 VideoToolbox encoder opened with ProRes 422 Proxy profile")
 
