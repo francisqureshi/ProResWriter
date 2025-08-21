@@ -196,8 +196,8 @@ func testBlankRushCreation(linkingResult: LinkingResult) async {
 
     print("📊 \(linkingResult.blankRushSummary)")
 
-    let blankRushCreator = BlankRushCreator()
-    let results = await blankRushCreator.createBlankRushes(from: linkingResult)
+    let blankRushIntermediate = BlankRushIntermediate()
+    let results = await blankRushIntermediate.createBlankRushes(from: linkingResult)
 
     print("\n📊 Blank Rush Results:")
     for result in results {
@@ -214,7 +214,7 @@ func testTranscodeBlank() async {
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Testing simple transcoding...")
 
-    let blankRushCreator = BlankRushCreator()
+    let blankRushIntermediate = BlankRushIntermediate()
 
     // Create a minimal test - use shorter source file for debugging
     let inputPath = "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98/A002C010_250605_RP4Z.mxf"
@@ -223,7 +223,7 @@ func testTranscodeBlank() async {
         "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_transcode.mov"
 
     do {
-        let success = try await blankRushCreator.transcodeToProRes(
+        let success = try await blankRushIntermediate.generateBlackFramesToProRes(
             inputPath: inputPath,
             outputPath: outputPath
         )
@@ -265,11 +265,11 @@ func testBlackFrameGeneration() async {
             print("📊 MediaFileInfo calculated duration: \(String(format: "%.3f", calculatedDuration))s")
         }
         
-        let blankRushCreator = BlankRushCreator()
+        let blankRushIntermediate = BlankRushIntermediate()
         let outputPath = "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
 
         // Use MediaFileInfo-based method (more accurate)
-        let success = try await blankRushCreator.transcodeToProRes(
+        let success = try await blankRushIntermediate.generateBlankRushFromOCF(
             ocfFile: testFile,
             outputPath: outputPath
         )
