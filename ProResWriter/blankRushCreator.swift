@@ -40,7 +40,8 @@ class BlankRushCreator {
 
     init(
         projectDirectory: String =
-            "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush"
+            // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush"
+            "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out"
     ) {
         self.projectBlankRushDirectory = projectDirectory
     }
@@ -167,6 +168,54 @@ class BlankRushCreator {
         }
     }
 
+    /// Generate black frames with same signature as transcodeToProRes for easy testing
+    public func generateBlackFramesToProRes(inputPath: String, outputPath: String) async throws -> Bool {
+
+        print("  🖤 Starting black frame generation...")
+        print("  📝 Input (for metadata): \(inputPath)")
+        print("  📝 Output: \(outputPath)")
+
+        do {
+            try await Task {
+                try generateBlackFramesSync(inputPath: inputPath, outputPath: outputPath)
+            }.value
+
+            print("  ✅ Black frame generation completed successfully!")
+            return true
+
+        } catch {
+            print("  ❌ Black frame generation failed: \(error)")
+            return false
+        }
+    }
+
+    /// Synchronous black frame generation using same inputs as transcodeToProResSync
+    private func generateBlackFramesSync(inputPath: String, outputPath: String) throws {
+        
+        print("  📝 Processing: \(inputPath) -> \(outputPath)")
+
+        // Input validation
+        guard FileManager.default.fileExists(atPath: inputPath) else {
+            throw TimecodeBlackFramesError(message: "Input file '\(inputPath)' not found!")
+        }
+
+        // STEP 1: Extract metadata from source (same as transcodeToProResSync)
+        let sourceProperties = try extractSourceProperties(from: inputPath)
+        print(
+            "  📝 Source properties: \(sourceProperties.width)x\(sourceProperties.height) at \(sourceProperties.frameRate)"
+        )
+        print("  📝 Duration: \(String(format: "%.2f", sourceProperties.duration))s")
+        print("  📝 Timecode: \(sourceProperties.timecode)")
+
+        // STEP 2: Generate black frames instead of transcoding
+        try generateBlackFramesToProRes(
+            outputPath: outputPath,
+            properties: sourceProperties
+        )
+
+        print("  ✅ Black frame generation completed: \(outputPath)")
+    }
+
     /// Synchronous implementation using pre-analyzed MediaFileInfo metadata
     private func transcodeToProResSyncWithMetadata(ocfFile: MediaFileInfo, outputPath: String) throws {
 
@@ -224,9 +273,8 @@ class BlankRushCreator {
         print("  📝 Duration: \(String(format: "%.2f", sourceProperties.duration))s, \(ocfFile.durationInFrames ?? 0) frames")
         print("  📝 Timecode: \(sourceProperties.timecode)")
 
-        // Use the same transcode logic as the path-based version
-        try straightTranscodeToProRes(
-            inputPath: inputPath,
+        // Generate synthetic black frames with metadata from source
+        try generateBlackFramesToProRes(
             outputPath: outputPath,
             properties: sourceProperties
         )
@@ -348,130 +396,207 @@ class BlankRushCreator {
         )
     }
 
-    /// Generate black video with timecode burn-in using proper filter graph pipeline
+    /// Generate black video with timecode burn-in using VideoToolbox ProRes encoder
     private func generateBlackFramesToProRes(
         outputPath: String, properties: BlankRushVideoProperties
     ) throws {
 
         print(
-            "  🖤 Generating black video with filter graph: \(properties.finalWidth)x\(properties.finalHeight)"
+            "  🖤 Generating black video with VideoToolbox ProRes: \(properties.finalWidth)x\(properties.finalHeight)"
         )
 
         // Create output format context
         let outputFormatContext = try AVFormatContext(format: nil, filename: outputPath)
-
-        // Find ProRes encoder
-        guard let proresCodec = AVCodec.findEncoderByName("prores") else {
-            throw TimecodeBlackFramesError(message: "ProRes encoder not found")
+        
+        // Set timecode metadata early (before adding streams) - from straightTranscodeToProRes
+        let timecodeForOutput: String
+        if properties.isDropFrame {
+            if properties.timecode.contains(";") {
+                timecodeForOutput = properties.timecode
+                print("  🎬 Early timecode setup - preserving drop frame format: \(timecodeForOutput)")
+            } else {
+                if let lastColonRange = properties.timecode.range(of: ":", options: .backwards) {
+                    timecodeForOutput = properties.timecode.replacingCharacters(in: lastColonRange, with: ";")
+                } else {
+                    timecodeForOutput = properties.timecode
+                }
+            }
+        } else {
+            timecodeForOutput = properties.timecode
         }
+        outputFormatContext.metadata["timecode"] = timecodeForOutput
+        print("  🎬 Set early timecode metadata: \(timecodeForOutput)")
+
+        // Find VideoToolbox ProRes encoder (like straightTranscodeToProRes)
+        guard let proresCodec = AVCodec.findEncoderByName("prores_videotoolbox") else {
+            throw TimecodeBlackFramesError(message: "ProRes VideoToolbox encoder not found")
+        }
+        print("  🍎 Using VideoToolbox ProRes encoder (hardware acceleration)")
 
         // Add video stream
         guard let videoStream = outputFormatContext.addStream() else {
             throw TimecodeBlackFramesError(message: "Failed to add video stream")
         }
 
-        // Create and configure codec context
+        // Create and configure codec context with VideoToolbox settings
         let codecContext = AVCodecContext(codec: proresCodec)
         codecContext.width = properties.finalWidth
         codecContext.height = properties.finalHeight
-        codecContext.pixelFormat = AVPixelFormat.YUV422P10LE
-        // Use exact timebase and framerate from source file
+        codecContext.pixelFormat = AVPixelFormat.UYVY422  // VideoToolbox compatible
+        
+        // Use exact timebase and framerate from source file (from straightTranscodeToProRes)
         codecContext.timebase = AVRational(
             num: properties.frameRate.den, den: properties.frameRate.num)
         codecContext.framerate = properties.frameRate
-
-        // Set stream timebase to match codec exactly - critical for container timing
-        videoStream.timebase = codecContext.timebase
 
         print(
             "  🔧 Source frame rate: \(properties.frameRate) = \(Float(properties.frameRate.num) / Float(properties.frameRate.den))fps"
         )
         print("  🔧 Using timebase: \(codecContext.timebase) for exact source timing match")
 
-        print(
-            "  📝 Codec configuration: \(properties.finalWidth)x\(properties.finalHeight) at \(properties.frameRate)"
-        )
-        print(
-            "  🔧 Debug timebase - Codec: \(codecContext.timebase), Stream: \(videoStream.timebase)")
-
-        // Open codec
-        let options: [String: String] = [
-            "profile": "2"  // ProRes 422 HQ for now
-        ]
-        try codecContext.openCodec(options: options)
+        // Open VideoToolbox encoder with ProRes 422 Proxy profile
+        try codecContext.openCodec(options: [
+            "profile": "0",  // ProRes 422 Proxy (more compatible)
+            "allow_sw": "0",  // Force hardware encoding
+        ])
+        print("  🍎 VideoToolbox encoder opened with ProRes 422 Proxy profile")
 
         // Copy codec parameters to stream
         videoStream.codecParameters.copy(from: codecContext)
+        videoStream.timebase = codecContext.timebase
+        
+        // CRITICAL: Force the output stream framerate to match source exactly (from straightTranscodeToProRes)
+        videoStream.averageFramerate = properties.frameRate
+        print("  🔧 Forced output stream framerate to: \(properties.frameRate) = \(Float(properties.frameRate.num)/Float(properties.frameRate.den))fps")
 
-        // Force stream timebase to exactly match source after copying codec params
-        videoStream.timebase = AVRational(
-            num: properties.frameRate.den, den: properties.frameRate.num)
-        print("  🔧 After codec copy - Stream timebase forced to: \(videoStream.timebase)")
+        // Create filter graph for black video generation
+        let (filterGraph, buffersinkCtx) = try createBlackVideoFilterGraph(properties: properties)
 
-        print("  ⚠️ Filter graph temporarily disabled for straight transcode test")
+        // Open output file and write header
+        if !outputFormatContext.outputFormat!.flags.contains(.noFile) {
+            try outputFormatContext.openOutput(url: outputPath, flags: .write)
+        }
+        
+        // Timecode metadata was already set earlier
+        let dropFrameInfo = properties.isDropFrame ? " (drop frame)" : " (non-drop frame)"
+        print("  🎬 Timecode metadata ready: \(outputFormatContext.metadata["timecode"] ?? "none")\(dropFrameInfo)")
+        
+        try outputFormatContext.writeHeader()
 
-        // TEMP COMMENTED OUT - testing straight transcode
-        // // Create filter graph for black video generation
-        // let (_, _) = try createBlackVideoFilterGraph(properties: properties)
-        //
-        // // Open output file and write header
-        // if !outputFormatContext.outputFormat!.flags.contains(.noFile) {
-        //     try outputFormatContext.openOutput(url: outputPath, flags: .write)
-        // }
-        // try outputFormatContext.writeHeader()
-        //
-        // // Generate frames through filter pipeline
-        // let totalFrames = Int(properties.duration * Double(properties.frameRate.num) / Double(properties.frameRate.den))
-        // print("  📝 Generating \(totalFrames) frames through filter graph")
-        //
-        // for frameIndex in 0..<totalFrames {
-        //     let filterFrame = AVFrame()
-        //
-        //     do {
-        //         // Pull frame from filter graph
-        //         try buffersinkCtx.getFrame(filterFrame)
-        //
-        //                // Send to encoder
-        //                try codecContext.sendFrame(filterFrame)
-        //
-        //                // Receive encoded packets
-        //                let packet = AVPacket()
-        //                do {
-        //                    try codecContext.receivePacket(packet)
-        //                    packet.streamIndex = videoStream.index
-        //                    try outputFormatContext.interleavedWriteFrame(packet)
-        //                } catch {
-        //                    // May need multiple frames before getting packets
-        //                }
-        //
-        //                filterFrame.unref()
-        //
-        //            } catch let error as AVError where error == .eof {
-        //                print("  📝 Filter graph EOF at frame \(frameIndex)")
-        //                break
-        //            } catch {
-        //                print("  ⚠️ Filter graph error at frame \(frameIndex): \(error)")
-        //                break
-        //            }
-        //        }
-        //
-        //        // Flush encoder
-        //        try codecContext.sendFrame(nil as AVFrame?)
-        //        while true {
-        //            let packet = AVPacket()
-        //            do {
-        //                try codecContext.receivePacket(packet)
-        //                packet.streamIndex = videoStream.index
-        //                try outputFormatContext.interleavedWriteFrame(packet)
-        //            } catch {
-        //                break
-        //            }
-        //        }
-        //
-        //        // Write trailer
-        //        try outputFormatContext.writeTrailer()
-        //
-        //        print("  ✅ Generated frames through filter graph pipeline")
+        // Generate frames through filter pipeline with proper counting
+        // Calculate total frames - when using MediaFileInfo, duration is calculated from exact frame count
+        let exactFrameCount = properties.duration * Double(properties.frameRate.num) / Double(properties.frameRate.den)
+        let totalFrames = Int(round(exactFrameCount))  // Round to nearest integer for exact frame count
+        print("  📝 Generating \(totalFrames) frames through filter graph (exact: \(String(format: "%.3f", exactFrameCount)))")
+        
+        var frameCount = 0
+        var encodedPacketCount = 0
+
+        for frameIndex in 0..<totalFrames {
+            let filterFrame = AVFrame()
+
+            do {
+                // Pull frame from filter graph
+                try buffersinkCtx.getFrame(filterFrame)
+                frameCount += 1
+                
+                // Set proper PTS for filter frame (like straightTranscodeToProRes)
+                filterFrame.pts = Int64(frameIndex)
+                
+                if frameCount <= 5 || frameCount % 50 == 0 || frameCount > totalFrames - 5 {
+                    print("  📦 Generated filter frame \(frameCount): PTS=\(filterFrame.pts)")
+                }
+
+                // Send to encoder
+                try codecContext.sendFrame(filterFrame)
+
+                // Receive encoded packets with proper timing rescaling (from straightTranscodeToProRes)
+                while true {
+                    let packet = AVPacket()
+                    do {
+                        try codecContext.receivePacket(packet)
+                        encodedPacketCount += 1
+                        packet.streamIndex = videoStream.index
+                        
+                        // Store original timing for debugging
+                        let originalPTS = packet.pts
+                        let originalDTS = packet.dts
+                        
+                        // CRITICAL: Rescale packet timing to output stream timebase
+                        packet.pts = AVMath.rescale(
+                            packet.pts, codecContext.timebase, videoStream.timebase,
+                            rounding: .nearInf, passMinMax: true)
+                        packet.dts = AVMath.rescale(
+                            packet.dts, codecContext.timebase, videoStream.timebase,
+                            rounding: .nearInf, passMinMax: true)
+                        packet.duration = AVMath.rescale(
+                            packet.duration, codecContext.timebase, videoStream.timebase)
+                        
+                        if encodedPacketCount <= 5 || encodedPacketCount % 50 == 0 || frameCount > totalFrames - 5 {
+                            print("  📦 Encoded packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(packet.pts), DTS=\(originalDTS) → \(packet.dts)")
+                        }
+                        
+                        try outputFormatContext.interleavedWriteFrame(packet)
+                    } catch let err as AVError where err == .tryAgain || err == .eof {
+                        break
+                    }
+                }
+
+                filterFrame.unref()
+
+            } catch let error as AVError where error == .eof {
+                print("  📝 Filter graph EOF at frame \(frameIndex)")
+                break
+            } catch {
+                print("  ⚠️ Filter graph error at frame \(frameIndex): \(error)")
+                break
+            }
+        }
+
+        // Flush encoder with proper timing (from straightTranscodeToProRes)
+        print("  🔄 Force flushing encoder to ensure all frames are written")
+        try codecContext.sendFrame(nil as AVFrame?)
+        while true {
+            let packet = AVPacket()
+            do {
+                try codecContext.receivePacket(packet)
+                encodedPacketCount += 1
+                packet.streamIndex = videoStream.index
+
+                // Store original timing for debugging
+                let originalPTS = packet.pts
+                let originalDTS = packet.dts
+
+                // Rescale flush packets too
+                packet.pts = AVMath.rescale(
+                    packet.pts, codecContext.timebase, videoStream.timebase,
+                    rounding: .nearInf, passMinMax: true)
+                packet.dts = AVMath.rescale(
+                    packet.dts, codecContext.timebase, videoStream.timebase,
+                    rounding: .nearInf, passMinMax: true)
+                packet.duration = AVMath.rescale(
+                    packet.duration, codecContext.timebase, videoStream.timebase)
+
+                print("  📦 Final flush packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(packet.pts), DTS=\(originalDTS) → \(packet.dts)")
+
+                try outputFormatContext.interleavedWriteFrame(packet)
+                print("  ✅ Successfully wrote final flush packet \(encodedPacketCount)")
+            } catch let error as AVError where error.code == -541478725 {
+                print("  🏁 Encoder/container EOF reached (frame \(frameCount), packet \(encodedPacketCount))")
+                print("  ℹ️  This is likely expected - encoder finished after processing all frames")
+                break
+            } catch {
+                print("  ⚠️ Unexpected error writing final flush packet: \(error)")
+                break
+            }
+        }
+
+        print("  📈 Final stats: \(frameCount) frames generated, \(encodedPacketCount) packets encoded")
+
+        // Write trailer
+        try outputFormatContext.writeTrailer()
+
+        print("  ✅ Generated black frames through VideoToolbox ProRes pipeline")
     }
 
     /// Create filter graph for black video generation (equivalent to ffmpeg color filter)
@@ -499,14 +624,23 @@ class BlankRushCreator {
             throw TimecodeBlackFramesError(message: "Buffersink filter not found")
         }
 
+        // Add format filter to convert to VideoToolbox-compatible pixel format
+        guard let formatFilter = AVFilter(name: "format") else {
+            throw TimecodeBlackFramesError(message: "Format filter not found")
+        }
+        
+        let formatArgs = "pix_fmts=uyvy422"  // Force UYVY422 for VideoToolbox
+        let formatCtx = try filterGraph.addFilter(formatFilter, name: "format", args: formatArgs)
+        
         let buffersinkCtx = try filterGraph.addFilter(buffersink, name: "out", args: nil)
 
-        // Set pixel formats for sink
-        let pixFmts = [AVPixelFormat.YUV422P10LE]
+        // Set pixel formats for sink to match VideoToolbox encoder
+        let pixFmts = [AVPixelFormat.UYVY422]  // Match VideoToolbox encoder format
         try buffersinkCtx.set(pixFmts.map({ $0.rawValue }), forKey: "pix_fmts")
 
-        // Link filters: color -> buffersink (simple for now, we'll add drawtext later)
-        try colorCtx.link(dst: buffersinkCtx)
+        // Link filters: color -> format -> buffersink
+        try colorCtx.link(dst: formatCtx)
+        try formatCtx.link(dst: buffersinkCtx)
 
         // Configure filter graph
         try filterGraph.configure()

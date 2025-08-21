@@ -70,7 +70,8 @@ func testImport() async -> [MediaFileInfo] {
         fileURLWithPath:
             // actual source file ---> // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light/"
             // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
-            "/Users/mac10/Desktop/23.98/GRADED"
+            // "/Users/mac10/Desktop/23.98/GRADED"
+            "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
     )
 
     var gradedSegments: [MediaFileInfo] = []
@@ -131,12 +132,15 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
         URL(
             fileURLWithPath:
                 // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
-                "/Users/mac10/Desktop/23.98/OCF"
-        ),
-        URL(
-            fileURLWithPath:
-                "/Users/mac10/Desktop/59.94"
-        ),
+                // "/Users/mac10/Desktop/23.98/OCF"
+                "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
+        )
+
+        // URL(
+        // fileURLWithPath:
+        // "/Users/mac10/Desktop/59.94"
+        // "/Users/fq/Movies/ProResWriter/testMaterialNonQT/29.97"
+        // ),
     ]
 
     do {
@@ -213,10 +217,10 @@ func testTranscodeBlank() async {
     let blankRushCreator = BlankRushCreator()
 
     // Create a minimal test - use shorter source file for debugging
-    let inputPath = "/Users/mac10/Desktop/23.98/A003C002_250605_RP4Z.mxf"
+    let inputPath = "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98/A002C010_250605_RP4Z.mxf"
     // let inputPath = "/Users/mac10/Desktop/59.94/A001C001_2505193L_CANON.MXF"
     let outputPath =
-        "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/tests/23976fps_422_proxy_transcode.mov"
+        "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_transcode.mov"
 
     do {
         let success = try await blankRushCreator.transcodeToProRes(
@@ -237,18 +241,66 @@ func testTranscodeBlank() async {
 
 }
 
+func testBlackFrameGeneration() async {
+    // Test black frame generation using MediaFileInfo data directly
+    print("\n" + String(repeating: "=", count: 50))
+    print("🖤 Testing black frame generation with MediaFileInfo...")
+
+    // First, import the file to get proper MediaFileInfo with correct frame count
+    let importProcess = ImportProcess()
+    let testFileURL = URL(fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98/A002C010_250605_RP4Z.mxf")
+    
+    do {
+        // Import single file to get MediaFileInfo with accurate frame count
+        let mediaFiles = try await importProcess.importOriginalCameraFiles(from: testFileURL.deletingLastPathComponent())
+        
+        guard let testFile = mediaFiles.first(where: { $0.fileName == "A002C010_250605_RP4Z.mxf" }) else {
+            print("❌ Test file not found in import results")
+            return
+        }
+        
+        print("📊 MediaFileInfo frame count: \(testFile.durationInFrames ?? 0) frames")
+        if let frameRate = testFile.frameRate, let frameCount = testFile.durationInFrames {
+            let calculatedDuration = Double(frameCount) / Double(frameRate)
+            print("📊 MediaFileInfo calculated duration: \(String(format: "%.3f", calculatedDuration))s")
+        }
+        
+        let blankRushCreator = BlankRushCreator()
+        let outputPath = "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
+
+        // Use MediaFileInfo-based method (more accurate)
+        let success = try await blankRushCreator.transcodeToProRes(
+            ocfFile: testFile,
+            outputPath: outputPath
+        )
+
+        if success {
+            print("✅ Test black frame generation with MediaFileInfo succeeded!")
+            print("📁 Compare with transcode: /Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/")
+        } else {
+            print("❌ Test black frame generation failed")
+        }
+    } catch {
+        print("❌ Test black frame generation error: \(error)")
+    }
+
+    print("\n" + String(repeating: "=", count: 50))
+}
+
 Task {
     // Test SMPTE library first
     // testSMPTE()
     // exit(0)
 
     // Test import and linking
-    let gradedSegments = await testImport()
-    if let linkingResult = await testLinking(segments: gradedSegments) {
-        await testBlankRushCreation(linkingResult: linkingResult)
-    }
+    // let gradedSegments = await testImport()
+    // if let linkingResult = await testLinking(segments: gradedSegments) {
+    //     await testBlankRushCreation(linkingResult: linkingResult)
+    // }
 
-    // testTranscodeBlank()
+    // Test both transcoding methods for comparison
+    // await testTranscodeBlank()        // Test working straight transcode
+    await testBlackFrameGeneration()  // Test new black frame generation
 
     // print("🎬 Starting composition process...")
 
