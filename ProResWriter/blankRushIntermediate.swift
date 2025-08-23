@@ -631,9 +631,20 @@ class BlankRushIntermediate {
         // Font sizing: 2.5% of height (like bash script)
         let fontSize = "h*0.025"
         let yPosition = "h*0.03"  // 3% from top
+        
+        // Set up FiraCode font path relative to executable (like bash script)
+        let executableURL = Bundle.main.executableURL
+        let fontPath = executableURL?.deletingLastPathComponent().appendingPathComponent("Resources/Fonts/FiraCodeNerdFont-Regular.ttf").path
+        let fontFileArg = (fontPath != nil && FileManager.default.fileExists(atPath: fontPath!)) ? "fontfile='\(fontPath!)':" : ""
+        
+        if !fontFileArg.isEmpty {
+            print("  🔤 Using FiraCode font: \(fontPath!)")
+        } else {
+            print("  ⚠️ FiraCode font not found, using system default")
+        }
 
         // 1. Static "SRC TC: " prefix text (top left)
-        let srcTextArgs = "text='SRC TC\\: ':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(\(yPosition))"
+        let srcTextArgs = "\(fontFileArg)text='SRC TC\\: ':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(\(yPosition))"
         print("  🔧 SRC TC text args: \(srcTextArgs)")
         let srcTextCtx = try filterGraph.addFilter(drawtextFilter, name: "src_text", args: srcTextArgs)
 
@@ -659,17 +670,17 @@ class BlankRushIntermediate {
             timecodeRate = "\(properties.frameRate.num)/\(properties.frameRate.den)"
         }
 
-        let timecodeArgs = "timecode='\(timecodeString)':timecode_rate=\(timecodeRate):fontsize=(\(fontSize)):fontcolor=white:x=(w*0.13):y=(\(yPosition))"
+        let timecodeArgs = "\(fontFileArg)timecode='\(timecodeString)':timecode_rate=\(timecodeRate):fontsize=(\(fontSize)):fontcolor=white:x=(w*0.13):y=(\(yPosition))"
         print("  🔧 Running timecode args: \(timecodeArgs)")
         let timecodeCtx = try filterGraph.addFilter(drawtextFilter, name: "timecode", args: timecodeArgs)
 
         // 3. Static clip name suffix (continues from timecode)  
-        let clipNameArgs = "text=' ---> \(clipName)':fontsize=(\(fontSize)):fontcolor=white:x=(w*0.32):y=(\(yPosition))"
+        let clipNameArgs = "\(fontFileArg)text=' ---> \(clipName)':fontsize=(\(fontSize)):fontcolor=white:x=(w*0.32):y=(\(yPosition))"
         print("  🔧 Clip name args: \(clipNameArgs)")
         let clipNameCtx = try filterGraph.addFilter(drawtextFilter, name: "clip_name", args: clipNameArgs)
 
         // 4. "NO GRADE" warning (top right)
-        let noGradeArgs = "text='//// NO GRADE ////':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(\(yPosition))"
+        let noGradeArgs = "\(fontFileArg)text='//// NO GRADE ////':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(\(yPosition))"
         print("  🔧 NO GRADE warning args: \(noGradeArgs)")
         let noGradeCtx = try filterGraph.addFilter(drawtextFilter, name: "no_grade", args: noGradeArgs)
 
