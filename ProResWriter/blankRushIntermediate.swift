@@ -32,6 +32,7 @@ struct BlankRushVideoProperties {
     let finalHeight: Int
     let timecode: String
     let isDropFrame: Bool  // Drop frame timecode information
+    let clipName: String  // Source filename without extension
 }
 
 class BlankRushIntermediate {
@@ -202,6 +203,9 @@ class BlankRushIntermediate {
         // Convert float frame rate to proper AVRational for common professional rates
         let frameRateRational = convertToAVRational(frameRate: frameRate)
 
+        // Extract clip name from filename (like bash script)
+        let clipName = (ocfFile.fileName as NSString).deletingPathExtension
+
         let sourceProperties = BlankRushVideoProperties(
             width: Int(resolution.width),
             height: Int(resolution.height),
@@ -212,7 +216,8 @@ class BlankRushIntermediate {
             finalWidth: Int(resolution.width),
             finalHeight: Int(resolution.height),
             timecode: ocfFile.sourceTimecode ?? "00:00:00:00",
-            isDropFrame: ocfFile.isDropFrame ?? false
+            isDropFrame: ocfFile.isDropFrame ?? false,
+            clipName: clipName
         )
 
         print(
@@ -345,6 +350,9 @@ class BlankRushIntermediate {
         let finalWidth = width
         let finalHeight = height
 
+        // Extract clip name from input path (legacy method)
+        let clipName = (URL(fileURLWithPath: inputPath).lastPathComponent as NSString).deletingPathExtension
+
         return BlankRushVideoProperties(
             width: width,
             height: height,
@@ -355,7 +363,8 @@ class BlankRushIntermediate {
             finalWidth: finalWidth,
             finalHeight: finalHeight,
             timecode: timecode,
-            isDropFrame: isDropFrame
+            isDropFrame: isDropFrame,
+            clipName: clipName
         )
     }
 
@@ -611,15 +620,27 @@ class BlankRushIntermediate {
             throw TimecodeBlackFramesError(message: "Buffersink filter not found")
         }
 
-        // Add DrawText filter for timecode burn-in
+        // Add multiple DrawText filters to match bash script layout (inspired by ffmpegScripts/timecode_black_frames_relative.sh)
         guard let drawtextFilter = AVFilter(name: "drawtext") else {
             throw TimecodeBlackFramesError(message: "DrawText filter not found")
         }
 
-        // Create running timecode with metadata display (inspired by ffmpegScripts/timecode_black_frames_relative.sh)
+        // Use clip name from properties (extracted from source filename)
+        let clipName = properties.clipName
+        
+        // Font sizing: 2.5% of height (like bash script)
+        let fontSize = "h*0.025"
+        let yPosition = "h*0.03"  // 3% from top
+
+        // 1. Static "SRC TC: " prefix text (top left)
+        let srcTextArgs = "text='SRC TC\\: ':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(\(yPosition))"
+        print("  🔧 SRC TC text args: \(srcTextArgs)")
+        let srcTextCtx = try filterGraph.addFilter(drawtextFilter, name: "src_text", args: srcTextArgs)
+
+        // 2. Running timecode (continues from SRC TC text)
         let frameRateFloat = Float(properties.frameRate.num) / Float(properties.frameRate.den)
 
-        // Convert timecode to proper format for FFmpeg drawtext - simpler escaping for SwiftFFmpeg
+        // Convert timecode to proper format for FFmpeg drawtext
         let timecodeString: String
         let timecodeRate: String
 
@@ -638,12 +659,19 @@ class BlankRushIntermediate {
             timecodeRate = "\(properties.frameRate.num)/\(properties.frameRate.den)"
         }
 
-        let drawtextArgs =
-            "timecode='\(timecodeString)':timecode_rate=\(timecodeRate):fontcolor=white:fontsize=64:x=50:y=150"
-        print("  🔧 DrawText args: \(drawtextArgs)")
+        let timecodeArgs = "timecode='\(timecodeString)':timecode_rate=\(timecodeRate):fontsize=(\(fontSize)):fontcolor=white:x=(w*0.13):y=(\(yPosition))"
+        print("  🔧 Running timecode args: \(timecodeArgs)")
+        let timecodeCtx = try filterGraph.addFilter(drawtextFilter, name: "timecode", args: timecodeArgs)
 
-        let drawtextCtx = try filterGraph.addFilter(
-            drawtextFilter, name: "drawtext", args: drawtextArgs)
+        // 3. Static clip name suffix (continues from timecode)  
+        let clipNameArgs = "text=' ---> \(clipName)':fontsize=(\(fontSize)):fontcolor=white:x=(w*0.32):y=(\(yPosition))"
+        print("  🔧 Clip name args: \(clipNameArgs)")
+        let clipNameCtx = try filterGraph.addFilter(drawtextFilter, name: "clip_name", args: clipNameArgs)
+
+        // 4. "NO GRADE" warning (top right)
+        let noGradeArgs = "text='//// NO GRADE ////':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(\(yPosition))"
+        print("  🔧 NO GRADE warning args: \(noGradeArgs)")
+        let noGradeCtx = try filterGraph.addFilter(drawtextFilter, name: "no_grade", args: noGradeArgs)
 
         // Add format filter to convert to VideoToolbox-compatible pixel format
         guard let formatFilter = AVFilter(name: "format") else {
@@ -659,9 +687,12 @@ class BlankRushIntermediate {
         let pixFmts = [AVPixelFormat.UYVY422]  // Match VideoToolbox encoder format
         try buffersinkCtx.set(pixFmts.map({ $0.rawValue }), forKey: "pix_fmts")
 
-        // Link filters: color -> drawtext -> format -> buffersink
-        try colorCtx.link(dst: drawtextCtx)
-        try drawtextCtx.link(dst: formatCtx)
+        // Link filters in chain: color -> src_text -> timecode -> clip_name -> no_grade -> format -> buffersink
+        try colorCtx.link(dst: srcTextCtx)
+        try srcTextCtx.link(dst: timecodeCtx)
+        try timecodeCtx.link(dst: clipNameCtx)
+        try clipNameCtx.link(dst: noGradeCtx)
+        try noGradeCtx.link(dst: formatCtx)
         try formatCtx.link(dst: buffersinkCtx)
 
         // Configure filter graph

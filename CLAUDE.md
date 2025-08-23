@@ -100,3 +100,4 @@ pix_fmts=uyvy422
 **Priority**: Gather test material for untested frame rates before production use
 - we build with @build.sh but let me do the building and running and ill send you the errors.
 - save this filter work  to memory
+- we added SAR support more robustly!

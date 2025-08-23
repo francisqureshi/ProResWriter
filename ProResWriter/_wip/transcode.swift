@@ -521,6 +521,9 @@ private func extractSourceProperties(from inputPath: String) throws -> BlankRush
     // Calculate final dimensions (simplified for now)
     let finalWidth = width
     let finalHeight = height
+    
+    // Extract clip name from input path
+    let clipName = URL(fileURLWithPath: inputPath).deletingPathExtension().lastPathComponent
 
     return BlankRushVideoProperties(
         width: width,
@@ -532,7 +535,8 @@ private func extractSourceProperties(from inputPath: String) throws -> BlankRush
         finalWidth: finalWidth,
         finalHeight: finalHeight,
         timecode: timecode,
-        isDropFrame: isDropFrame
+        isDropFrame: isDropFrame,
+        clipName: clipName
     )
 }
 

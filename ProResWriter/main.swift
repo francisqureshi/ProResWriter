@@ -248,10 +248,10 @@ func testBlackFrameGeneration() async {
 
     // First, import the file to get proper MediaFileInfo with correct frame count
     let importProcess = ImportProcess()
-    // let testFileURL = URL(fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98/A002C010_250605_RP4Z.mxf")
-    let testFileURL = URL(
-        fileURLWithPath:
-            "/Users/fq/Movies/ProResWriter/testMaterialNonQT/59.94 DF")
+    let testFileURL = URL(fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98")
+
+    //     fileURLWithPath:
+    //         "/Users/fq/Movies/ProResWriter/testMaterialNonQT/59.94 DF")
 
     do {
         // Import single file to get MediaFileInfo with accurate frame count
@@ -274,7 +274,7 @@ func testBlackFrameGeneration() async {
         let blankRushIntermediate = BlankRushIntermediate()
         // let outputPath = "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
         let outputPath =
-            "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/5994DFfps_422_proxy_blackframes.mov"
+            "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
 
         // Use MediaFileInfo-based method (more accurate)
         let success = try await blankRushIntermediate.generateBlankRushFromOCF(
