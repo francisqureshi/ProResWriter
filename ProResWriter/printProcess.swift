@@ -410,7 +410,120 @@ class ProResVideoCompositor: NSObject {
     private func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil)
         -> CMTime?
     {
-        // Parse timecode in format HH:MM:SS:FF (frames)
+        // Use TimecodeKit for professional timecode conversion
+        do {
+            // Create TimecodeKit framerate based on the actual frame rate
+            let tcFramerate = getTimecodeFrameRate(for: frameRate)
+            
+            // Parse the timecodes using TimecodeKit
+            let segmentTC = try Timecode(.string(timecode), at: tcFramerate)
+            
+            if let baseTimecode = baseTimecode {
+                // Calculate relative offset using TimecodeKit
+                let baseTC = try Timecode(.string(baseTimecode), at: tcFramerate)
+                
+                // Use TimecodeKit's CMTime conversion for precision
+                let segmentCMTime = segmentTC.cmTimeValue
+                let baseCMTime = baseTC.cmTimeValue
+                let offsetCMTime = CMTimeSubtract(segmentCMTime, baseCMTime)
+                
+                return offsetCMTime
+            } else {
+                // Absolute timecode - use TimecodeKit's CMTime conversion
+                return segmentTC.cmTimeValue
+            }
+            
+        } catch {
+            print("⚠️ TimecodeKit conversion failed: \(error), falling back to manual parsing")
+            return manualTimecodeToCMTime(timecode, frameRate: frameRate, baseTimecode: baseTimecode)
+        }
+    }
+    
+    private func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
+        // Note: We're passing in Int32 but need to handle decimal frame rates differently
+        // For now, we'll handle the integer approximations and rely on TimecodeKit's precision
+        
+        switch frameRate {
+        // Film / ATSC / HD Column - All supported by TimecodeKit
+        case 23: return .fps23_976  // 23.976
+        case 24: return .fps24      // 24 (we'll handle 24.98 separately if needed)
+        case 47: return .fps47_952  // 47.952
+        case 48: return .fps48      // 48
+        case 95: return .fps95_904  // 95.904
+        case 96: return .fps96      // 96
+        
+        // PAL / SECAM / DVB / ATSC Column - All supported by TimecodeKit
+        case 25: return .fps25      // 25
+        case 50: return .fps50      // 50
+        case 100: return .fps100    // 100
+        
+        // NTSC / ATSC / PAL-M Column - All supported by TimecodeKit
+        case 29: return .fps29_97   // 29.97 (both DF and non-DF)
+        case 59: return .fps59_94   // 59.94 (both DF and non-DF) 
+        case 119: return .fps119_88 // 119.88 (both DF and non-DF)
+        
+        // NTSC Non-Standard / ATSC / HD Columns - All supported by TimecodeKit
+        case 30: return .fps30      // 30 (both DF and non-DF)
+        case 60: return .fps60      // 60 (both DF and non-DF)
+        case 90: return .fps90      // 90
+        case 120: return .fps120    // 120 (both DF and non-DF)
+        
+        // Fallback for unknown rates
+        default: return .fps25      // Default to PAL 25fps
+        }
+    }
+    
+    private func getTimescale(for frameRate: Int32) -> CMTimeScale {
+        let fps = Double(frameRate)
+        
+        // NTSC rates (x/1001) - use exact denominators for perfect precision
+        if abs(fps - 23.976) < 0.001 {
+            return 24000  // 23.976fps = 24000/1001
+        } else if abs(fps - 24.98) < 0.001 {
+            return 25000  // 24.98fps ≈ 25000/1001
+        } else if abs(fps - 29.97) < 0.001 {
+            return 30000  // 29.97fps = 30000/1001  
+        } else if abs(fps - 47.952) < 0.001 {
+            return 48000  // 47.952fps = 48000/1001
+        } else if abs(fps - 59.94) < 0.001 {
+            return 60000  // 59.94fps = 60000/1001
+        } else if abs(fps - 95.904) < 0.001 {
+            return 96000  // 95.904fps = 96000/1001
+        } else if abs(fps - 119.88) < 0.001 {
+            return 120000 // 119.88fps = 120000/1001
+        }
+        
+        // Exact integer rates - use high precision timescales
+        else if abs(fps - 24.0) < 0.001 {
+            return 24000  // 24fps exactly
+        } else if abs(fps - 25.0) < 0.001 {
+            return 25000  // 25fps PAL
+        } else if abs(fps - 30.0) < 0.001 {
+            return 30000  // 30fps exactly
+        } else if abs(fps - 48.0) < 0.001 {
+            return 48000  // 48fps exactly
+        } else if abs(fps - 50.0) < 0.001 {
+            return 50000  // 50fps PAL
+        } else if abs(fps - 60.0) < 0.001 {
+            return 60000  // 60fps exactly
+        } else if abs(fps - 90.0) < 0.001 {
+            return 90000  // 90fps exactly
+        } else if abs(fps - 96.0) < 0.001 {
+            return 96000  // 96fps exactly
+        } else if abs(fps - 100.0) < 0.001 {
+            return 100000 // 100fps PAL ultra high
+        } else if abs(fps - 120.0) < 0.001 {
+            return 120000 // 120fps exactly
+        }
+        
+        // Fallback for unknown rates
+        else {
+            return 600    // Apple's standard fallback
+        }
+    }
+    
+    private func manualTimecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil) -> CMTime? {
+        // Fallback manual parsing (original logic)
         let components = timecode.components(separatedBy: ":")
         guard components.count == 4,
             let hours = Int(components[0]),
@@ -421,7 +534,6 @@ class ProResVideoCompositor: NSObject {
             return nil
         }
 
-        // If we have a base timecode, calculate relative offset
         if let baseTimecode = baseTimecode {
             let baseComponents = baseTimecode.components(separatedBy: ":")
             guard baseComponents.count == 4,
@@ -433,33 +545,44 @@ class ProResVideoCompositor: NSObject {
                 return nil
             }
 
-            // Calculate the difference in seconds and frames
-            let totalSeconds =
-                (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
+            let totalSeconds = (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
             let frameDifference = frames - baseFrames
             let frameTime = Double(frameDifference) / Double(frameRate)
-
-            return CMTime(
-                seconds: Double(totalSeconds) + frameTime,
-                preferredTimescale: CMTimeScale(frameRate))
+            let timescale = getTimescale(for: frameRate)
+            
+            return CMTime(seconds: Double(totalSeconds) + frameTime, preferredTimescale: timescale)
         } else {
-            // Absolute timecode (for base timecode itself)
             let totalSeconds = hours * 3600 + minutes * 60 + seconds
             let frameTime = Double(frames) / Double(frameRate)
-            return CMTime(
-                seconds: Double(totalSeconds) + frameTime,
-                preferredTimescale: CMTimeScale(frameRate))
+            let timescale = getTimescale(for: frameRate)
+            
+            return CMTime(seconds: Double(totalSeconds) + frameTime, preferredTimescale: timescale)
         }
     }
 
     func cmTimeToTimecode(_ time: CMTime, frameRate: Int32) -> String {
-        let totalSeconds = time.seconds
-        let hours = Int(totalSeconds) / 3600
-        let minutes = (Int(totalSeconds) % 3600) / 60
-        let seconds = Int(totalSeconds) % 60
-        let frames = Int((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate))
+        // Use TimecodeKit for professional-grade timecode conversion
+        do {
+            // Create TimecodeKit framerate based on the actual frame rate
+            let tcFramerate = getTimecodeFrameRate(for: frameRate)
+            
+            // Convert CMTime to frame number using precise calculation
+            let totalFrames = Int(round(time.seconds * Double(frameRate)))
+            
+            // Create Timecode from frame count
+            let timecode = try Timecode(.frames(totalFrames), at: tcFramerate)
+            
+            return timecode.stringValue()
+        } catch {
+            // Fallback to manual calculation if TimecodeKit fails
+            let totalSeconds = time.seconds
+            let hours = Int(totalSeconds) / 3600
+            let minutes = (Int(totalSeconds) % 3600) / 60
+            let seconds = Int(totalSeconds) % 60
+            let frames = Int(round((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate)))
 
-        return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
+            return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
+        }
     }
 
     func createGradedSegments(
@@ -488,7 +611,7 @@ class ProResVideoCompositor: NSObject {
                 // Use extracted timecode-based timing
                 startTime = timecodeTime
                 sourceStartTime = .zero
-                let frameNumber = Int(timecodeTime.seconds * Double(baseProperties.frameRate))
+                let frameNumber = Int(round(timecodeTime.seconds * Double(baseProperties.frameRate)))
                 let outputTimecode = cmTimeToTimecode(
                     timecodeTime, frameRate: baseProperties.frameRate)
                 print("🎬 Using extracted timecode for \(segmentInfo.filename):")
@@ -498,7 +621,7 @@ class ProResVideoCompositor: NSObject {
                 // Use parsed start time if available
                 startTime = parsedStartTime
                 sourceStartTime = .zero
-                let frameNumber = Int(parsedStartTime.seconds * Double(baseProperties.frameRate))
+                let frameNumber = Int(round(parsedStartTime.seconds * Double(baseProperties.frameRate)))
                 let outputTimecode = cmTimeToTimecode(
                     parsedStartTime, frameRate: baseProperties.frameRate)
                 print("🎬 Using parsed start time for \(segmentInfo.filename):")
@@ -512,7 +635,7 @@ class ProResVideoCompositor: NSObject {
                     ? .zero : CMTimeAdd(segments.last!.startTime, segments.last!.duration)
                 startTime = currentTime
                 sourceStartTime = .zero
-                let frameNumber = Int(currentTime.seconds * Double(baseProperties.frameRate))
+                let frameNumber = Int(round(currentTime.seconds * Double(baseProperties.frameRate)))
                 let outputTimecode = cmTimeToTimecode(
                     currentTime, frameRate: baseProperties.frameRate)
                 print("🎬 Using sequential timing for \(segmentInfo.filename):")
@@ -625,15 +748,15 @@ func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL
         print("🎬 Created \(segments.count) graded segments:")
         for (index, segment) in segments.enumerated() {
             print("  \(index + 1). \(segment.url.lastPathComponent)")
-            let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRate))
+            let startFrame = Int(round(segment.startTime.seconds * Double(baseProperties.frameRate)))
             let endFrame =
-                startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRate))
+                startFrame + Int(round(segment.duration.seconds * Double(baseProperties.frameRate)))
             let startTimecode = compositor.cmTimeToTimecode(
                 segment.startTime, frameRate: baseProperties.frameRate)
             let endTimecode = compositor.cmTimeToTimecode(
                 CMTimeAdd(segment.startTime, segment.duration), frameRate: baseProperties.frameRate)
             print(
-                "     Start: Frame \(startFrame) (\(startTimecode)), Duration: \(segment.duration.seconds)s (\(Int(segment.duration.seconds * Double(baseProperties.frameRate))) frames)"
+                "     Start: Frame \(startFrame) (\(startTimecode)), Duration: \(segment.duration.seconds)s (\(Int(round(segment.duration.seconds * Double(baseProperties.frameRate)))) frames)"
             )
             print("     End: Frame \(endFrame) (\(endTimecode))")
             if let sourceTimecode = baseProperties.sourceTimecode {
