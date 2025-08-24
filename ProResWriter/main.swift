@@ -331,10 +331,10 @@ Task {
     //     await testBlankRushCreation(linkingResult: linkingResult)
     // }
 
-    // await testBlackFrameGeneration()  // Test new black frame generation
+    await testBlackFrameGeneration()  // Test new black frame generation
 
     // print("🎬 Starting composition process...")
-    await testPrintProcess()
+    // await testPrintProcess()
     exit(0)
 }
 

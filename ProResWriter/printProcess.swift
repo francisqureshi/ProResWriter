@@ -211,10 +211,10 @@ class ProResVideoCompositor: NSObject {
         exportSession.outputFileType = .mov
         exportSession.timeRange = CMTimeRange(start: .zero, duration: finalDuration)
 
-        // Start export with progress monitoring using async approach
-        print("🚀 Export Progress:")
-
-        // Use concurrent tasks for export and progress monitoring
+        // Start export with modern async states monitoring using modular progress bar
+        let progressBar = ProgressBar.assetExport()
+        progressBar.start()
+        
         await withTaskGroup(of: Void.self) { group in
             // Task 1: Start the export
             group.addTask {
@@ -225,22 +225,32 @@ class ProResVideoCompositor: NSObject {
                 }
             }
 
-            // Task 2: Monitor progress with updating ASCII bar
+            // Task 2: Monitor progress using modern states API with modular progress bar
             group.addTask {
-                while !Task.isCancelled {
-                    let progress = exportSession.progress
-                    let percentage = Int(progress * 100)
-                    let progressBar = String(repeating: "█", count: percentage / 2)
-                    let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
-                    print("\r📹 [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
-                    fflush(stdout)
-
-                    // Break if export is complete
-                    if progress >= 1.0 {
+                for await state in exportSession.states(updateInterval: 0.1) {
+                    switch state {
+                    case .pending:
+                        print("\r🚀 Pending...", terminator: "")
+                        fflush(stdout)
+                    case .waiting:
+                        print("\r🚀 Waiting...", terminator: "")
+                        fflush(stdout)
+                    case .exporting(let progress):
+                        // Use modular progress bar with enhanced Progress object data
+                        if progress.totalUnitCount > 0 && progress.totalUnitCount < 1_000_000_000_000 { // < 1TB seems reasonable
+                            progressBar.updateUnits(
+                                completedUnits: progress.completedUnitCount,
+                                totalUnits: progress.totalUnitCount,
+                                throughput: progress.throughput,
+                                eta: progress.estimatedTimeRemaining
+                            )
+                        } else {
+                            // Fallback to percentage-based progress for unreasonable unit values
+                            progressBar.updateProgress(Float(progress.fractionCompleted))
+                        }
+                    @unknown default:
                         break
                     }
-
-                    try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
                 }
             }
 
@@ -248,8 +258,9 @@ class ProResVideoCompositor: NSObject {
             await group.next()
             group.cancelAll()
         }
-
-        print("")  // New line after progress bar
+        
+        // Complete the progress bar
+        progressBar.complete(total: 1, showFinalStats: false)
 
         let exportEndTime = CFAbsoluteTimeGetCurrent()
         let exportDuration = exportEndTime - exportStart
@@ -643,14 +654,7 @@ func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL
             proResType: .proRes422HQ
         )
 
-        // Setup progress callback for command line
-        compositor.progressHandler = { progress in
-            let percentage = Int(progress * 100)
-            let progressBar = String(repeating: "█", count: percentage / 2)
-            let emptyBar = String(repeating: "░", count: 50 - (percentage / 2))
-            print("\r📹 Progress: [\(progressBar)\(emptyBar)] \(percentage)%", terminator: "")
-            fflush(stdout)
-        }
+        // Progress monitoring now handled by modern states API
 
         // Setup completion handler and wait for completion
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -675,3 +679,4 @@ func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL
         print("❌ Failed to discover or parse segments: \(error.localizedDescription)")
     }
 }
+

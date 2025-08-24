@@ -82,6 +82,76 @@ class ProgressBar {
         update(current: current, total: 100)
     }
     
+    /// Update progress using large unit values (like bytes) with automatic formatting
+    /// - Parameters:
+    ///   - completedUnits: Current completed units
+    ///   - totalUnits: Total units to complete
+    ///   - throughput: Optional throughput value (e.g., MB/s)
+    ///   - eta: Optional estimated time remaining
+    func updateUnits(completedUnits: Int64, totalUnits: Int64, throughput: Int? = nil, eta: TimeInterval? = nil) {
+        let currentTime = CFAbsoluteTimeGetCurrent()
+        
+        // Calculate progress - handle potential overflow or weird values
+        var progress: Double = 0.0
+        var percentage: Int = 0
+        
+        if totalUnits > 0 {
+            progress = min(1.0, max(0.0, Double(completedUnits) / Double(totalUnits)))
+            percentage = Int(progress * 100)
+        }
+        
+        // Throttle updates unless forced or significant progress change
+        if (currentTime - lastUpdate) < updateInterval && progress < 0.95 {
+            return
+        }
+        
+        lastUpdate = currentTime
+        
+        let progressBar = String(repeating: "█", count: percentage / 2)
+        let emptyBar = String(repeating: "░", count: barWidth - (percentage / 2))
+        
+        var progressString = "\r  \(emoji) [\(progressBar)\(emptyBar)] \(percentage)%"
+        
+        // Add unit information with debugging for weird values
+        if totalUnits > 0 {
+            let completedFormatted = formatBytes(completedUnits)
+            let totalFormatted = formatBytes(totalUnits)
+            progressString += " (\(completedFormatted)/\(totalFormatted))"
+            
+            // Debug: Print raw values if they seem unreasonable
+            if completedUnits > totalUnits || totalUnits > 1_000_000_000_000 { // > 1TB seems suspicious
+                progressString += " [DEBUG: \(completedUnits)/\(totalUnits)]"
+            }
+        }
+        
+        // Add throughput if available
+        if let throughput = throughput {
+            progressString += " @ \(String(format: "%.1f", Double(throughput)))MB/s"
+        }
+        
+        // Add ETA if available
+        if let eta = eta {
+            let minutes = Int(eta / 60)
+            let seconds = Int(eta.truncatingRemainder(dividingBy: 60))
+            if minutes > 0 {
+                progressString += " ETA: \(minutes)m\(seconds)s"
+            } else {
+                progressString += " ETA: \(seconds)s"
+            }
+        }
+        
+        print(progressString, terminator: "")
+        fflush(stdout)
+    }
+    
+    /// Format bytes into human-readable units
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .binary
+        formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB]
+        return formatter.string(fromByteCount: bytes)
+    }
+    
     /// Complete the progress bar with 100% display and optional final stats
     /// - Parameters:
     ///   - total: Total items processed
@@ -130,6 +200,17 @@ extension ProgressBar {
             barWidth: 50, 
             showFPS: false,
             updateInterval: 0.1
+        )
+    }
+    
+    /// Create a progress bar for AVAssetExportSession with Progress object support
+    static func assetExport() -> ProgressBar {
+        return ProgressBar(
+            title: "Asset Export Progress", 
+            emoji: "📹", 
+            barWidth: 50, 
+            showFPS: false,
+            updateInterval: 0.05  // More frequent updates for detailed progress
         )
     }
     
