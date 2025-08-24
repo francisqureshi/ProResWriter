@@ -248,10 +248,10 @@ func testBlackFrameGeneration() async {
 
     // First, import the file to get proper MediaFileInfo with correct frame count
     let importProcess = ImportProcess()
-    let testFileURL = URL(fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98")
+    // let testFileURL = URL(fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98")
 
-    //     fileURLWithPath:
-    //         "/Users/fq/Movies/ProResWriter/testMaterialNonQT/59.94 DF")
+    let testFileURL = URL(
+        fileURLWithPath: "/Users/fq/Movies/ProResWriter/testMaterialNonQT/59.94 DF")
 
     do {
         // Import single file to get MediaFileInfo with accurate frame count
@@ -274,7 +274,7 @@ func testBlackFrameGeneration() async {
         let blankRushIntermediate = BlankRushIntermediate()
         // let outputPath = "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
         let outputPath =
-            "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
+            "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/5999fps_422_proxy_blackframes.mov"
 
         // Use MediaFileInfo-based method (more accurate)
         let success = try await blankRushIntermediate.generateBlankRushFromOCF(
@@ -295,6 +295,31 @@ func testBlackFrameGeneration() async {
     print("\n" + String(repeating: "=", count: 50))
 }
 
+func testPrintProcess() async {
+
+    do {
+        let segmentsDirectoryURL = URL(
+            fileURLWithPath:
+                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
+        )
+
+        // Original paths
+        let blankRushURL = URL(
+            fileURLWithPath:
+                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/COS AW25_4K_4444_LR001_LOG_blankRush.mov"
+        )
+        let outputURL = URL(
+            fileURLWithPath:
+                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/w2_COS AW25_4K_4444_LR001_LOG.mov"
+        )
+
+        await runComposition(
+            blankRushURL: blankRushURL, segmentsDirectoryURL: segmentsDirectoryURL,
+            outputURL: outputURL
+        )
+    }
+}
+
 Task {
     // Test SMPTE library first
     // testSMPTE()
@@ -306,25 +331,10 @@ Task {
     //     await testBlankRushCreation(linkingResult: linkingResult)
     // }
 
-    // Test both transcoding methods for comparison
-    // await testTranscodeBlank()        // Test working straight transcode
-    await testBlackFrameGeneration()  // Test new black frame generation
+    // await testBlackFrameGeneration()  // Test new black frame generation
 
     // print("🎬 Starting composition process...")
-
-    // // Original paths
-    // let blankRushURL = URL(
-    //     fileURLWithPath:
-    //         "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/bR_COS AW25_4K_4444_24FPS_LR001_LOG.mov"
-    // )
-    // let outputURL = URL(
-    //     fileURLWithPath:
-    //         "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/COS AW25_4K_4444_25FPS_LR001_LOG.mov"
-    // )
-    //
-    // await runComposition(
-    //     blankRushURL: blankRushURL, segmentsDirectoryURL: segmentsDirectoryURL, outputURL: outputURL
-    // )
+    await testPrintProcess()
     exit(0)
 }
 

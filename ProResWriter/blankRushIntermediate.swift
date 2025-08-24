@@ -478,7 +478,13 @@ class BlankRushIntermediate {
         var frameCount = 0
         var encodedPacketCount = 0
 
+        // Progress bar setup using modular TUI system
+        let progressBar = ProgressBar.frameGeneration()
+        progressBar.start()
+
         for frameIndex in 0..<totalFrames {
+            // Update progress bar using modular system
+            progressBar.update(current: frameIndex + 1, total: totalFrames)
             let filterFrame = AVFrame()
 
             do {
@@ -489,9 +495,10 @@ class BlankRushIntermediate {
                 // Set proper PTS for filter frame (like straightTranscodeToProRes)
                 filterFrame.pts = Int64(frameIndex)
 
-                if frameCount <= 5 || frameCount % 50 == 0 || frameCount > totalFrames - 5 {
-                    print("  📦 Generated filter frame \(frameCount): PTS=\(filterFrame.pts)")
-                }
+                // Debug output disabled during main processing for clean progress bar
+                // if frameCount <= 3 || frameCount > totalFrames - 3 {
+                //     print("  📦 Generated filter frame \(frameCount): PTS=\(filterFrame.pts)")
+                // }
 
                 // Send to encoder
                 try codecContext.sendFrame(filterFrame)
@@ -518,13 +525,12 @@ class BlankRushIntermediate {
                         packet.duration = AVMath.rescale(
                             packet.duration, codecContext.timebase, videoStream.timebase)
 
-                        if encodedPacketCount <= 5 || encodedPacketCount % 50 == 0
-                            || frameCount > totalFrames - 5
-                        {
-                            print(
-                                "  📦 Encoded packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(packet.pts), DTS=\(originalDTS) → \(packet.dts)"
-                            )
-                        }
+                        // Debug output disabled during main processing for clean progress bar  
+                        // if encodedPacketCount <= 3 || frameCount > totalFrames - 3 {
+                        //     print(
+                        //         "  📦 Encoded packet \(encodedPacketCount): orig PTS=\(originalPTS) → \(packet.pts), DTS=\(originalDTS) → \(packet.dts)"
+                        //     )
+                        // }
 
                         try outputFormatContext.interleavedWriteFrame(packet)
                     } catch let err as AVError where err == .tryAgain || err == .eof {
@@ -542,6 +548,9 @@ class BlankRushIntermediate {
                 break
             }
         }
+
+        // Complete progress bar using modular system
+        progressBar.complete(total: totalFrames)
 
         // Flush encoder with proper timing (from straightTranscodeToProRes)
         print("  🔄 Force flushing encoder to ensure all frames are written")
@@ -644,7 +653,7 @@ class BlankRushIntermediate {
         }
 
         // 1. Static "SRC TC: " prefix text (top left)
-        let srcTextArgs = "\(fontFileArg)text='SRC TC\\: ':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.011):y=(\(yPosition))"
+        let srcTextArgs = "\(fontFileArg)text='SRC TC\\: ':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w*0.04):y=(\(yPosition))"
         print("  🔧 SRC TC text args: \(srcTextArgs)")
         let srcTextCtx = try filterGraph.addFilter(drawtextFilter, name: "src_text", args: srcTextArgs)
 
@@ -675,14 +684,55 @@ class BlankRushIntermediate {
         let timecodeCtx = try filterGraph.addFilter(drawtextFilter, name: "timecode", args: timecodeArgs)
 
         // 3. Static clip name suffix (continues from timecode)  
-        let clipNameArgs = "\(fontFileArg)text=' ---> \(clipName)':fontsize=(\(fontSize)):fontcolor=white:x=(w*0.32):y=(\(yPosition))"
+        let clipNameArgs = "\(fontFileArg)text=' ---> \(clipName)':fontsize=(\(fontSize)):fontcolor=white:x=(w*0.28):y=(\(yPosition))"
         print("  🔧 Clip name args: \(clipNameArgs)")
         let clipNameCtx = try filterGraph.addFilter(drawtextFilter, name: "clip_name", args: clipNameArgs)
 
         // 4. "NO GRADE" warning (top right)
-        let noGradeArgs = "\(fontFileArg)text='//// NO GRADE ////':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.02):y=(\(yPosition))"
+        let noGradeArgs = "\(fontFileArg)text='//// NO GRADE ////':fontsize=(\(fontSize)):fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-tw-w*0.04):y=(\(yPosition))"
         print("  🔧 NO GRADE warning args: \(noGradeArgs)")
         let noGradeCtx = try filterGraph.addFilter(drawtextFilter, name: "no_grade", args: noGradeArgs)
+
+        // Add DVD bounce logo animation (fun bonus!)
+        let logoPath = executableURL?.deletingLastPathComponent().appendingPathComponent("Resources/Graphics/roundtrip.png").path
+        let logoExists = logoPath != nil && FileManager.default.fileExists(atPath: logoPath!)
+        
+        var overlayCtx: AVFilterContext?
+        var logoCtx: AVFilterContext?
+        
+        if logoExists {
+            print("  🎮 Adding DVD bounce logo: \(logoPath!)")
+            
+            // Create movie filter to load the logo image
+            guard let movieFilter = AVFilter(name: "movie") else {
+                throw TimecodeBlackFramesError(message: "Movie filter not found")
+            }
+            
+            // DVD bounce animation: bounce around screen edges with speed variation
+            // Logo size: 450x250, bounce with velocity changes on edge hits
+            let logoW = 450
+            let logoH = 250
+            let speed = 80  // pixels per second
+            
+            let movieArgs = "filename='\(logoPath!)':loop=1"
+            logoCtx = try filterGraph.addFilter(movieFilter, name: "logo", args: movieArgs)
+            
+            // Add overlay filter with DVD bounce expressions
+            guard let overlayFilter = AVFilter(name: "overlay") else {
+                throw TimecodeBlackFramesError(message: "Overlay filter not found")
+            }
+            
+            // DVD bounce math: aggressive movement across full screen
+            // Use simple linear movement with different speeds for X and Y
+            let bounceX = "mod(t*100, w-\(logoW))"
+            let bounceY = "mod(t*80, h-\(logoH))"
+            let overlayArgs = "x=\(bounceX):y=\(bounceY)"
+            print("  🎮 DVD bounce expressions: \(overlayArgs)")
+            
+            overlayCtx = try filterGraph.addFilter(overlayFilter, name: "dvd_overlay", args: overlayArgs)
+        } else {
+            print("  ⚠️ Logo not found at \(logoPath ?? "nil"), skipping DVD bounce animation")
+        }
 
         // Add format filter to convert to VideoToolbox-compatible pixel format
         guard let formatFilter = AVFilter(name: "format") else {
@@ -698,12 +748,23 @@ class BlankRushIntermediate {
         let pixFmts = [AVPixelFormat.UYVY422]  // Match VideoToolbox encoder format
         try buffersinkCtx.set(pixFmts.map({ $0.rawValue }), forKey: "pix_fmts")
 
-        // Link filters in chain: color -> src_text -> timecode -> clip_name -> no_grade -> format -> buffersink
+        // Link filters in chain: color -> src_text -> timecode -> clip_name -> no_grade -> [overlay] -> format -> buffersink
         try colorCtx.link(dst: srcTextCtx)
         try srcTextCtx.link(dst: timecodeCtx)
         try timecodeCtx.link(dst: clipNameCtx)
         try clipNameCtx.link(dst: noGradeCtx)
-        try noGradeCtx.link(dst: formatCtx)
+        
+        if let overlayCtx = overlayCtx, let logoCtx = logoCtx, logoExists {
+            // Connect text output to overlay main input (pad 0)
+            try noGradeCtx.link(srcPad: 0, dst: overlayCtx, dstPad: 0)
+            // Connect logo to overlay second input (pad 1)
+            try logoCtx.link(srcPad: 0, dst: overlayCtx, dstPad: 1)
+            try overlayCtx.link(dst: formatCtx)
+        } else {
+            // No logo, link directly to format
+            try noGradeCtx.link(dst: formatCtx)
+        }
+        
         try formatCtx.link(dst: buffersinkCtx)
 
         // Configure filter graph
