@@ -68,10 +68,11 @@ func testImport() async -> [MediaFileInfo] {
     let importProcess = ImportProcess()
     let segmentsDirectoryURL = URL(
         fileURLWithPath:
-            // actual source file ---> // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light/"
-            // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
+            // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light/"
+            // "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
             // "/Users/mac10/Desktop/23.98/GRADED"
-            "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
+            // "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
+            "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM"
     )
 
     var gradedSegments: [MediaFileInfo] = []
@@ -131,9 +132,10 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
     let ocfDirectoryURLs = [
         URL(
             fileURLWithPath:
-                // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_LR001_LOG"
+                // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light"
                 // "/Users/mac10/Desktop/23.98/OCF"
-                "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
+                // "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
+                "/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"
         )
 
         // URL(
@@ -300,17 +302,16 @@ func testPrintProcess() async {
     do {
         let segmentsDirectoryURL = URL(
             fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
+                "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM"
         )
 
-        // Original paths
         let blankRushURL = URL(
             fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/COS AW25_4K_4444_LR001_LOG_blankRush.mov"
+                "/Users/fq/Movies/ProResWriter/Ganni/blankRush/C20250825_0303_blankRush.mov"
         )
         let outputURL = URL(
             fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/w2_COS AW25_4K_4444_LR001_LOG.mov"
+                "/Users/fq/Movies/ProResWriter/Ganni/w2/C20250825_0303.mov"
         )
 
         await runComposition(
@@ -326,15 +327,15 @@ Task {
     // exit(0)
 
     // Test import and linking
-    // let gradedSegments = await testImport()
-    // if let linkingResult = await testLinking(segments: gradedSegments) {
-    //     await testBlankRushCreation(linkingResult: linkingResult)
-    // }
+    let gradedSegments = await testImport()
+    if let linkingResult = await testLinking(segments: gradedSegments) {
+        await testBlankRushCreation(linkingResult: linkingResult)
+    }
 
-    await testBlackFrameGeneration()  // Test new black frame generation
+    // await testBlackFrameGeneration()  // Test new black frame generation
 
     // print("🎬 Starting composition process...")
-    // await testPrintProcess()
+    await testPrintProcess()
     exit(0)
 }
 

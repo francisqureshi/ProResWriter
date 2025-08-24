@@ -59,25 +59,63 @@ struct MediaFileInfo {
     }
 
     /// Frame rate description with precision info and drop frame indication
+    /// Supports all TimecodeKit professional frame rates
     var frameRateDescription: String {
         guard let frameRate = frameRate else { return "Unknown" }
         
         let dropFrameInfo = isDropFrame == true ? " (drop frame)" : ""
 
-        // Common frame rates with precision info
+        // Film / ATSC / HD frame rates
         if abs(frameRate - 23.976) < 0.001 {
             return "23.976fps (24000/1001)\(dropFrameInfo)"
-        } else if abs(frameRate - 29.97) < 0.001 {
+        } else if frameRate == 24.0 {
+            return "24fps\(dropFrameInfo)"
+        } else if abs(frameRate - 24.98) < 0.001 {
+            return "24.98fps\(dropFrameInfo)"
+        } else if abs(frameRate - 47.952) < 0.001 {
+            return "47.952fps (48000/1001)\(dropFrameInfo)"
+        } else if frameRate == 48.0 {
+            return "48fps\(dropFrameInfo)"
+        } else if abs(frameRate - 95.904) < 0.001 {
+            return "95.904fps (96000/1001)\(dropFrameInfo)"
+        } else if frameRate == 96.0 {
+            return "96fps\(dropFrameInfo)"
+        }
+        
+        // PAL / SECAM / DVB / ATSC frame rates
+        else if frameRate == 25.0 {
+            return "25fps\(dropFrameInfo)"
+        } else if frameRate == 50.0 {
+            return "50fps\(dropFrameInfo)"
+        } else if frameRate == 100.0 {
+            return "100fps\(dropFrameInfo)"
+        }
+        
+        // NTSC / ATSC / PAL-M frame rates
+        else if abs(frameRate - 29.97) < 0.001 {
             return "29.97fps (30000/1001)\(dropFrameInfo)"
         } else if abs(frameRate - 59.94) < 0.001 {
             return "59.94fps (60000/1001)\(dropFrameInfo)"
-        } else if frameRate == 24.0 {
-            return "24fps\(dropFrameInfo)"
-        } else if frameRate == 25.0 {
-            return "25fps\(dropFrameInfo)"
-        } else if frameRate == 30.0 {
+        } else if abs(frameRate - 119.88) < 0.001 {
+            return "119.88fps (120000/1001)\(dropFrameInfo)"
+        }
+        
+        // NTSC Non-Standard frame rates
+        else if frameRate == 30.0 {
             return "30fps\(dropFrameInfo)"
-        } else {
+        } else if frameRate == 60.0 {
+            return "60fps\(dropFrameInfo)"
+        } else if frameRate == 120.0 {
+            return "120fps\(dropFrameInfo)"
+        }
+        
+        // ATSC / HD frame rates
+        else if frameRate == 90.0 {
+            return "90fps\(dropFrameInfo)"
+        }
+        
+        // Fallback for unknown rates
+        else {
             return "\(frameRate)fps\(dropFrameInfo)"
         }
     }
@@ -199,7 +237,7 @@ class MediaAnalyzer {
                     }
 
                     // Extract timecode using same approach as ffmpeg script
-                    sourceTimecode = extractTimecode(from: fmtCtx, stream: stream)
+                    sourceTimecode = extractTimecode(from: fmtCtx)
                     
                     // Detect drop frame from timecode format and frame rate
                     if let timecode = sourceTimecode, let fps = frameRate {
@@ -314,17 +352,22 @@ class MediaAnalyzer {
         }
     }
 
-    private func extractTimecode(from formatContext: AVFormatContext, stream: AVStream) -> String? {
+    private func extractTimecode(from formatContext: AVFormatContext) -> String? {
         // Method 1: Check format metadata first (like ffprobe format_tags=timecode)
         if let timecode = formatContext.metadata["timecode"] {
             print("    🎬 Found timecode in format metadata: \(timecode)")
             return timecode
         }
 
-        // Method 2: Check stream metadata (like ffprobe stream_tags=timecode)
-        if let timecode = stream.metadata["timecode"] {
-            print("    🎬 Found timecode in stream metadata: \(timecode)")
-            return timecode
+        // Method 2: Check ALL streams for timecode metadata (especially data streams like rtmd)
+        for i in 0..<formatContext.streamCount {
+            let stream = formatContext.streams[Int(i)]
+            
+            // Check for timecode in stream metadata
+            if let timecode = stream.metadata["timecode"] {
+                print("    🎬 Found timecode in stream \(i) metadata: \(timecode)")
+                return timecode
+            }
         }
 
         // Method 3: Check additional common timecode metadata keys
@@ -338,11 +381,14 @@ class MediaAnalyzer {
             }
         }
 
-        // Then check stream level
-        for key in timecodeKeys {
-            if let value = stream.metadata[key] {
-                print("    🎬 Found timecode in stream metadata (\(key)): \(value)")
-                return value
+        // Then check all streams for additional keys
+        for i in 0..<formatContext.streamCount {
+            let stream = formatContext.streams[Int(i)]
+            for key in timecodeKeys {
+                if let value = stream.metadata[key] {
+                    print("    🎬 Found timecode in stream \(i) metadata (\(key)): \(value)")
+                    return value
+                }
             }
         }
 
