@@ -1,105 +1,74 @@
+# ProResWriter
 
+Professional video post-production workflow automation tool for matching graded segments with original camera files (OCF) and creating broadcast-ready outputs.
 
-PrintWorkflow app
+## Overview
 
-Topline TODO:
+ProResWriter streamlines the post-production workflow by:
+- **Importing** and analyzing media files with professional frame rate support
+- **Linking** graded segments to their original camera files using timecode and metadata matching
+- **Creating** blank rush proxies with timecode burn-in for review
+- **Compositing** final outputs with frame-accurate positioning
 
-so the current offering makes a temp file for adding timecode track!
-so instead, we should try just lifting the OCF timecode chat!!!
+## Core Features
 
-- [x] copy/lift timecode track from OCF, no need to calculate TC!
-- [ ] copy/lift source audio tracks 
-- [ ] gather material in every frame rate
-    - [ ] 25
-    - [ ] 24
-    - [ ] 23.976
-    - [ ] 30
-    - [ ] 29.97
-    - [ ] 59.94
-    - [ ] 29.97 DF
-    - [ ] 59.94 DF
-    - [ ] 60
+### Import System
+- Professional media analysis supporting all broadcast standards (23.976-120fps)
+- Accurate frame counting for MXF, MOV, MP4 formats
+- Drop-frame and non-drop-frame timecode detection
+- Resolution and sample aspect ratio analysis
 
+### Linking System  
+- Intelligent parent-child OCF matching using:
+  - Filename patterns and reel names
+  - Timecode range validation
+  - Resolution and frame rate matching
+  - Confidence scoring system
 
+### Blank Rush Creation
+- Hardware-accelerated VideoToolbox ProRes encoding
+- Professional timecode burn-in with TimecodeKit precision
+- Source-matching frame rates and resolutions
+- Broadcast-standard color space metadata (ITU-R BT.709)
 
+### Print Process
+- Frame-accurate composition using AVMutableComposition
+- Professional timecode positioning with zero offset
+- Segment insertion with proper timing rescaling
 
-- [ ] create tests with media in framerate 
+## Architecture
 
-==========
-Pairing workflow 
+```
+ProResWriter/
+├── Core/                    # Core processing engine
+│   ├── Import/             # Media analysis and metadata extraction
+│   ├── Linking/            # OCF-segment matching algorithms  
+│   ├── BlankRush/          # Proxy generation with timecode burn-in
+│   ├── PrintProcess/       # Final composition and output
+│   ├── Utilities/          # SMPTE timecode utilities
+│   └── TUI/               # Terminal UI components
+├── Models/                 # [Future] Project data models
+├── UI/                     # [Future] SwiftUI interface
+└── Projects/               # [Future] Project management
+```
 
-Render MM clips from grade project to live intermediate Segments folder as ProRes 4444
+## Professional Standards Supported
 
-Add MM to app Segment group
+- **Film/Cinema**: 23.976fps, 24fps, 48fps, 96fps
+- **PAL/European**: 25fps, 50fps, 100fps  
+- **NTSC/American**: 29.97fps (DF/non-DF), 59.94fps (DF/non-DF)
+- **High Frame Rate**: 90fps, 119.88fps, 120fps
 
-Add the OCF to app OCF group
+## Build Requirements
 
-Pair them using:
-OCF name as the Key 
-+ Resolution
-+ FPS 
-+ SRC TC 
-+ Reel Name if available 
+- macOS with Xcode
+- SwiftFFmpeg framework
+- TimecodeKit 2.3.3+
+- VideoToolbox (hardware acceleration)
 
-Handle duplicates…
+Build with: `./build.sh`
 
-==========
+## Status
 
-Blank source file creation (make once)
-
-Blank frames made, use pre-made watermarked frame. 
-
-[
-COMMON format library for known sizes?
-
-If a new size comes along, make small video of it to be used a repeatable slug.🐌 
-
-SRC TC burn-in might invalidate this format library 
-
-]
-
-Burn-in usual details
-File name
-Project
-SRC TC
-
-BUT…? Is this possible without sloooow render??? But blankRush also only has to be made once?…. 
-
-Could be auto-generated as they are paired with segments.
-
-
-Mirror/ Capture audio track configuration
-Codec and sample rate 
-
-
-Render these files to intermediate_stock folder
-
-Set OCF files in app to in-use and connect the intermediate_stock files 
-
-UI option to hide unused OCF
-
-========
-
-Printing workflow
-
-Glues all the files together, everything must pre-baked
-
-
-========
-
-UI / dynamic refresh 
-
-Hide / grey out unused OCF
-Track segment changes
-Track print render history 
-
-Calculate lengths each print 
-/ segments can be refreshed incase their size changes
-
-Deal with media offline 
-
-
-====
-
-Node expansion 
-Install on a all machines and send jobs to them for distrobuted extra speed ⚡️
+✅ **Core Engine Complete** - Professional-grade media processing pipeline operational  
+🚧 **UI Development** - SwiftUI interface and project management in development

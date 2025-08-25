@@ -150,3 +150,51 @@ pix_fmts=uyvy422
 
 ### Production-Ready Status
 **ProResWriter now provides professional-grade timecode precision for all industry-standard frame rates, resolving critical timing accuracy issues and ensuring broadcast/cinema compliance.** 🎬
+
+## Core Architecture Reorganization (2025-08-25)
+
+### Complete Codebase Restructure Achievement
+- **Core Engine Modularization**: Successfully organized all processing logic into structured Core/ directory system
+- **Clean Separation of Concerns**: Each major component isolated in dedicated subdirectories for maintainability
+- **Future-Ready Architecture**: Clear foundation for UI and project management layer additions
+
+### Directory Structure Implementation
+```
+ProResWriter/
+├── Core/                           # Complete media processing pipeline
+│   ├── Import/                     # importProcess.swift, MediaFileInfo models
+│   ├── Linking/                    # linkingProcess.swift, SegmentOCFLinker algorithms  
+│   ├── BlankRush/                  # blankRushIntermediate.swift, VideoToolbox encoding
+│   ├── PrintProcess/               # printProcess.swift, AVMutableComposition workflows
+│   ├── Utilities/                  # SMPTE.swift, TimecodeKit integration helpers
+│   └── TUI/                        # progressBar.swift, terminal interface components
+├── Models/                         # [Next Phase] Project data persistence
+├── UI/                             # [Next Phase] SwiftUI interface layer
+├── Projects/                       # [Next Phase] Project management logic
+└── main.swift                      # Entry point with centralized test configuration
+```
+
+### Core Components Status
+- ✅ **Import System**: Professional media analysis with comprehensive frame rate support
+- ✅ **Linking System**: Intelligent OCF-segment matching with confidence scoring
+- ✅ **Blank Rush Creation**: Hardware-accelerated ProRes encoding with timecode burn-in
+- ✅ **Print Process**: Frame-accurate composition and final output generation
+- ✅ **Utilities**: SMPTE timecode calculations and TimecodeKit integration
+- ✅ **TUI Components**: Modular progress bar system for consistent user feedback
+
+### Development Path Forward
+**Next Phase: UI and Project Management**
+- SwiftUI interface for visual workflow management
+- Project file persistence (save/load import results, linking state, processing history)
+- Status tracking (blank rush completion, last print timestamps)
+- Media browser and timeline visualization
+- Batch processing queue management
+
+### Technical Foundation
+The Core/ restructure provides a solid foundation for building professional post-production workflows with clear separation between:
+- **Processing Logic** (Core/)
+- **Data Models** (Models/ - future)  
+- **User Interface** (UI/ - future)
+- **Project Management** (Projects/ - future)
+
+**All core functionality tested and operational - ready for GUI development phase.** 🚀

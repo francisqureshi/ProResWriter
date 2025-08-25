@@ -3,6 +3,8 @@ import CoreMedia
 import Foundation
 import TimecodeKit
 
+// MARK: - Core Imports (organized in Core/ structure)
+
 // MARK: - Test Configuration Paths
 let testPaths = (
     gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
