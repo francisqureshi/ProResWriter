@@ -198,3 +198,131 @@ The Core/ restructure provides a solid foundation for building professional post
 - **Project Management** (Projects/ - future)
 
 **All core functionality tested and operational - ready for GUI development phase.** 🚀
+
+## UI/Project Management Design (2025-08-25)
+
+### SwiftUI Interface Design Vision
+- **Professional post-production workflow interface matching editor thinking patterns**
+- **Hierarchical media organization reflecting Core linking system architecture**
+- **Three-tier workflow management: Project → Media → Pairing**
+
+### Interface Architecture Plan
+```
+ContentView
+├── Sidebar                         # Project navigation (Finder-like)
+│   ├── Projects list
+│   ├── Recent projects
+│   └── New project creation
+│
+└── MainView (TabView)
+    ├── ProjectTab                  # Main working interface
+    │   └── OutlineGroup            # Hierarchical OCF + children display
+    │       ├── C20250825_0303 {🟢} - OCF metadata - Start TC - End TC
+    │       │   ├── C20250825_0303_S001 - Segment details
+    │       │   ├── C20250825_0303_S002 - Segment details  
+    │       │   └── C20250825_0303_S003 - Segment details
+    │       └── C20250825_0304 {⚫️} - OCF metadata
+    │           └── C20250825_0304_S001 - Segment details
+    │
+    ├── MediaTab                    # Import management
+    │   ├── OCF Import Table        # Drag-drop zone + analysis
+    │   └── Segments Import Table   # Drag-drop zone + analysis
+    │
+    └── PairingTab                  # Linking control + manual overrides
+        ├── Confidence Review       # 🟢🟡🔴 pairing quality indicators
+        ├── Manual Link Controls    # Drag-to-link interface
+        └── Unmatched Items List    # Orphaned OCF/segments
+```
+
+### Data Model Architecture
+```swift
+class Project: ObservableObject, Codable {
+    var name: String
+    var createdDate: Date
+    var lastModified: Date
+    
+    // Core data integration
+    var ocfFiles: [MediaFileInfo]
+    var segments: [MediaFileInfo] 
+    var linkingResult: LinkingResult?
+    
+    // Status tracking
+    var blankRushStatus: [String: BlankRushStatus]  // OCF filename → status
+    var lastPrintDate: Date?
+    var printHistory: [PrintRecord]
+    
+    // Project settings
+    var outputDirectory: URL
+    var blankRushDirectory: URL
+}
+
+enum BlankRushStatus: Codable {
+    case notCreated
+    case inProgress  
+    case completed(date: Date, url: URL)
+    case failed(error: String)
+}
+
+struct PrintRecord: Codable {
+    let date: Date
+    let outputURL: URL
+    let segmentCount: Int
+    let success: Bool
+}
+```
+
+### UI Component Specifications
+- **Table Columns**: Filename, Resolution, Frame Rate, Timecode Range, Link Confidence, Status Icons
+- **Status Indicators**: 
+  - Blank Rush: ⚫️ (not created), 🟡 (in progress), 🟢 (completed), 🔴 (failed)
+  - Link Confidence: 🟢 (high), 🟡 (medium), 🔴 (low/manual)
+- **Import Zones**: Drag-and-drop with progress indicators
+- **Manual Pairing**: Visual drag-to-connect interface for OCF-segment linking
+
+### Workflow Integration
+1. **Import**: Drag media files → automatic analysis → populate tables
+2. **Link**: Automatic pairing + manual override → confidence indicators
+3. **Generate**: Batch blank rush creation → status tracking  
+4. **Print**: Final composition → history tracking → project state save
+
+**Professional editor-focused interface design ready for SwiftUI implementation.** 🎬
+- Perfect! I've created a comprehensive data model architecture for the Project management
+  system:
+
+  ✅ Created Data Models:
+
+  1. Project.swift - Core project data model
+
+  - ObservableObject for SwiftUI integration with @Published properties
+  - Codable for JSON persistence
+  - Status tracking for blank rush generation and print history
+  - Computed properties for UI state (progress, readiness indicators)
+  - Integration methods for Core engine (import, linking, blank rush creation)
+
+  2. ProjectManager.swift - Project lifecycle management
+
+  - File-based persistence with .prores project files
+  - Recent projects tracking (5 most recent)
+  - Auto-save functionality
+  - Core engine integration for import, linking, and blank rush workflows
+  - Async operations for media processing
+
+  3. ProjectHierarchy.swift - Hierarchical UI data models
+
+  - HierarchicalItem protocol for outline view compatibility
+  - OCFParentItem and SegmentChildItem classes for tree structure
+  - Status icons and metadata formatting for UI display
+  - Timecode range calculation using our SMPTE utilities
+  - Type-erased wrapper for SwiftUI compatibility
+
+  🏗️ Key Architecture Features:
+
+  - Complete UI Integration: @Published properties work directly with SwiftUI
+  - Status Tracking: Visual indicators (🟢🟡⚫️🔴) for all workflow states
+  - Core Engine Compatibility: Direct integration with existing import/linking/blank rush
+  systems
+  - Persistence Layer: JSON-based project files with auto-save
+  - Professional Metadata: Timecode ranges, resolution, frame rates, confidence levels
+
+  The models are ready for SwiftUI implementation - they provide everything needed for the
+  hierarchical table view, status indicators, and project management workflows you described!

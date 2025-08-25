@@ -68,7 +68,32 @@ ProResWriter/
 
 Build with: `./build.sh`
 
+## UI Design
+
+### Interface Architecture
+- **Sidebar**: Finder-like project navigation with recent projects
+- **Main View**: Three-tab workflow management
+  - **Project Tab**: Hierarchical table showing OCF clips with child segments
+  - **Media Tab**: Import management with separate OCF/segment tables  
+  - **Pairing Tab**: Manual linking controls and confidence review
+
+### Key Features
+- **Hierarchical Display**: OCF parents with expandable segment children
+- **Status Tracking**: Visual indicators for blank rush generation and link confidence
+- **Drag-and-Drop Import**: Direct media file analysis and import
+- **Manual Override**: Visual pairing controls when automatic linking needs adjustment
+
+### Example Project View
+```
+C20250825_0303 {🟢} - 4480x3096 - 23.976fps - 12:25:29:19→12:25:45:04
+ ├── C20250825_0303_S001 - Segment metadata - Timecode range
+ ├── C20250825_0303_S002 - Segment metadata - Timecode range  
+ └── C20250825_0303_S003 - Segment metadata - Timecode range
+C20250825_0304 {⚫️} - 4480x3096 - 23.976fps - 12:25:45:05→12:26:08:12
+ └── C20250825_0304_S001 - Segment metadata - Timecode range
+```
+
 ## Status
 
 ✅ **Core Engine Complete** - Professional-grade media processing pipeline operational  
-🚧 **UI Development** - SwiftUI interface and project management in development
+🚧 **UI Development** - SwiftUI interface and project management design finalized, implementation in progress
