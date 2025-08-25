@@ -3,6 +3,15 @@ import CoreMedia
 import Foundation
 import TimecodeKit
 
+// MARK: - Test Configuration Paths
+let testPaths = (
+    gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
+    ocfParents: "/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3",
+    blankRush: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/C20250825_0303_blankRush.mov",
+    outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2/C20250825_0303.mov",
+    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/"
+)
+
 func testSMPTE() {
 
     // Test SMPTE library first
@@ -66,14 +75,7 @@ func testImport() async -> [MediaFileInfo] {
     print("🧪 Testing import functionality...")
 
     let importProcess = ImportProcess()
-    let segmentsDirectoryURL = URL(
-        fileURLWithPath:
-            // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light/"
-            // "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM"
-            // "/Users/mac10/Desktop/23.98/GRADED"
-            // "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
-            "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM"
-    )
+    let segmentsDirectoryURL = URL(fileURLWithPath: testPaths.gradedSegments)
 
     var gradedSegments: [MediaFileInfo] = []
 
@@ -128,21 +130,8 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
 
     let importProcess = ImportProcess()
 
-    // Test linking functionality with multiple OCF parent directories
     let ocfDirectoryURLs = [
-        URL(
-            fileURLWithPath:
-                // "/Volumes/EVO-POST/__POST/1642 - COS AW/02_FOOTAGE/OCF/8MM/COS AW25_4K_4444_24FPS_LR001_LOG & HD Best Light"
-                // "/Users/mac10/Desktop/23.98/OCF"
-                // "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98"
-                "/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"
-        )
-
-        // URL(
-        // fileURLWithPath:
-        // "/Users/mac10/Desktop/59.94"
-        // "/Users/fq/Movies/ProResWriter/testMaterialNonQT/29.97"
-        // ),
+        URL(fileURLWithPath: testPaths.ocfParents)
     ]
 
     do {
@@ -198,7 +187,7 @@ func testBlankRushCreation(linkingResult: LinkingResult) async {
 
     print("📊 \(linkingResult.blankRushSummary)")
 
-    let blankRushIntermediate = BlankRushIntermediate()
+    let blankRushIntermediate = BlankRushIntermediate(projectDirectory: testPaths.projectBlankRushDirectory)
     let results = await blankRushIntermediate.createBlankRushes(from: linkingResult)
 
     print("\n📊 Blank Rush Results:")
@@ -216,7 +205,7 @@ func testTranscodeBlank() async {
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Testing simple transcoding...")
 
-    let blankRushIntermediate = BlankRushIntermediate()
+    let blankRushIntermediate = BlankRushIntermediate(projectDirectory: testPaths.projectBlankRushDirectory)
 
     // Create a minimal test - use shorter source file for debugging
     let inputPath = "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98/A002C010_250605_RP4Z.mxf"
@@ -273,7 +262,7 @@ func testBlackFrameGeneration() async {
             )
         }
 
-        let blankRushIntermediate = BlankRushIntermediate()
+        let blankRushIntermediate = BlankRushIntermediate(projectDirectory: testPaths.projectBlankRushDirectory)
         // let outputPath = "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
         let outputPath =
             "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/5999fps_422_proxy_blackframes.mov"
@@ -300,22 +289,13 @@ func testBlackFrameGeneration() async {
 func testPrintProcess() async {
 
     do {
-        let segmentsDirectoryURL = URL(
-            fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM"
-        )
-
-        let blankRushURL = URL(
-            fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/Ganni/blankRush/C20250825_0303_blankRush.mov"
-        )
-        let outputURL = URL(
-            fileURLWithPath:
-                "/Users/fq/Movies/ProResWriter/Ganni/w2/C20250825_0303.mov"
-        )
+        let segmentsDirectoryURL = URL(fileURLWithPath: testPaths.gradedSegments)
+        let blankRushURL = URL(fileURLWithPath: testPaths.blankRush)
+        let outputURL = URL(fileURLWithPath: testPaths.outputComposition)
 
         await runComposition(
-            blankRushURL: blankRushURL, segmentsDirectoryURL: segmentsDirectoryURL,
+            blankRushURL: blankRushURL, 
+            segmentsDirectoryURL: segmentsDirectoryURL,
             outputURL: outputURL
         )
     }

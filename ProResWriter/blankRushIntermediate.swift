@@ -39,12 +39,7 @@ class BlankRushIntermediate {
 
     private let projectBlankRushDirectory: String
 
-    init(
-        projectDirectory: String =
-            // "/Users/mac10/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush"
-            // "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out"
-            "/Users/fq/Movies/ProResWriter/Ganni/blankRush/"
-    ) {
+    init(projectDirectory: String) {
         self.projectBlankRushDirectory = projectDirectory
     }
 
