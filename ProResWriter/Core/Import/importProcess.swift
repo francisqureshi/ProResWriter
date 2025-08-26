@@ -516,18 +516,30 @@ class ImportProcess {
         return try await importMediaFiles(from: directoryURL, type: .originalCameraFile)
     }
 
+    // Import original camera files from multiple directories
+    func importOriginalCameraFiles(from directoryURLs: [URL]) async throws -> [MediaFileInfo] {
+        print("📹 Importing original camera files from \(directoryURLs.count) directories...")
+        var allMediaFiles: [MediaFileInfo] = []
+        
+        for directoryURL in directoryURLs {
+            print("📂 Processing directory: \(directoryURL.lastPathComponent)")
+            let mediaFiles = try await importMediaFiles(from: directoryURL, type: .originalCameraFile)
+            allMediaFiles.append(contentsOf: mediaFiles)
+        }
+        
+        print("✅ Total imported: \(allMediaFiles.count) original camera files from all directories")
+        return allMediaFiles
+    }
+
     // Generic function to import media files
     private func importMediaFiles(from directoryURL: URL, type: MediaType) async throws
         -> [MediaFileInfo]
     {
         let fileManager = FileManager.default
 
-        // Get all video files from directory
-        let fileURLs = try fileManager.contentsOfDirectory(
-            at: directoryURL, includingPropertiesForKeys: nil
-        )
-        .filter { isVideoFile($0) }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        // Get all video files from directory recursively
+        let fileURLs = try getAllVideoFiles(from: directoryURL, fileManager: fileManager)
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         var mediaFiles: [MediaFileInfo] = []
 
@@ -582,6 +594,42 @@ class ImportProcess {
             "✅ Imported \(mediaFiles.count) \(type == .gradedSegment ? "graded segments" : "original camera files")"
         )
         return mediaFiles
+    }
+
+    // Recursively get all video files from directory and subdirectories
+    private func getAllVideoFiles(from directoryURL: URL, fileManager: FileManager) throws -> [URL] {
+        var videoFiles: [URL] = []
+        
+        // Get directory enumerator for recursive traversal
+        guard let enumerator = fileManager.enumerator(
+            at: directoryURL,
+            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            throw MediaAnalysisError.fileNotFound
+        }
+        
+        print("🔍 Recursively scanning directory: \(directoryURL.path)")
+        
+        for case let fileURL as URL in enumerator {
+            do {
+                let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+                
+                // Only process regular files (not directories)
+                if resourceValues.isRegularFile == true && isVideoFile(fileURL) {
+                    videoFiles.append(fileURL)
+                    
+                    // Print relative path for cleaner output
+                    let relativePath = fileURL.path.replacingOccurrences(of: directoryURL.path + "/", with: "")
+                    print("  🎬 Found video file: \(relativePath)")
+                }
+            } catch {
+                print("  ⚠️ Error checking file \(fileURL.lastPathComponent): \(error)")
+            }
+        }
+        
+        print("🔍 Found \(videoFiles.count) video files total")
+        return videoFiles
     }
 
     // Check if file is a supported video format

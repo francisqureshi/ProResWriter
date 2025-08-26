@@ -5,13 +5,27 @@ import TimecodeKit
 
 // MARK: - Core Imports (organized in Core/ structure)
 
+// // MARK: - Test Configuration Paths
+// let testPaths = (
+//     gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
+//     ocfParents: "/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3",
+//     blankRush: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/C20250825_0303_blankRush.mov",
+//     outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2/C20250825_0303.mov",
+//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/"
+// )
+
 // MARK: - Test Configuration Paths
 let testPaths = (
-    gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
-    ocfParents: "/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3",
-    blankRush: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/C20250825_0303_blankRush.mov",
-    outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2/C20250825_0303.mov",
-    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/"
+    gradedSegments:
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/ALL_GRADES_MM/test",
+    ocfParents:
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/test",
+    blankRush:
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/A004C006_250326_RQ2M_blankRush.mov",
+    outputComposition:
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/blankTest/w2test.mov",
+    projectBlankRushDirectory:
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/blankTest/"
 )
 
 func testSMPTE() {
@@ -183,13 +197,14 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
     return nil
 }
 
-func testBlankRushCreation(linkingResult: LinkingResult) async {
+func testBlankRushCreation(linkingResult: LinkingResult) async -> [BlankRushResult] {
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Testing blank rush creation...")
 
     print("📊 \(linkingResult.blankRushSummary)")
 
-    let blankRushIntermediate = BlankRushIntermediate(projectDirectory: testPaths.projectBlankRushDirectory)
+    let blankRushIntermediate = BlankRushIntermediate(
+        projectDirectory: testPaths.projectBlankRushDirectory)
     let results = await blankRushIntermediate.createBlankRushes(from: linkingResult)
 
     print("\n📊 Blank Rush Results:")
@@ -200,6 +215,8 @@ func testBlankRushCreation(linkingResult: LinkingResult) async {
             print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
         }
     }
+    
+    return results
 }
 
 func testTranscodeBlank() async {
@@ -207,7 +224,8 @@ func testTranscodeBlank() async {
     print("\n" + String(repeating: "=", count: 50))
     print("🎬 Testing simple transcoding...")
 
-    let blankRushIntermediate = BlankRushIntermediate(projectDirectory: testPaths.projectBlankRushDirectory)
+    let blankRushIntermediate = BlankRushIntermediate(
+        projectDirectory: testPaths.projectBlankRushDirectory)
 
     // Create a minimal test - use shorter source file for debugging
     let inputPath = "/Users/fq/Movies/ProResWriter/testMaterialNonQT/23.98/A002C010_250605_RP4Z.mxf"
@@ -264,7 +282,8 @@ func testBlackFrameGeneration() async {
             )
         }
 
-        let blankRushIntermediate = BlankRushIntermediate(projectDirectory: testPaths.projectBlankRushDirectory)
+        let blankRushIntermediate = BlankRushIntermediate(
+            projectDirectory: testPaths.projectBlankRushDirectory)
         // let outputPath = "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/23976fps_422_proxy_blackframes.mov"
         let outputPath =
             "/Users/fq/Movies/ProResWriter/SwiftFFmpeg_out/5999fps_422_proxy_blackframes.mov"
@@ -288,18 +307,94 @@ func testBlackFrameGeneration() async {
     print("\n" + String(repeating: "=", count: 50))
 }
 
-func testPrintProcess() async {
+func testPrintProcess(linkingResult: LinkingResult, blankRushResults: [BlankRushResult]) async {
+    // Use the first OCF parent that has children and a successful blank rush
+    guard let ocfParent = linkingResult.ocfParents.first(where: { $0.hasChildren }),
+          let blankRushResult = blankRushResults.first(where: { $0.success && $0.originalOCF.fileName == ocfParent.ocf.fileName })
+    else {
+        print("❌ No OCF parent with children and successful blank rush found")
+        return
+    }
 
+    let blankRushURL = blankRushResult.blankRushURL
+    let outputURL = URL(fileURLWithPath: testPaths.outputComposition)
+
+    print("🎬 Starting print process with linked data...")
+    print("📁 Using blank rush: \(blankRushURL.lastPathComponent)")
+    print("📝 Processing \(ocfParent.children.count) linked segments")
+    
+    // Create graded segments from the linked children
+    let compositor = ProResVideoCompositor()
+    
     do {
-        let segmentsDirectoryURL = URL(fileURLWithPath: testPaths.gradedSegments)
-        let blankRushURL = URL(fileURLWithPath: testPaths.blankRush)
-        let outputURL = URL(fileURLWithPath: testPaths.outputComposition)
+        let baseAsset = AVURLAsset(url: blankRushURL)
+        let baseTrack = try await compositor.getVideoTrack(from: baseAsset)
+        let baseProperties = try await compositor.getVideoProperties(from: baseTrack)
+        let baseDuration = try await baseAsset.load(.duration)
 
-        await runComposition(
-            blankRushURL: blankRushURL, 
-            segmentsDirectoryURL: segmentsDirectoryURL,
-            outputURL: outputURL
+        // Convert linked children to GradedSegment objects
+        var gradedSegments: [GradedSegment] = []
+        for child in ocfParent.children {
+            let segmentInfo = child.segment
+            
+            // Calculate start time from the segment's timecode relative to base
+            if let segmentTC = segmentInfo.sourceTimecode,
+               let baseTC = baseProperties.sourceTimecode {
+                if let startTime = compositor.timecodeToCMTime(segmentTC, frameRate: baseProperties.frameRate, baseTimecode: baseTC),
+                   let duration = segmentInfo.durationInFrames {
+                    
+                    let segmentDuration = CMTime(
+                        seconds: Double(duration) / Double(baseProperties.frameRate),
+                        preferredTimescale: CMTimeScale(baseProperties.frameRate * 1000)
+                    )
+                    
+                    let gradedSegment = GradedSegment(
+                        url: segmentInfo.url,
+                        startTime: startTime,
+                        duration: segmentDuration,
+                        sourceStartTime: .zero
+                    )
+                    gradedSegments.append(gradedSegment)
+                    
+                    let frameNumber = Int(round(startTime.seconds * Double(baseProperties.frameRate)))
+                    print("📝 \(segmentInfo.fileName): Frame \(frameNumber) (TC: \(segmentTC))")
+                }
+            }
+        }
+        
+        if gradedSegments.isEmpty {
+            print("❌ No valid graded segments could be created from linked data")
+            return
+        }
+
+        let settings = CompositorSettings(
+            outputURL: outputURL,
+            baseVideoURL: blankRushURL,
+            gradedSegments: gradedSegments,
+            proResType: .proRes4444
         )
+
+        // Setup completion handler and wait for completion
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            compositor.completionHandler = { result in
+                print("\n")  // New line after progress bar
+                switch result {
+                case .success(let outputURL):
+                    print("✅ Composition complete!")
+                    print("📁 Output file: \(outputURL.path)")
+                    continuation.resume()
+                case .failure(let error):
+                    print("❌ Composition failed: \(error.localizedDescription)")
+                    continuation.resume()
+                }
+            }
+
+            // Start the composition
+            compositor.composeVideo(with: settings)
+        }
+
+    } catch {
+        print("❌ Print process failed: \(error)")
     }
 }
 
@@ -311,13 +406,13 @@ Task {
     // Test import and linking
     let gradedSegments = await testImport()
     if let linkingResult = await testLinking(segments: gradedSegments) {
-        await testBlankRushCreation(linkingResult: linkingResult)
+        let blankRushResults = await testBlankRushCreation(linkingResult: linkingResult)
+        
+        // Pass the linked data to print process instead of re-discovering
+        await testPrintProcess(linkingResult: linkingResult, blankRushResults: blankRushResults)
     }
 
     // await testBlackFrameGeneration()  // Test new black frame generation
-
-    // print("🎬 Starting composition process...")
-    await testPrintProcess()
     exit(0)
 }
 

@@ -424,16 +424,16 @@ class BlankRushIntermediate {
         )
         print("  🔧 Using timebase: \(codecContext.timebase) for exact source timing match")
 
-        // Open VideoToolbox encoder with ProRes 422 Proxy profile and color metadata
+        // Open VideoToolbox encoder with ProRes 4444 profile and color metadata
         try codecContext.openCodec(options: [
-            "profile": "0",  // ProRes 422 Proxy (more compatible)
+            "profile": "4",  // ProRes 4444 (highest quality)
             "allow_sw": "0",  // Force hardware encoding
             "color_range": "tv",  // Broadcast legal range (16-235) for DaVinci Resolve compatibility
             "colorspace": "bt709",  // Standard HD color space
             "color_primaries": "bt709",  // Standard HD primaries
             "color_trc": "bt709",  // Standard HD gamma curve
         ])
-        print("  🍎 VideoToolbox encoder opened with ProRes 422 Proxy profile")
+        print("  🍎 VideoToolbox encoder opened with ProRes 4444 profile")
 
         // Copy codec parameters to stream
         videoStream.codecParameters.copy(from: codecContext)

@@ -407,7 +407,7 @@ class ProResVideoCompositor: NSObject {
         }
     }
 
-    private func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil)
+    func timecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil)
         -> CMTime?
     {
         // Use TimecodeKit for professional timecode conversion
