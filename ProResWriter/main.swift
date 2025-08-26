@@ -17,13 +17,15 @@ import TimecodeKit
 // MARK: - Test Configuration Paths
 let testPaths = (
     gradedSegments:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/ALL_GRADES_MM/test",
-    ocfParents:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/test",
-    blankRush:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/A004C006_250326_RQ2M_blankRush.mov",
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/ALL_GRADES_MM",
+    ocfParents: [
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_25",
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_26",
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_27",
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_28",
+    ],
     outputComposition:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/blankTest/w2test.mov",
+        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/test",
     projectBlankRushDirectory:
         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/blankTest/"
 )
@@ -146,9 +148,7 @@ func testLinking(segments: [MediaFileInfo]) async -> LinkingResult? {
 
     let importProcess = ImportProcess()
 
-    let ocfDirectoryURLs = [
-        URL(fileURLWithPath: testPaths.ocfParents)
-    ]
+    let ocfDirectoryURLs = testPaths.ocfParents.map { URL(fileURLWithPath: $0) }
 
     do {
         // Import OCF files from multiple directories
@@ -215,7 +215,7 @@ func testBlankRushCreation(linkingResult: LinkingResult) async -> [BlankRushResu
             print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
         }
     }
-    
+
     return results
 }
 
@@ -308,94 +308,124 @@ func testBlackFrameGeneration() async {
 }
 
 func testPrintProcess(linkingResult: LinkingResult, blankRushResults: [BlankRushResult]) async {
-    // Use the first OCF parent that has children and a successful blank rush
-    guard let ocfParent = linkingResult.ocfParents.first(where: { $0.hasChildren }),
-          let blankRushResult = blankRushResults.first(where: { $0.success && $0.originalOCF.fileName == ocfParent.ocf.fileName })
-    else {
-        print("❌ No OCF parent with children and successful blank rush found")
-        return
-    }
+    print("🎬 Starting batch print process with linked data...")
 
-    let blankRushURL = blankRushResult.blankRushURL
-    let outputURL = URL(fileURLWithPath: testPaths.outputComposition)
+    // Process all OCF parents that have children and successful blank rushes
+    let validParents = linkingResult.ocfParents.filter { $0.hasChildren }
+    let successfulBlankRushes = blankRushResults.filter { $0.success }
 
-    print("🎬 Starting print process with linked data...")
-    print("📁 Using blank rush: \(blankRushURL.lastPathComponent)")
-    print("📝 Processing \(ocfParent.children.count) linked segments")
-    
-    // Create graded segments from the linked children
-    let compositor = ProResVideoCompositor()
-    
-    do {
-        let baseAsset = AVURLAsset(url: blankRushURL)
-        let baseTrack = try await compositor.getVideoTrack(from: baseAsset)
-        let baseProperties = try await compositor.getVideoProperties(from: baseTrack)
-        let baseDuration = try await baseAsset.load(.duration)
+    print(
+        "📊 Found \(validParents.count) OCF parents with children and \(successfulBlankRushes.count) successful blank rushes"
+    )
 
-        // Convert linked children to GradedSegment objects
-        var gradedSegments: [GradedSegment] = []
-        for child in ocfParent.children {
-            let segmentInfo = child.segment
-            
-            // Calculate start time from the segment's timecode relative to base
-            if let segmentTC = segmentInfo.sourceTimecode,
-               let baseTC = baseProperties.sourceTimecode {
-                if let startTime = compositor.timecodeToCMTime(segmentTC, frameRate: baseProperties.frameRate, baseTimecode: baseTC),
-                   let duration = segmentInfo.durationInFrames {
-                    
-                    let segmentDuration = CMTime(
-                        seconds: Double(duration) / Double(baseProperties.frameRate),
-                        preferredTimescale: CMTimeScale(baseProperties.frameRate * 1000)
-                    )
-                    
-                    let gradedSegment = GradedSegment(
-                        url: segmentInfo.url,
-                        startTime: startTime,
-                        duration: segmentDuration,
-                        sourceStartTime: .zero
-                    )
-                    gradedSegments.append(gradedSegment)
-                    
-                    let frameNumber = Int(round(startTime.seconds * Double(baseProperties.frameRate)))
-                    print("📝 \(segmentInfo.fileName): Frame \(frameNumber) (TC: \(segmentTC))")
-                }
-            }
-        }
-        
-        if gradedSegments.isEmpty {
-            print("❌ No valid graded segments could be created from linked data")
-            return
+    for (index, ocfParent) in validParents.enumerated() {
+        guard
+            let blankRushResult = successfulBlankRushes.first(where: {
+                $0.originalOCF.fileName == ocfParent.ocf.fileName
+            })
+        else {
+            print("⚠️ No matching blank rush found for \(ocfParent.ocf.fileName)")
+            continue
         }
 
-        let settings = CompositorSettings(
-            outputURL: outputURL,
-            baseVideoURL: blankRushURL,
-            gradedSegments: gradedSegments,
-            proResType: .proRes4444
-        )
+        let blankRushURL = blankRushResult.blankRushURL
 
-        // Setup completion handler and wait for completion
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            compositor.completionHandler = { result in
-                print("\n")  // New line after progress bar
-                switch result {
-                case .success(let outputURL):
-                    print("✅ Composition complete!")
-                    print("📁 Output file: \(outputURL.path)")
-                    continuation.resume()
-                case .failure(let error):
-                    print("❌ Composition failed: \(error.localizedDescription)")
-                    continuation.resume()
+        // Generate output filename using just the OCF parent name
+        let baseName = (ocfParent.ocf.fileName as NSString).deletingPathExtension
+        let outputFileName = "\(baseName).mov"
+        let outputURL = URL(fileURLWithPath: testPaths.outputComposition).appendingPathComponent(
+            outputFileName)
+
+        print("\n==================================================")
+        print(
+            "🎬 Processing OCF Parent \(index + 1)/\(validParents.count): \(ocfParent.ocf.fileName)")
+        print("📁 Using blank rush: \(blankRushURL.lastPathComponent)")
+        print("📝 Processing \(ocfParent.children.count) linked segments")
+        print("🎯 Output: \(outputFileName)")
+
+        // Create graded segments from the linked children
+        let compositor = ProResVideoCompositor()
+
+        do {
+            let baseAsset = AVURLAsset(url: blankRushURL)
+            let baseTrack = try await compositor.getVideoTrack(from: baseAsset)
+            let baseProperties = try await compositor.getVideoProperties(from: baseTrack)
+            let baseDuration = try await baseAsset.load(.duration)
+
+            // Convert linked children to GradedSegment objects
+            var gradedSegments: [GradedSegment] = []
+            for child in ocfParent.children {
+                let segmentInfo = child.segment
+
+                // Calculate start time from the segment's timecode relative to base
+                if let segmentTC = segmentInfo.sourceTimecode,
+                    let baseTC = baseProperties.sourceTimecode
+                {
+                    if let startTime = compositor.timecodeToCMTime(
+                        segmentTC, frameRate: baseProperties.frameRate, baseTimecode: baseTC),
+                        let duration = segmentInfo.durationInFrames
+                    {
+
+                        let segmentDuration = CMTime(
+                            seconds: Double(duration) / Double(baseProperties.frameRate),
+                            preferredTimescale: CMTimeScale(baseProperties.frameRate * 1000)
+                        )
+
+                        let gradedSegment = GradedSegment(
+                            url: segmentInfo.url,
+                            startTime: startTime,
+                            duration: segmentDuration,
+                            sourceStartTime: .zero
+                        )
+                        gradedSegments.append(gradedSegment)
+
+                        let frameNumber = Int(
+                            round(startTime.seconds * Double(baseProperties.frameRate)))
+                        print("📝 \(segmentInfo.fileName): Frame \(frameNumber) (TC: \(segmentTC))")
+                    }
                 }
             }
 
-            // Start the composition
-            compositor.composeVideo(with: settings)
-        }
+            if gradedSegments.isEmpty {
+                print(
+                    "❌ No valid graded segments could be created from linked data for \(ocfParent.ocf.fileName)"
+                )
+                continue
+            }
 
-    } catch {
-        print("❌ Print process failed: \(error)")
+            let settings = CompositorSettings(
+                outputURL: outputURL,
+                baseVideoURL: blankRushURL,
+                gradedSegments: gradedSegments,
+                proResType: .proRes4444
+            )
+
+            // Setup completion handler and wait for completion
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                compositor.completionHandler = { result in
+                    print("\n")  // New line after progress bar
+                    switch result {
+                    case .success(let outputURL):
+                        print("✅ Composition complete!")
+                        print("📁 Output file: \(outputURL.path)")
+                        continuation.resume()
+                    case .failure(let error):
+                        print("❌ Composition failed: \(error.localizedDescription)")
+                        continuation.resume()
+                    }
+                }
+
+                // Start the composition
+                compositor.composeVideo(with: settings)
+            }
+
+        } catch {
+            print("❌ Print process failed for \(ocfParent.ocf.fileName): \(error)")
+        }
     }
+
+    print("\n==================================================")
+    print("🎬 Batch print process complete!")
 }
 
 Task {
@@ -407,7 +437,7 @@ Task {
     let gradedSegments = await testImport()
     if let linkingResult = await testLinking(segments: gradedSegments) {
         let blankRushResults = await testBlankRushCreation(linkingResult: linkingResult)
-        
+
         // Pass the linked data to print process instead of re-discovering
         await testPrintProcess(linkingResult: linkingResult, blankRushResults: blankRushResults)
     }
