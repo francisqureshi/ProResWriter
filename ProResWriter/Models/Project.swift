@@ -24,6 +24,7 @@ class Project: ObservableObject, Codable {
     
     // MARK: - Status Tracking
     @Published var blankRushStatus: [String: BlankRushStatus] = [:]  // OCF filename → status
+    @Published var segmentModificationDates: [String: Date] = [:]     // Segment filename → last modified date
     @Published var lastPrintDate: Date?
     @Published var printHistory: [PrintRecord] = []
     
@@ -48,6 +49,47 @@ class Project: ObservableObject, Codable {
         return (completed, total)
     }
     
+    /// Check if any segments have been modified since last blank rush generation
+    var hasModifiedSegments: Bool {
+        guard let linkingResult = linkingResult else { return false }
+        
+        for parent in linkingResult.parentsWithChildren {
+            for child in parent.children {
+                let segmentFileName = child.segment.fileName
+                
+                // Get file modification date
+                if let fileModDate = getFileModificationDate(for: child.segment.url),
+                   let trackedModDate = segmentModificationDates[segmentFileName] {
+                    
+                    // If file is newer than our tracked date, it's been modified
+                    if fileModDate > trackedModDate {
+                        return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+    
+    /// Get segments that have been modified since tracking started
+    var modifiedSegments: [String] {
+        guard let linkingResult = linkingResult else { return [] }
+        var modified: [String] = []
+        
+        for parent in linkingResult.parentsWithChildren {
+            for child in parent.children {
+                let segmentFileName = child.segment.fileName
+                
+                if let fileModDate = getFileModificationDate(for: child.segment.url),
+                   let trackedModDate = segmentModificationDates[segmentFileName],
+                   fileModDate > trackedModDate {
+                    modified.append(segmentFileName)
+                }
+            }
+        }
+        return modified
+    }
+    
     // MARK: - Initialization
     init(name: String, outputDirectory: URL, blankRushDirectory: URL) {
         self.name = name
@@ -61,7 +103,7 @@ class Project: ObservableObject, Codable {
     private enum CodingKeys: String, CodingKey {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
-        case blankRushStatus, lastPrintDate, printHistory
+        case blankRushStatus, segmentModificationDates, lastPrintDate, printHistory
         case outputDirectory, blankRushDirectory
     }
     
@@ -77,6 +119,7 @@ class Project: ObservableObject, Codable {
         linkingResult = try container.decodeIfPresent(LinkingResult.self, forKey: .linkingResult)
         
         blankRushStatus = try container.decode([String: BlankRushStatus].self, forKey: .blankRushStatus)
+        segmentModificationDates = try container.decodeIfPresent([String: Date].self, forKey: .segmentModificationDates) ?? [:]
         lastPrintDate = try container.decodeIfPresent(Date.self, forKey: .lastPrintDate)
         printHistory = try container.decode([PrintRecord].self, forKey: .printHistory)
         
@@ -96,6 +139,7 @@ class Project: ObservableObject, Codable {
         try container.encodeIfPresent(linkingResult, forKey: .linkingResult)
         
         try container.encode(blankRushStatus, forKey: .blankRushStatus)
+        try container.encode(segmentModificationDates, forKey: .segmentModificationDates)
         try container.encodeIfPresent(lastPrintDate, forKey: .lastPrintDate)
         try container.encode(printHistory, forKey: .printHistory)
         
@@ -115,6 +159,24 @@ class Project: ObservableObject, Codable {
     
     func addSegments(_ newSegments: [MediaFileInfo]) {
         segments.append(contentsOf: newSegments)
+        
+        // Track modification dates for new segments
+        for segment in newSegments {
+            if let modDate = getFileModificationDate(for: segment.url) {
+                segmentModificationDates[segment.fileName] = modDate
+            }
+        }
+        
+        updateModified()
+    }
+    
+    /// Update modification dates for all segments (useful for refresh)
+    func refreshSegmentModificationDates() {
+        for segment in segments {
+            if let modDate = getFileModificationDate(for: segment.url) {
+                segmentModificationDates[segment.fileName] = modDate
+            }
+        }
         updateModified()
     }
     
@@ -139,6 +201,19 @@ class Project: ObservableObject, Codable {
         printHistory.append(record)
         lastPrintDate = record.date
         updateModified()
+    }
+    
+    // MARK: - File System Helpers
+    
+    /// Get file modification date from file system
+    private func getFileModificationDate(for url: URL) -> Date? {
+        do {
+            let resourceValues = try url.resourceValues(forKeys: [.contentModificationDateKey])
+            return resourceValues.contentModificationDate
+        } catch {
+            print("⚠️ Could not get modification date for \(url.lastPathComponent): \(error)")
+            return nil
+        }
     }
 }
 

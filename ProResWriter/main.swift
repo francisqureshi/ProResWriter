@@ -6,29 +6,28 @@ import TimecodeKit
 // MARK: - Core Imports (organized in Core/ structure)
 
 // // MARK: - Test Configuration Paths
-// let testPaths = (
-//     gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
-//     ocfParents: "/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3",
-//     blankRush: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/C20250825_0303_blankRush.mov",
-//     outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2/C20250825_0303.mov",
-//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush/"
-// )
+let testPaths = (
+    gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
+    ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
+    outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
+    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
+)
 
 // MARK: - Test Configuration Paths
-let testPaths = (
-    gradedSegments:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/ALL_GRADES_MM",
-    ocfParents: [
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_25",
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_26",
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_27",
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_28",
-    ],
-    outputComposition:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/test",
-    projectBlankRushDirectory:
-        "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/blankTest/"
-)
+// let testPaths = (
+//     gradedSegments:
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/ALL_GRADES_MM",
+//     ocfParents: [
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_25",
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_26",
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_27",
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/02_FOOTAGE/OCF/25_03_28",
+//     ],
+//     outputComposition:
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/test",
+//     projectBlankRushDirectory:
+//         "/Volumes/EVO-POST/__POST/1629 - LEVI'S GDA/08_GRADE/02_GRADED CLIPS/1684_Levi's_Nov-Dec/03 INTERMEDIATE/blankTest/"
+// )
 
 func testSMPTE() {
 
