@@ -12,7 +12,29 @@
 		0726D6ED2E3590260050CF6F /* TimecodeKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EC2E3590260050CF6F /* TimecodeKitCore */; };
 		0726D6EF2E3590260050CF6F /* TimecodeKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0726D6EE2E3590260050CF6F /* TimecodeKitUI */; };
 		079084972E4FD606001C44FE /* SwiftFFmpeg in Frameworks */ = {isa = PBXBuildFile; productRef = 079084962E4FD606001C44FE /* SwiftFFmpeg */; };
+		07E42F472E5E615600C52291 /* TimecodeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 07E42F462E5E615600C52291 /* TimecodeKit */; };
+		07E42F492E5E615600C52291 /* TimecodeKitAV in Frameworks */ = {isa = PBXBuildFile; productRef = 07E42F482E5E615600C52291 /* TimecodeKitAV */; };
+		07E42F4B2E5E615600C52291 /* TimecodeKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = 07E42F4A2E5E615600C52291 /* TimecodeKitCore */; };
+		07E42F4D2E5E615600C52291 /* TimecodeKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 07E42F4C2E5E615600C52291 /* TimecodeKitUI */; };
+		07E42F4F2E5E615600C52291 /* SwiftFFmpeg in Frameworks */ = {isa = PBXBuildFile; productRef = 07E42F4E2E5E615600C52291 /* SwiftFFmpeg */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		07E42F0E2E5E604B00C52291 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0726D6D32E353E950050CF6F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 07E42EFC2E5E604900C52291;
+			remoteInfo = SourcePrinterApp;
+		};
+		07E42F182E5E604B00C52291 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0726D6D32E353E950050CF6F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 07E42EFC2E5E604900C52291;
+			remoteInfo = SourcePrinterApp;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		0726D6D92E353E950050CF6F /* CopyFiles */ = {
@@ -42,11 +64,69 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		07E42F502E5E616500C52291 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Resources/Fonts;
+			dstSubfolderSpec = 7;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0726D6DB2E353E950050CF6F /* ProResWriter */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ProResWriter; sourceTree = BUILT_PRODUCTS_DIR; };
+		07E42EFD2E5E604900C52291 /* SourcePrinterApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SourcePrinterApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		07E42F0D2E5E604B00C52291 /* SourcePrinterAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SourcePrinterAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		07E42F172E5E604B00C52291 /* SourcePrinterAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SourcePrinterAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		07E42F3A2E5E611700C52291 /* Exceptions for "ProResWriter" folder in "SourcePrinterApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/BlankRush/blankRushIntermediate.swift,
+				Core/Import/importProcess.swift,
+				Core/Linking/linkingProcess.swift,
+				Core/PrintProcess/printProcess.swift,
+				Core/Utilities/SMPTE.swift,
+				Models/Project.swift,
+				Models/ProjectHierarchy.swift,
+				Models/ProjectManager.swift,
+				projectManager.swift,
+				ProResWriterApp.swift,
+				UI/Components/NewProjectSheet.swift,
+				UI/Sidebar/ProjectSidebar.swift,
+				UI/Tabs/MediaTab.swift,
+				UI/Tabs/PairingTab.swift,
+				UI/Tabs/ProjectTab.swift,
+				UI/Views/ContentView.swift,
+				UI/Views/ProjectMainView.swift,
+				UI/Views/WelcomeView.swift,
+			);
+			target = 07E42EFC2E5E604900C52291 /* SourcePrinterApp */;
+		};
+		07E42F552E5E62D200C52291 /* Exceptions for "ProResWriter" folder in "ProResWriter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/Project.swift,
+				Models/ProjectHierarchy.swift,
+				Models/ProjectManager.swift,
+				projectManager.swift,
+				ProResWriterApp.swift,
+				UI/Components/NewProjectSheet.swift,
+				UI/Sidebar/ProjectSidebar.swift,
+				UI/Tabs/MediaTab.swift,
+				UI/Tabs/PairingTab.swift,
+				UI/Tabs/ProjectTab.swift,
+				UI/Views/ContentView.swift,
+				UI/Views/ProjectMainView.swift,
+				UI/Views/WelcomeView.swift,
+			);
+			target = 0726D6DA2E353E950050CF6F /* ProResWriter */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 		074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */ = {
@@ -70,17 +150,42 @@
 				Resources/Graphics/roundtrip.png,
 			);
 		};
+		07E42F522E5E617A00C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "SourcePrinterApp" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 07E42F502E5E616500C52291 /* CopyFiles */;
+			membershipExceptions = (
+				"Resources/Fonts/FiraCodeNerdFont-Regular.ttf",
+			);
+		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0726D6DD2E353E950050CF6F /* ProResWriter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				07E42F552E5E62D200C52291 /* Exceptions for "ProResWriter" folder in "ProResWriter" target */,
 				074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
 				079084A42E528F07001C44FE /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
 				07E42E182E5A22E700C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
+				07E42F3A2E5E611700C52291 /* Exceptions for "ProResWriter" folder in "SourcePrinterApp" target */,
+				07E42F522E5E617A00C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "SourcePrinterApp" target */,
 			);
 			path = ProResWriter;
+			sourceTree = "<group>";
+		};
+		07E42EFE2E5E604A00C52291 /* SourcePrinterApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SourcePrinterApp;
+			sourceTree = "<group>";
+		};
+		07E42F102E5E604B00C52291 /* SourcePrinterAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SourcePrinterAppTests;
+			sourceTree = "<group>";
+		};
+		07E42F1A2E5E604B00C52291 /* SourcePrinterAppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SourcePrinterAppUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -98,6 +203,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		07E42EFA2E5E604900C52291 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				07E42F492E5E615600C52291 /* TimecodeKitAV in Frameworks */,
+				07E42F4D2E5E615600C52291 /* TimecodeKitUI in Frameworks */,
+				07E42F4F2E5E615600C52291 /* SwiftFFmpeg in Frameworks */,
+				07E42F472E5E615600C52291 /* TimecodeKit in Frameworks */,
+				07E42F4B2E5E615600C52291 /* TimecodeKitCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07E42F0A2E5E604B00C52291 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07E42F142E5E604B00C52291 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -105,6 +236,10 @@
 			isa = PBXGroup;
 			children = (
 				0726D6DD2E353E950050CF6F /* ProResWriter */,
+				07E42EFE2E5E604A00C52291 /* SourcePrinterApp */,
+				07E42F102E5E604B00C52291 /* SourcePrinterAppTests */,
+				07E42F1A2E5E604B00C52291 /* SourcePrinterAppUITests */,
+				07E42F452E5E615600C52291 /* Frameworks */,
 				0726D6DC2E353E950050CF6F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -113,8 +248,18 @@
 			isa = PBXGroup;
 			children = (
 				0726D6DB2E353E950050CF6F /* ProResWriter */,
+				07E42EFD2E5E604900C52291 /* SourcePrinterApp.app */,
+				07E42F0D2E5E604B00C52291 /* SourcePrinterAppTests.xctest */,
+				07E42F172E5E604B00C52291 /* SourcePrinterAppUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		07E42F452E5E615600C52291 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -149,6 +294,80 @@
 			productReference = 0726D6DB2E353E950050CF6F /* ProResWriter */;
 			productType = "com.apple.product-type.tool";
 		};
+		07E42EFC2E5E604900C52291 /* SourcePrinterApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 07E42F1F2E5E604B00C52291 /* Build configuration list for PBXNativeTarget "SourcePrinterApp" */;
+			buildPhases = (
+				07E42EF92E5E604900C52291 /* Sources */,
+				07E42EFA2E5E604900C52291 /* Frameworks */,
+				07E42EFB2E5E604900C52291 /* Resources */,
+				07E42F502E5E616500C52291 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				07E42EFE2E5E604A00C52291 /* SourcePrinterApp */,
+			);
+			name = SourcePrinterApp;
+			packageProductDependencies = (
+				07E42F462E5E615600C52291 /* TimecodeKit */,
+				07E42F482E5E615600C52291 /* TimecodeKitAV */,
+				07E42F4A2E5E615600C52291 /* TimecodeKitCore */,
+				07E42F4C2E5E615600C52291 /* TimecodeKitUI */,
+				07E42F4E2E5E615600C52291 /* SwiftFFmpeg */,
+			);
+			productName = SourcePrinterApp;
+			productReference = 07E42EFD2E5E604900C52291 /* SourcePrinterApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		07E42F0C2E5E604B00C52291 /* SourcePrinterAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 07E42F222E5E604B00C52291 /* Build configuration list for PBXNativeTarget "SourcePrinterAppTests" */;
+			buildPhases = (
+				07E42F092E5E604B00C52291 /* Sources */,
+				07E42F0A2E5E604B00C52291 /* Frameworks */,
+				07E42F0B2E5E604B00C52291 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				07E42F0F2E5E604B00C52291 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				07E42F102E5E604B00C52291 /* SourcePrinterAppTests */,
+			);
+			name = SourcePrinterAppTests;
+			packageProductDependencies = (
+			);
+			productName = SourcePrinterAppTests;
+			productReference = 07E42F0D2E5E604B00C52291 /* SourcePrinterAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		07E42F162E5E604B00C52291 /* SourcePrinterAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 07E42F252E5E604B00C52291 /* Build configuration list for PBXNativeTarget "SourcePrinterAppUITests" */;
+			buildPhases = (
+				07E42F132E5E604B00C52291 /* Sources */,
+				07E42F142E5E604B00C52291 /* Frameworks */,
+				07E42F152E5E604B00C52291 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				07E42F192E5E604B00C52291 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				07E42F1A2E5E604B00C52291 /* SourcePrinterAppUITests */,
+			);
+			name = SourcePrinterAppUITests;
+			packageProductDependencies = (
+			);
+			productName = SourcePrinterAppUITests;
+			productReference = 07E42F172E5E604B00C52291 /* SourcePrinterAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -161,6 +380,17 @@
 				TargetAttributes = {
 					0726D6DA2E353E950050CF6F = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					07E42EFC2E5E604900C52291 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					07E42F0C2E5E604B00C52291 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 07E42EFC2E5E604900C52291;
+					};
+					07E42F162E5E604B00C52291 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 07E42EFC2E5E604900C52291;
 					};
 				};
 			};
@@ -183,9 +413,36 @@
 			projectRoot = "";
 			targets = (
 				0726D6DA2E353E950050CF6F /* ProResWriter */,
+				07E42EFC2E5E604900C52291 /* SourcePrinterApp */,
+				07E42F0C2E5E604B00C52291 /* SourcePrinterAppTests */,
+				07E42F162E5E604B00C52291 /* SourcePrinterAppUITests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		07E42EFB2E5E604900C52291 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07E42F0B2E5E604B00C52291 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07E42F152E5E604B00C52291 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0726D6D72E353E950050CF6F /* Sources */ = {
@@ -195,7 +452,41 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		07E42EF92E5E604900C52291 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07E42F092E5E604B00C52291 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07E42F132E5E604B00C52291 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		07E42F0F2E5E604B00C52291 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 07E42EFC2E5E604900C52291 /* SourcePrinterApp */;
+			targetProxy = 07E42F0E2E5E604B00C52291 /* PBXContainerItemProxy */;
+		};
+		07E42F192E5E604B00C52291 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 07E42EFC2E5E604900C52291 /* SourcePrinterApp */;
+			targetProxy = 07E42F182E5E604B00C52291 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0726D6E02E353E950050CF6F /* Debug */ = {
@@ -340,6 +631,129 @@
 			};
 			name = Release;
 		};
+		07E42F202E5E604B00C52291 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SourcePrinterApp/SourcePrinterApp.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"SourcePrinterApp/Preview Content\"";
+				DEVELOPMENT_TEAM = 5AUBAVQ835;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrinterApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		07E42F212E5E604B00C52291 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SourcePrinterApp/SourcePrinterApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"SourcePrinterApp/Preview Content\"";
+				DEVELOPMENT_TEAM = 5AUBAVQ835;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrinterApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		07E42F232E5E604B00C52291 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5AUBAVQ835;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrinterAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SourcePrinterApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SourcePrinterApp";
+			};
+			name = Debug;
+		};
+		07E42F242E5E604B00C52291 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5AUBAVQ835;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrinterAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SourcePrinterApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SourcePrinterApp";
+			};
+			name = Release;
+		};
+		07E42F262E5E604B00C52291 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5AUBAVQ835;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrinterAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = SourcePrinterApp;
+			};
+			name = Debug;
+		};
+		07E42F272E5E604B00C52291 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5AUBAVQ835;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrinterAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = SourcePrinterApp;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -357,6 +771,33 @@
 			buildConfigurations = (
 				0726D6E32E353E950050CF6F /* Debug */,
 				0726D6E42E353E950050CF6F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		07E42F1F2E5E604B00C52291 /* Build configuration list for PBXNativeTarget "SourcePrinterApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07E42F202E5E604B00C52291 /* Debug */,
+				07E42F212E5E604B00C52291 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		07E42F222E5E604B00C52291 /* Build configuration list for PBXNativeTarget "SourcePrinterAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07E42F232E5E604B00C52291 /* Debug */,
+				07E42F242E5E604B00C52291 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		07E42F252E5E604B00C52291 /* Build configuration list for PBXNativeTarget "SourcePrinterAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07E42F262E5E604B00C52291 /* Debug */,
+				07E42F272E5E604B00C52291 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -404,6 +845,31 @@
 			productName = TimecodeKitUI;
 		};
 		079084962E4FD606001C44FE /* SwiftFFmpeg */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 079084952E4FD606001C44FE /* XCRemoteSwiftPackageReference "SwiftFFmpeg" */;
+			productName = SwiftFFmpeg;
+		};
+		07E42F462E5E615600C52291 /* TimecodeKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKit;
+		};
+		07E42F482E5E615600C52291 /* TimecodeKitAV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKitAV;
+		};
+		07E42F4A2E5E615600C52291 /* TimecodeKitCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKitCore;
+		};
+		07E42F4C2E5E615600C52291 /* TimecodeKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0726D6E72E3590260050CF6F /* XCRemoteSwiftPackageReference "TimecodeKit" */;
+			productName = TimecodeKitUI;
+		};
+		07E42F4E2E5E615600C52291 /* SwiftFFmpeg */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 079084952E4FD606001C44FE /* XCRemoteSwiftPackageReference "SwiftFFmpeg" */;
 			productName = SwiftFFmpeg;
