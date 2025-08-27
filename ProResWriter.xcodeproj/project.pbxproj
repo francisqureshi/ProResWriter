@@ -90,6 +90,7 @@
 				Core/Import/importProcess.swift,
 				Core/Linking/linkingProcess.swift,
 				Core/PrintProcess/printProcess.swift,
+				Core/TUI/progressBar.swift,
 				Core/Utilities/SMPTE.swift,
 				Models/Project.swift,
 				Models/ProjectHierarchy.swift,
