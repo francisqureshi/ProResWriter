@@ -82,95 +82,9 @@
 		07E42F172E5E604B00C52291 /* SourcePrinterAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SourcePrinterAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		07E42F3A2E5E611700C52291 /* Exceptions for "ProResWriter" folder in "SourcePrinterApp" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Core/BlankRush/blankRushIntermediate.swift,
-				Core/Import/importProcess.swift,
-				Core/Linking/linkingProcess.swift,
-				Core/PrintProcess/printProcess.swift,
-				Core/TUI/progressBar.swift,
-				Core/Utilities/SMPTE.swift,
-				Models/Project.swift,
-				Models/ProjectHierarchy.swift,
-				Models/ProjectManager.swift,
-				projectManager.swift,
-				ProResWriterApp.swift,
-				UI/Components/NewProjectSheet.swift,
-				UI/Sidebar/ProjectSidebar.swift,
-				UI/Tabs/MediaTab.swift,
-				UI/Tabs/PairingTab.swift,
-				UI/Tabs/ProjectTab.swift,
-				UI/Views/ContentView.swift,
-				UI/Views/ProjectMainView.swift,
-				UI/Views/WelcomeView.swift,
-			);
-			target = 07E42EFC2E5E604900C52291 /* SourcePrinterApp */;
-		};
-		07E42F552E5E62D200C52291 /* Exceptions for "ProResWriter" folder in "ProResWriter" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Models/Project.swift,
-				Models/ProjectHierarchy.swift,
-				Models/ProjectManager.swift,
-				projectManager.swift,
-				ProResWriterApp.swift,
-				UI/Components/NewProjectSheet.swift,
-				UI/Sidebar/ProjectSidebar.swift,
-				UI/Tabs/MediaTab.swift,
-				UI/Tabs/PairingTab.swift,
-				UI/Tabs/ProjectTab.swift,
-				UI/Views/ContentView.swift,
-				UI/Views/ProjectMainView.swift,
-				UI/Views/WelcomeView.swift,
-			);
-			target = 0726D6DA2E353E950050CF6F /* ProResWriter */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 0726D6D92E353E950050CF6F /* CopyFiles */;
-			membershipExceptions = (
-				"Resources/Fonts/FiraCodeNerdFont-Regular.ttf",
-			);
-		};
-		079084A42E528F07001C44FE /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 079084A22E528EDE001C44FE /* CopyFiles */;
-			membershipExceptions = (
-				Resources/ffmpegScripts/timecode_black_frames_relative.sh,
-			);
-		};
-		07E42E182E5A22E700C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 07E42E142E5A22C800C52291 /* CopyFiles */;
-			membershipExceptions = (
-				Resources/Graphics/roundtrip.png,
-			);
-		};
-		07E42F522E5E617A00C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "SourcePrinterApp" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 07E42F502E5E616500C52291 /* CopyFiles */;
-			membershipExceptions = (
-				"Resources/Fonts/FiraCodeNerdFont-Regular.ttf",
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0726D6DD2E353E950050CF6F /* ProResWriter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				07E42F552E5E62D200C52291 /* Exceptions for "ProResWriter" folder in "ProResWriter" target */,
-				074E9D342E3D7F2B001AB394 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
-				079084A42E528F07001C44FE /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
-				07E42E182E5A22E700C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "ProResWriter" target */,
-				07E42F3A2E5E611700C52291 /* Exceptions for "ProResWriter" folder in "SourcePrinterApp" target */,
-				07E42F522E5E617A00C52291 /* Exceptions for "ProResWriter" folder in "Copy Files" phase from "SourcePrinterApp" target */,
-			);
 			path = ProResWriter;
 			sourceTree = "<group>";
 		};
