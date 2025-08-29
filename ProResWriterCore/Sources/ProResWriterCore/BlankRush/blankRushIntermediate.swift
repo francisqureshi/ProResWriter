@@ -651,7 +651,7 @@ public class BlankRushIntermediate {
 
         // Swift Package Resource
         let fontURL = Bundle.module.url(
-            forResource: "FiraCodeNerdFont-Regular", withExtension: "ttf")
+            forResource: "Resources/Fonts/FiraCodeNerdFont-Regular", withExtension: "ttf")
         print("🚨 Swifty fontURL: \(fontURL!)")
 
         // Set up FiraCode font path relative to executable (like bash script)

@@ -32,7 +32,7 @@ let package = Package(
             ],
             path: "Sources/ProResWriterCore",
             resources: [
-                .copy("Resources/Fonts/FiraCodeNerdFont-Regular.ttf")
+                .process("Resources/Fonts/FiraCodeNerdFont-Regular.ttf")
             ]
         ),
         // Unit tests for Core functionality
@@ -43,4 +43,3 @@ let package = Package(
         ),
     ]
 )
-

@@ -1,8 +1,8 @@
 import AVFoundation
 import CoreMedia
 import Foundation
-import TimecodeKit
 import ProResWriterCore
+import TimecodeKit
 
 // MARK: - Core functionality imported from ProResWriterCore package
 
