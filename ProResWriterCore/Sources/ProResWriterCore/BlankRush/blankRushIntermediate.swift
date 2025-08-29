@@ -458,7 +458,7 @@ public class BlankRushIntermediate {
         )
 
         // Create filter graph for black video generation
-        let (_, buffersinkCtx) = try createBlackVideoFilterGraph(properties: properties)  //filterGraph set to _
+        let (filterGraph, buffersinkCtx) = try createBlackVideoFilterGraph(properties: properties)  //filterGraph IS NEEEDED!! LSP IS WRONG?_
 
         // Open output file and write header
         if !outputFormatContext.outputFormat!.flags.contains(.noFile) {
@@ -649,25 +649,28 @@ public class BlankRushIntermediate {
         let fontSize = "h*0.025"
         let yPosition = "h*0.03"  // 3% from top
 
-        // Swift Package Resource
-        let fontURL = Bundle.module.url(
-            forResource: "Resources/Fonts/FiraCodeNerdFont-Regular", withExtension: "ttf")
-        print("🚨 Swifty fontURL: \(fontURL!)")
+        // // Swift Package Resource
+        // let fontURL = Bundle.module.url(
+        //     forResource: "FiraCodeNerdFont-Regular", withExtension: "ttf")
+        // print("🚨 Swifty fontURL: \(fontURL!)")
+        //
+        // // Set up FiraCode font path relative to executable (like bash script)
+        // let executableURL = Bundle.main.executableURL
+        // let fontPath = executableURL?.deletingLastPathComponent().appendingPathComponent(
+        //     "Resources/Fonts/FiraCodeNerdFont-Regular.ttf"
+        // ).path
+        // let fontFileArg =
+        //     (fontPath != nil && FileManager.default.fileExists(atPath: fontPath!))
+        //     ? "fontfile='\(fontPath!)':" : ""
+        //
+        // if !fontFileArg.isEmpty {
+        //     print("  🔤 Using FiraCode font: \(fontPath!)")
+        // } else {
+        //     print("  ⚠️ FiraCode font not found, using system default")
+        // }
 
-        // Set up FiraCode font path relative to executable (like bash script)
-        let executableURL = Bundle.main.executableURL
-        let fontPath = executableURL?.deletingLastPathComponent().appendingPathComponent(
-            "Resources/Fonts/FiraCodeNerdFont-Regular.ttf"
-        ).path
-        let fontFileArg =
-            (fontPath != nil && FileManager.default.fileExists(atPath: fontPath!))
-            ? "fontfile='\(fontPath!)':" : ""
-
-        if !fontFileArg.isEmpty {
-            print("  🔤 Using FiraCode font: \(fontPath!)")
-        } else {
-            print("  ⚠️ FiraCode font not found, using system default")
-        }
+        let fontPath = Bundle.module.url(forResource: "FiraCodeNerdFont-Regular", withExtension: "ttf")!.path
+        let fontFileArg = "fontfile='\(fontPath)':"
 
         // 1. Static "SRC TC: " prefix text (top left)
         let srcTextArgs =
