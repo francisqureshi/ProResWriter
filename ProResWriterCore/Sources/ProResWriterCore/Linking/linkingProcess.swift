@@ -147,14 +147,24 @@ public class SegmentOCFLinker {
             if score.total > bestScore {
                 bestScore = score.total
                 
-                // Determine confidence based on score and filename match
+                // Determine confidence based on score and meaningful matches
                 let confidence: LinkConfidence
-                if score.total >= 4 && score.description.contains("filename_contains") {
+                let hasFilenameMatch = score.description.contains("filename_contains") || score.description.contains("filename_partial")
+                let hasTimecodeMatch = score.description.contains("timecode_range")
+                let hasResolutionMatch = score.description.contains("resolution")
+                let hasReelMatch = score.description.contains("reel")
+                let hasFpsOnlyMatch = score.description == "fps"  // Only FPS, nothing else
+                
+                if score.total >= 4 && hasFilenameMatch {
                     confidence = .high  // OCF name in segment + tech specs
-                } else if score.total >= 2 {
-                    confidence = .medium  // Good tech specs match
-                } else if score.total >= 1 {
-                    confidence = .low     // Partial match
+                } else if score.total >= 2 && (hasFilenameMatch || hasTimecodeMatch || hasReelMatch) {
+                    confidence = .medium  // Good match with meaningful criteria
+                } else if score.total >= 2 && hasResolutionMatch && !hasFpsOnlyMatch {
+                    confidence = .low     // Resolution + something other than just FPS
+                } else if hasFpsOnlyMatch {
+                    confidence = .none    // FPS-only matches are meaningless
+                } else if score.total >= 1 && !hasFpsOnlyMatch {
+                    confidence = .low     // Other partial matches (not just FPS)
                 } else {
                     confidence = .none
                 }

@@ -160,7 +160,8 @@ struct ProjectDetailView: View {
                     Label("Media", systemImage: "folder")
                 }
             
-            Text("Segment Linking - Coming Soon")
+            LinkingTab(project: project)
+                .environmentObject(projectManager)
                 .tabItem {
                     Label("Linking", systemImage: "link")
                 }
@@ -499,6 +500,367 @@ struct MediaFileRowView: View {
                 .cornerRadius(4)
         }
         .padding(.vertical, 2)
+    }
+}
+
+struct LinkingTab: View {
+    let project: Project
+    @EnvironmentObject var projectManager: ProjectManager
+    @State private var isLinking = false
+    @State private var linkingProgress = ""
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Linking Controls
+            VStack {
+                HStack {
+                    Button("Run Auto-Linking") {
+                        performLinking()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty || isLinking)
+                    
+                    if let result = project.linkingResult {
+                        Text("\(result.summary)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.leading)
+                    }
+                }
+                
+                if isLinking {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text(linkingProgress)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+            
+            // Linking Results Display
+            if let linkingResult = project.linkingResult {
+                LinkingResultsView(linkingResult: linkingResult)
+            } else {
+                VStack {
+                    Image(systemName: "link.circle")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No linking results yet")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Text("Import OCF files and segments, then run auto-linking")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+    
+    private func performLinking() {
+        guard !project.ocfFiles.isEmpty && !project.segments.isEmpty else {
+            NSLog("⚠️ Cannot link: need both OCF files and segments")
+            return
+        }
+        
+        isLinking = true
+        linkingProgress = "Analyzing \(project.segments.count) segments against \(project.ocfFiles.count) OCF files..."
+        
+        Task {
+            do {
+                await MainActor.run {
+                    linkingProgress = "Running SegmentOCFLinker..."
+                }
+                
+                let linker = SegmentOCFLinker()
+                let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
+                
+                await MainActor.run {
+                    project.updateLinkingResult(result)
+                    projectManager.saveProject(project)
+                    isLinking = false
+                    linkingProgress = ""
+                    NSLog("✅ Linking completed: \(result.summary)")
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isLinking = false
+                    linkingProgress = "Linking failed: \(error.localizedDescription)"
+                    NSLog("❌ Linking failed: \(error)")
+                }
+            }
+        }
+    }
+}
+
+struct LinkingResultsView: View {
+    let linkingResult: LinkingResult
+    
+    // Computed properties to separate high/medium confidence from low confidence segments
+    var confidentlyLinkedParents: [OCFParent] {
+        return linkingResult.ocfParents.compactMap { parent in
+            let goodSegments = parent.children.filter { segment in
+                segment.linkConfidence == .high || segment.linkConfidence == .medium
+            }
+            return goodSegments.isEmpty ? nil : OCFParent(ocf: parent.ocf, children: goodSegments)
+        }
+    }
+    
+    var lowConfidenceSegments: [LinkedSegment] {
+        return linkingResult.ocfParents.flatMap { parent in
+            parent.children.filter { segment in
+                segment.linkConfidence == .low
+            }
+        }
+    }
+    
+    var totalConfidentSegments: Int {
+        return confidentlyLinkedParents.reduce(0) { $0 + $1.childCount }
+    }
+    
+    var body: some View {
+        HSplitView {
+            // Confidently Linked OCF Parents and Children
+            VStack(alignment: .leading) {
+                Text("Linked Files (\(totalConfidentSegments) segments)")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                List(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
+                    OCFParentRowView(parent: parent)
+                }
+            }
+            .frame(minWidth: 400)
+            
+            // Unmatched Items + Low Confidence
+            VStack(alignment: .leading) {
+                Text("Unmatched Items")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                List {
+                    if !linkingResult.unmatchedOCFs.isEmpty {
+                        Section("Unmatched OCF Files (\(linkingResult.unmatchedOCFs.count))") {
+                            ForEach(linkingResult.unmatchedOCFs, id: \.fileName) { ocf in
+                                UnmatchedFileRowView(file: ocf, type: .ocf)
+                            }
+                        }
+                    }
+                    
+                    if !linkingResult.unmatchedSegments.isEmpty {
+                        Section("Unmatched Segments (\(linkingResult.unmatchedSegments.count))") {
+                            ForEach(linkingResult.unmatchedSegments, id: \.fileName) { segment in
+                                UnmatchedFileRowView(file: segment, type: .segment)
+                            }
+                        }
+                    }
+                    
+                    if !lowConfidenceSegments.isEmpty {
+                        Section("Low Confidence Matches (\(lowConfidenceSegments.count))") {
+                            ForEach(lowConfidenceSegments, id: \.segment.fileName) { linkedSegment in
+                                LowConfidenceSegmentRowView(linkedSegment: linkedSegment)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(minWidth: 300)
+        }
+    }
+}
+
+struct OCFParentRowView: View {
+    let parent: OCFParent
+    @State private var isExpanded = true
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            // OCF Parent Row
+            HStack {
+                Button {
+                    isExpanded.toggle()
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                
+                Image(systemName: "camera")
+                    .foregroundColor(.blue)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(parent.ocf.fileName)
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                    
+                    HStack {
+                        Text("\(parent.childCount) linked segments")
+                        Text("•")
+                        if let fps = parent.ocf.frameRate {
+                            Text("\(fps, specifier: "%.3f") fps")
+                        }
+                        if let startTC = parent.ocf.sourceTimecode {
+                            Text("•")
+                            Text("TC: \(startTC)")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            
+            // Children Segments (when expanded)
+            if isExpanded && parent.hasChildren {
+                ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                    LinkedSegmentRowView(linkedSegment: linkedSegment)
+                        .padding(.leading, 20)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+struct LinkedSegmentRowView: View {
+    let linkedSegment: LinkedSegment
+    
+    var confidenceColor: Color {
+        switch linkedSegment.linkConfidence {
+        case .high: return .green
+        case .medium: return .orange  
+        case .low: return .red
+        case .none: return .gray
+        }
+    }
+    
+    var confidenceIcon: String {
+        switch linkedSegment.linkConfidence {
+        case .high: return "checkmark.circle.fill"
+        case .medium: return "exclamationmark.circle.fill"
+        case .low: return "questionmark.circle.fill"
+        case .none: return "xmark.circle.fill"
+        }
+    }
+    
+    var body: some View {
+        HStack {
+            Image(systemName: confidenceIcon)
+                .foregroundColor(confidenceColor)
+                .frame(width: 16)
+            
+            Image(systemName: "scissors")
+                .foregroundColor(.orange)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(linkedSegment.segment.fileName)
+                    .font(.system(.body, design: .monospaced))
+                
+                HStack {
+                    Text(linkedSegment.linkMethod)
+                    Text("•")
+                    Text("\(linkedSegment.linkConfidence)".lowercased())
+                    if let startTC = linkedSegment.segment.sourceTimecode {
+                        Text("•")
+                        Text("TC: \(startTC)")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+struct UnmatchedFileRowView: View {
+    let file: MediaFileInfo
+    let type: MediaType
+    
+    enum MediaType {
+        case ocf, segment
+    }
+    
+    var body: some View {
+        HStack {
+            Image(systemName: type == .ocf ? "camera" : "scissors")
+                .foregroundColor(type == .ocf ? .blue : .orange)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.fileName)
+                    .font(.system(.body, design: .monospaced))
+                
+                HStack {
+                    if let fps = file.frameRate {
+                        Text("\(fps, specifier: "%.3f") fps")
+                    }
+                    if let startTC = file.sourceTimecode {
+                        Text("•")
+                        Text("TC: \(startTC)")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text("Unmatched")
+                .font(.caption)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(4)
+        }
+    }
+}
+
+struct LowConfidenceSegmentRowView: View {
+    let linkedSegment: LinkedSegment
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "questionmark.circle.fill")
+                .foregroundColor(.red)
+                .frame(width: 16)
+            
+            Image(systemName: "scissors")
+                .foregroundColor(.orange)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(linkedSegment.segment.fileName)
+                    .font(.system(.body, design: .monospaced))
+                
+                HStack {
+                    Text(linkedSegment.linkMethod)
+                    Text("•")
+                    Text("low confidence")
+                    if let startTC = linkedSegment.segment.sourceTimecode {
+                        Text("•")
+                        Text("TC: \(startTC)")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text("Needs Review")
+                .font(.caption)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.red.opacity(0.2))
+                .cornerRadius(4)
+        }
     }
 }
 
