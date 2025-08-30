@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import ProResWriterCore
 
 // MARK: - Hierarchical Data Models for UI
 
@@ -14,7 +15,7 @@ import SwiftUI
 protocol HierarchicalItem: Identifiable, ObservableObject {
     var id: String { get }
     var displayName: String { get }
-    var children: [HierarchicalItem]? { get }
+    var children: [any HierarchicalItem]? { get }
     var statusIcon: String { get }
     var metadata: String { get }
     var timecodeRange: String { get }
@@ -39,7 +40,7 @@ class OCFParentItem: HierarchicalItem, ObservableObject {
         ocfFile.fileName
     }
     
-    var children: [HierarchicalItem]? {
+    var children: [any HierarchicalItem]? {
         linkedSegments.map { linkedSegment in
             // Check if this segment has been modified (would come from Project)
             let isModified = false  // This would be set by ProjectHierarchy.updateFromProject()
@@ -86,7 +87,7 @@ class OCFParentItem: HierarchicalItem, ObservableObject {
         
         do {
             let startFrames = try smpte.getFrames(tc: startTC)
-            let endFrames = startFrames + frameCount
+            let endFrames = startFrames + Int(frameCount)
             let endTC = smpte.getTC(frames: endFrames)
             
             return "\(startTC) → \(endTC)"
@@ -117,7 +118,7 @@ class SegmentChildItem: HierarchicalItem, ObservableObject {
         segment.fileName
     }
     
-    var children: [HierarchicalItem]? {
+    var children: [any HierarchicalItem]? {
         nil // Segments don't have children
     }
     
@@ -129,7 +130,7 @@ class SegmentChildItem: HierarchicalItem, ObservableObject {
         switch linkConfidence {
         case .high: return "🟢"
         case .medium: return "🟡" 
-        case .low, .manual: return "🔴"
+        case .low, .none: return "🔴"
         }
     }
     
@@ -141,7 +142,7 @@ class SegmentChildItem: HierarchicalItem, ObservableObject {
         }
         
         parts.append(segment.frameRateDescription)
-        parts.append("Confidence: \(linkConfidence.rawValue)")
+        parts.append("Confidence: \(linkConfidence)")
         
         if isModified {
             parts.append("MODIFIED")
@@ -167,7 +168,7 @@ class SegmentChildItem: HierarchicalItem, ObservableObject {
         
         do {
             let startFrames = try smpte.getFrames(tc: startTC)
-            let endFrames = startFrames + frameCount
+            let endFrames = startFrames + Int(frameCount)
             let endTC = smpte.getTC(frames: endFrames)
             
             return "\(startTC) → \(endTC)"
@@ -196,7 +197,7 @@ class OCFParentItemWithModification: HierarchicalItem, ObservableObject {
         ocfFile.fileName
     }
     
-    var children: [HierarchicalItem]? {
+    var children: [any HierarchicalItem]? {
         childrenItems
     }
     
@@ -242,7 +243,7 @@ class OCFParentItemWithModification: HierarchicalItem, ObservableObject {
         
         do {
             let startFrames = try smpte.getFrames(tc: startTC)
-            let endFrames = startFrames + frameCount
+            let endFrames = startFrames + Int(frameCount)
             let endTC = smpte.getTC(frames: endFrames)
             
             return "\(startTC) → \(endTC)"
@@ -255,7 +256,7 @@ class OCFParentItemWithModification: HierarchicalItem, ObservableObject {
 // MARK: - Project Hierarchy Builder
 
 class ProjectHierarchy: ObservableObject {
-    @Published var items: [HierarchicalItem] = []
+    @Published var items: [any HierarchicalItem] = []
     
     func updateFromProject(_ project: Project) {
         guard let linkingResult = project.linkingResult else {
@@ -305,10 +306,10 @@ extension HierarchicalItem {
 
 // MARK: - Type-Erased Wrapper for SwiftUI
 
-struct AnyHierarchicalItem: HierarchicalItem {
+class AnyHierarchicalItem: HierarchicalItem, ObservableObject {
     let id: String
     let displayName: String
-    let children: [HierarchicalItem]?
+    let children: [any HierarchicalItem]?
     let statusIcon: String
     let metadata: String
     let timecodeRange: String

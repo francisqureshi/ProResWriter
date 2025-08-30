@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+import ProResWriterCore
 
 @main
 struct SourcePrintApp: App {
+    @StateObject private var projectManager = SimpleProjectManager()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(projectManager)
         }
     }
 }

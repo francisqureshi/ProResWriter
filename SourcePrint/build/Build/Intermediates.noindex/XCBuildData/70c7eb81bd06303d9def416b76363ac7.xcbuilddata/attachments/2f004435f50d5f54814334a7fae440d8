@@ -1,0 +1,4 @@
+module SwiftFFmpeg {
+header "SwiftFFmpeg-Swift.h"
+export *
+}

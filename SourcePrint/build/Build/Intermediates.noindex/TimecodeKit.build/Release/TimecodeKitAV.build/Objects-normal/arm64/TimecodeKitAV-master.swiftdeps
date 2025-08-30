@@ -1,0 +1,24 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "9b2daa4458dad9b0d5de37ac586bf53baf45fd7c6068abd5dd2e24d4a4992915"
+build_start_time: [1756551181, 768395000]
+build_end_time: [1756551183, 632851000]
+inputs:
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAsset Frame Rate Read.swift"
+  : [1756551172, 353786291]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAsset Timecode Read.swift"
+  : [1756551172, 354035789]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAsset Timecode Write.swift"
+  : [1756551172, 354355413]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAssetTrack Timecode Read.swift"
+  : [1756551172, 354603286]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVFoundation Utils.swift"
+  : [1756551172, 354768119]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/CMTimeCode.swift"
+  : [1756551172, 354965368]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/Timecode Extensions/Errors/Timecode Errors.swift"
+  : [1756551172, 358115519]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/Timecode Extensions/Source/Timecode AVAsset.swift"
+  : [1756551172, 358386268]
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/TimecodeKitAV.swift": [1756551172, 358469101]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/VideoFrameRate Extensions/VideoFrameRate Conversions.swift"
+  : [1756551172, 358624933]

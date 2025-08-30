@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import ProResWriterCore
 
 // MARK: - Project Data Model
 
@@ -245,7 +246,7 @@ enum BlankRushStatus: Codable, Equatable {
 }
 
 struct PrintRecord: Codable, Identifiable {
-    let id = UUID()
+    let id: UUID = UUID()
     let date: Date
     let outputURL: URL
     let segmentCount: Int

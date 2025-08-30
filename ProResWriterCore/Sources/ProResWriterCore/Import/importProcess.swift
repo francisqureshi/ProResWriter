@@ -10,7 +10,7 @@ import SwiftFFmpeg
 import TimecodeKit
 
 // MARK: - Media File Information
-public struct MediaFileInfo {
+public struct MediaFileInfo: Codable {
     public let fileName: String
     public let url: URL
     public let resolution: CGSize?  // Coded resolution (actual pixel dimensions)
@@ -160,7 +160,7 @@ public struct MediaFileInfo {
     }
 }
 
-public enum MediaType {
+public enum MediaType: Codable {
     case gradedSegment
     case originalCameraFile
 }

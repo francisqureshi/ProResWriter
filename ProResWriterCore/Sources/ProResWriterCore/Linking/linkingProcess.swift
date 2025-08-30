@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Parent-Child Linking Data Structures
 
-public struct ChildSegment {
+public struct LinkedSegment: Codable {
     public let segment: MediaFileInfo
     public let linkConfidence: LinkConfidence
     public let linkMethod: String           // "filename", "metadata", "manual"
@@ -21,9 +21,9 @@ public struct ChildSegment {
     }
 }
 
-public struct OCFParent {
+public struct OCFParent: Codable {
     public let ocf: MediaFileInfo
-    public let children: [ChildSegment]
+    public let children: [LinkedSegment]
     
     public var childCount: Int {
         return children.count
@@ -33,20 +33,20 @@ public struct OCFParent {
         return !children.isEmpty
     }
     
-    public init(ocf: MediaFileInfo, children: [ChildSegment]) {
+    public init(ocf: MediaFileInfo, children: [LinkedSegment]) {
         self.ocf = ocf
         self.children = children
     }
 }
 
-public enum LinkConfidence {
+public enum LinkConfidence: Codable {
     case high       // OCF filename contained in segment filename + tech specs
     case medium     // Good technical specs match (resolution + fps)
     case low        // Partial match or fallback
     case none       // No match found
 }
 
-public struct LinkingResult {
+public struct LinkingResult: Codable {
     public let ocfParents: [OCFParent]
     public let unmatchedSegments: [MediaFileInfo]
     public let unmatchedOCFs: [MediaFileInfo]
@@ -86,7 +86,7 @@ public class SegmentOCFLinker {
         print("🔗 Linking \(segments.count) segments with \(ocfs.count) OCF parent files...")
         
         // Dictionary to group children by OCF parent (using full path as unique key)
-        var ocfToChildren: [String: [ChildSegment]] = [:]
+        var ocfToChildren: [String: [LinkedSegment]] = [:]
         var unmatchedSegments: [MediaFileInfo] = []
         var usedOCFs: Set<String> = []
         
@@ -98,13 +98,13 @@ public class SegmentOCFLinker {
         // Link each segment to its best parent OCF
         for segment in segments {
             if let (matchedOCF, confidence, method) = findBestMatch(for: segment, in: ocfs) {
-                let childSegment = ChildSegment(
+                let linkedSegment = LinkedSegment(
                     segment: segment,
                     linkConfidence: confidence,
                     linkMethod: method
                 )
                 
-                ocfToChildren[matchedOCF.url.path]?.append(childSegment)
+                ocfToChildren[matchedOCF.url.path]?.append(linkedSegment)
                 usedOCFs.insert(matchedOCF.fileName)
                 
                 print("  ✅ \(segment.fileName) → \(matchedOCF.fileName) (\(confidence), \(method))")

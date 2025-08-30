@@ -1,0 +1,58 @@
+{
+  "object" : {
+    "artifacts" : [
+
+    ],
+    "dependencies" : [
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "proreswritercore",
+          "kind" : "fileSystem",
+          "location" : "/Users/fq/Projects/ProResWriter/ProResWriterCore",
+          "name" : "ProResWriterCore"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/fq/Projects/ProResWriter/ProResWriterCore"
+        },
+        "subpath" : "proreswritercore"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "swiftffmpeg",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/sunlubo/SwiftFFmpeg",
+          "name" : "SwiftFFmpeg"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "e3621a95f90e106f3e7228737c718dfc8b580bc1",
+            "version" : "1.6.0"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "SwiftFFmpeg"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "timecodekit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/orchetect/TimecodeKit",
+          "name" : "TimecodeKit"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "1014b5723a7eaa93eeb2ea2f52dfd9ea6eb6be0d",
+            "version" : "2.3.3"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "TimecodeKit"
+      }
+    ]
+  },
+  "version" : 6
+}

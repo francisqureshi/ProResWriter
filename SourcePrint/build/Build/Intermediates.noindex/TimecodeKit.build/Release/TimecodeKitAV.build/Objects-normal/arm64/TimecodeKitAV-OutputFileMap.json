@@ -1,0 +1,60 @@
+{
+  "" : {
+    "const-values" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV-master.swiftconstvalues",
+    "dependencies" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV-master.d",
+    "diagnostics" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV-master.dia",
+    "emit-module-dependencies" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV-master-emit-module.dia",
+    "swift-dependencies" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV-master.swiftdeps"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAsset Frame Rate Read.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Frame Rate Read.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Frame Rate Read.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Frame Rate Read.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAsset Timecode Read.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Timecode Read.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Timecode Read.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Timecode Read.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAsset Timecode Write.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Timecode Write.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Timecode Write.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAsset Timecode Write.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVAssetTrack Timecode Read.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAssetTrack Timecode Read.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAssetTrack Timecode Read.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVAssetTrack Timecode Read.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/AVFoundation Utils.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVFoundation Utils.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVFoundation Utils.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/AVFoundation Utils.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/AVFoundation Extensions/CMTimeCode.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/CMTimeCode.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/CMTimeCode.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/CMTimeCode.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/Timecode Extensions/Errors/Timecode Errors.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/Timecode Errors.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/Timecode Errors.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/Timecode Errors.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/Timecode Extensions/Source/Timecode AVAsset.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/Timecode AVAsset.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/Timecode AVAsset.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/Timecode AVAsset.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/TimecodeKitAV.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/TimecodeKitAV.o"
+  },
+  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitAV/VideoFrameRate Extensions/VideoFrameRate Conversions.swift" : {
+    "index-unit-output-path" : "/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/VideoFrameRate Conversions.o",
+    "llvm-bc" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/VideoFrameRate Conversions.bc",
+    "object" : "/Users/fq/Projects/ProResWriter/SourcePrint/build/Build/Intermediates.noindex/TimecodeKit.build/Release/TimecodeKitAV.build/Objects-normal/arm64/VideoFrameRate Conversions.o"
+  }
+}

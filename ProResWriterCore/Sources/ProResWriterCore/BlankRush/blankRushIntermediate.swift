@@ -803,7 +803,7 @@ public class BlankRushIntermediate {
 extension LinkingResult {
 
     /// Get only OCF parents that have children (useful for blank rush creation)
-    var parentsWithChildren: [OCFParent] {
+    public var parentsWithChildren: [OCFParent] {
         return ocfParents.filter { $0.hasChildren }
     }
 

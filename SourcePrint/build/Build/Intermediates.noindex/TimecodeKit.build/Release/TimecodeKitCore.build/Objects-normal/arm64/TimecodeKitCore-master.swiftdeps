@@ -1,0 +1,165 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "9e35c4e09be6c943f1ed21b0d8947aa39dad348b70276d604279de7e1574492e"
+build_start_time: [1756551174, 556409000]
+build_end_time: [1756551181, 792256000]
+inputs:
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/API Evolution/TimecodeKitCore-API-2.3.0.swift"
+  : [1756551172, 358812432]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/API Evolution/TimecodeKitCore-API-2.3.1.swift"
+  : [1756551172, 358901140]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/API Evolution/TimecodeKitCore-API-2.3.2.swift"
+  : [1756551172, 358977556]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/CoreMedia Extensions/CMTimeRange Extensions.swift"
+  : [1756551172, 359105347]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/FeetAndFrames/FeetAndFrames.swift"
+  : [1756551172, 363627450]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Fraction/Fraction CMTime.swift"
+  : [1756551172, 363769616]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Fraction/Fraction.swift"
+  : [1756551172, 363947198]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/FrameRateProtocol/FrameRateProtocol Properties.swift"
+  : [1756551172, 364182156]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/FrameRateProtocol/FrameRateProtocol.swift"
+  : [1756551172, 364285988]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Components/Component.swift"
+  : [1756551172, 364583529]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Components/ComponentRanges.swift"
+  : [1756551172, 364671070]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Components/Components.swift"
+  : [1756551172, 364844277]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Encoding/NSItemProvider.swift"
+  : [1756551172, 365244150]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Encoding/Transferable.swift"
+  : [1756551172, 365345566]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Encoding/UTType.swift"
+  : [1756551172, 365446191]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Errors/Errors.swift"
+  : [1756551172, 365608107]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/FrameCount/FrameCount Value.swift"
+  : [1756551172, 365771231]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/FrameCount/FrameCount.swift"
+  : [1756551172, 366074105]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode Math Internal.swift"
+  : [1756551172, 366246020]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode Math Public.swift"
+  : [1756551172, 366360062]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode Operators.swift"
+  : [1756551172, 366457853]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode Rounding.swift"
+  : [1756551172, 366644518]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/Codable.swift"
+  : [1756551172, 366781059]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/Comparable.swift"
+  : [1756551172, 366942475]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/CustomStringConvertible.swift"
+  : [1756551172, 367042391]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/Hashable.swift"
+  : [1756551172, 367129391]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/Identifiable.swift"
+  : [1756551172, 367220349]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/Sendable.swift"
+  : [1756551172, 367296474]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol Adoptions/Strideable.swift"
+  : [1756551172, 367380098]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Protocols/Timecode Source Protocols.swift"
+  : [1756551172, 367680180]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Components.swift"
+  : [1756551172, 367837471]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode FeetAndFrames.swift"
+  : [1756551172, 368066345]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode FrameCount Value.swift"
+  : [1756551172, 368262510]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode FrameCount.swift"
+  : [1756551172, 368425260]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Random.swift"
+  : [1756551172, 368612842]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Rational CMTime.swift"
+  : [1756551172, 368710341]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Rational.swift"
+  : [1756551172, 368920049]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Real Time.swift"
+  : [1756551172, 369125256]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Samples.swift"
+  : [1756551172, 369286088]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode String.swift"
+  : [1756551172, 369518712]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode TimecodeInterval.swift"
+  : [1756551172, 369732503]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode Zero.swift"
+  : [1756551172, 371732785]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/StringFormat/StringFormat.swift"
+  : [1756551172, 371935367]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/StringFormat/StringFormatOption.swift"
+  : [1756551172, 372052908]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/SubFramesBase/SubFramesBase.swift"
+  : [1756551172, 372226949]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode Conversion.swift"
+  : [1756551172, 372340782]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode Properties.swift"
+  : [1756551172, 372470239]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode Validation.swift"
+  : [1756551172, 372707655]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode init.swift"
+  : [1756551172, 373010779]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode set.swift"
+  : [1756551172, 373268110]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode.swift"
+  : [1756551172, 373501193]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/UpperLimit/UpperLimit.swift"
+  : [1756551172, 373682442]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate CompatibleGroup.swift"
+  : [1756551172, 373991940]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate Conversions.swift"
+  : [1756551172, 374237314]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate Formats.swift"
+  : [1756551172, 374362313]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate Properties.swift"
+  : [1756551172, 374554646]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate.swift"
+  : [1756551172, 374822770]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval Rational CMTime.swift"
+  : [1756551172, 375020685]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval Rational.swift"
+  : [1756551172, 375113893]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval Real Time.swift"
+  : [1756551172, 375218226]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval Unary Operators.swift"
+  : [1756551172, 375310475]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval.swift"
+  : [1756551172, 375414725]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeKitCore.swift"
+  : [1756551172, 375503641]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeTransformer/TimecodeTransformer.swift"
+  : [1756551172, 375676390]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/CharacterSet.swift"
+  : [1756551172, 375944806]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/Decimal.swift"
+  : [1756551172, 376188763]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPoint and Darwin.swift"
+  : [1756551172, 376305387]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPoint and Foundation.swift"
+  : [1756551172, 376429636]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPoint.swift"
+  : [1756551172, 376553428]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPointPowerComputable.swift"
+  : [1756551172, 376652052]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/Integers.swift"
+  : [1756551172, 376738010]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/NSAttributedString.swift"
+  : [1756551172, 376823301]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/Ranges.swift"
+  : [1756551172, 376922842]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/String and NSRegularExpression.swift"
+  : [1756551172, 377149300]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/RangeAttribute.swift"
+  : [1756551172, 377241632]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/URL.swift"
+  : [1756551172, 377330424]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate Conversions.swift"
+  : [1756551172, 377598047]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate Properties.swift"
+  : [1756551172, 377851838]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate String Extensions.swift"
+  : [1756551172, 378010754]
+  ? "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate.swift"
+  : [1756551172, 378287627]

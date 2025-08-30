@@ -1,0 +1,4 @@
+module TimecodeKitUI {
+header "TimecodeKitUI-Swift.h"
+export *
+}

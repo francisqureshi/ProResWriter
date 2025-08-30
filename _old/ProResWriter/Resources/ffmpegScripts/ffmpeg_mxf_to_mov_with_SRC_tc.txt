@@ -1,1 +1,0 @@
-ffmpeg -i A002C006_250610_RP26.mxf -c:v copy -timecode "$(ffprobe -v quiet -show_entries format_tags=timecode -of csv=p=0 A002C006_250610_RP26.mxf)" -r "$(ffprobe -v quiet -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 A002C006_250610_RP26.mxf)" A002C006_250610_RP26_fully_auto.mov

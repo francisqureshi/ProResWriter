@@ -1,0 +1,80 @@
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/API\ Evolution/TimecodeKitCore-API-2.3.0.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/API\ Evolution/TimecodeKitCore-API-2.3.1.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/API\ Evolution/TimecodeKitCore-API-2.3.2.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/CoreMedia\ Extensions/CMTimeRange\ Extensions.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/FeetAndFrames/FeetAndFrames.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Fraction/Fraction\ CMTime.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Fraction/Fraction.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/FrameRateProtocol/FrameRateProtocol\ Properties.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/FrameRateProtocol/FrameRateProtocol.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Components/Component.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Components/ComponentRanges.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Components/Components.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Encoding/NSItemProvider.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Encoding/Transferable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Encoding/UTType.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Errors/Errors.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/FrameCount/FrameCount\ Value.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/FrameCount/FrameCount.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode\ Math\ Internal.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode\ Math\ Public.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode\ Operators.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Math/Timecode\ Rounding.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/Codable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/Comparable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/CustomStringConvertible.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/Hashable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/Identifiable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/Sendable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Protocol\ Adoptions/Strideable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Protocols/Timecode\ Source\ Protocols.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Components.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ FeetAndFrames.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ FrameCount\ Value.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ FrameCount.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Random.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Rational\ CMTime.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Rational.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Real\ Time.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Samples.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ String.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ TimecodeInterval.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Source/Timecode\ Zero.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/StringFormat/StringFormat.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/StringFormat/StringFormatOption.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/SubFramesBase/SubFramesBase.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode\ Conversion.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode\ Properties.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode\ Validation.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode\ init.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode\ set.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/Timecode.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Timecode/UpperLimit/UpperLimit.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate\ CompatibleGroup.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate\ Conversions.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate\ Formats.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate\ Properties.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeFrameRate/TimecodeFrameRate.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval\ Rational\ CMTime.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval\ Rational.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval\ Real\ Time.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval\ Unary\ Operators.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeInterval/TimecodeInterval.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeKitCore.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/TimecodeTransformer/TimecodeTransformer.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/CharacterSet.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/Decimal.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPoint\ and\ Darwin.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPoint\ and\ Foundation.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPoint.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/FloatingPointPowerComputable.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/Integers.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/NSAttributedString.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/Ranges.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/Outsourced/String\ and\ NSRegularExpression.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/RangeAttribute.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/Utilities/URL.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate\ Conversions.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate\ Properties.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate\ String\ Extensions.swift
+/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKitCore/VideoFrameRate/VideoFrameRate.swift
