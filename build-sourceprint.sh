@@ -20,7 +20,7 @@ xcodebuild -project SourcePrint.xcodeproj \
 
 if [ $? -eq 0 ]; then
     echo "✅ SourcePrint build succeeded!"
-    echo "App bundle: ./SourcePrint/build/Build/Products/Release/SourcePrint.app"
+    echo "App bundle: ./build/Build/Products/Release/SourcePrint.app"
 else
     echo "❌ SourcePrint build failed!"
     exit 1

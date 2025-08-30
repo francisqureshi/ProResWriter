@@ -58,7 +58,7 @@ class ProjectManager: ObservableObject {
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: projectsDirectory,
             includingPropertiesForKeys: nil
-        ).filter({ $0.pathExtension == "prores" }) else {
+        ).filter({ $0.pathExtension == "w2" }) else {
             return
         }
         
@@ -89,7 +89,7 @@ class ProjectManager: ObservableObject {
     }
     
     func saveProject(_ project: Project) {
-        let filename = "\(project.name.replacingOccurrences(of: " ", with: "_")).prores"
+        let filename = "\(project.name.replacingOccurrences(of: " ", with: "_")).w2"
         let url = projectsDirectory.appendingPathComponent(filename)
         
         do {
@@ -137,7 +137,7 @@ class ProjectManager: ObservableObject {
         }
         
         // Delete file
-        let filename = "\(project.name.replacingOccurrences(of: " ", with: "_")).prores"
+        let filename = "\(project.name.replacingOccurrences(of: " ", with: "_")).w2"
         let url = projectsDirectory.appendingPathComponent(filename)
         try? FileManager.default.removeItem(at: url)
     }

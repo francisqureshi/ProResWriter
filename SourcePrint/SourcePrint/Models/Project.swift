@@ -11,9 +11,10 @@ import ProResWriterCore
 
 // MARK: - Project Data Model
 
-class Project: ObservableObject, Codable {
+class Project: ObservableObject, Codable, Identifiable {
     
     // MARK: - Basic Project Info
+    let id = UUID()
     @Published var name: String
     @Published var createdDate: Date
     @Published var lastModified: Date
@@ -246,12 +247,21 @@ enum BlankRushStatus: Codable, Equatable {
 }
 
 struct PrintRecord: Codable, Identifiable {
-    let id: UUID = UUID()
+    let id: UUID
     let date: Date
     let outputURL: URL
     let segmentCount: Int
     let duration: TimeInterval
     let success: Bool
+    
+    init(date: Date, outputURL: URL, segmentCount: Int, duration: TimeInterval, success: Bool) {
+        self.id = UUID()
+        self.date = date
+        self.outputURL = outputURL
+        self.segmentCount = segmentCount
+        self.duration = duration
+        self.success = success
+    }
     
     var statusIcon: String {
         success ? "✅" : "❌"

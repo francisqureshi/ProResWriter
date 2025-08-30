@@ -10,7 +10,7 @@ import ProResWriterCore
 
 @main
 struct SourcePrintApp: App {
-    @StateObject private var projectManager = SimpleProjectManager()
+    @StateObject private var projectManager = ProjectManager()
 
     var body: some Scene {
         WindowGroup {
