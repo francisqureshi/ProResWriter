@@ -1,4 +1,0 @@
-module ProResWriterCore {
-header "ProResWriterCore-Swift.h"
-export *
-}

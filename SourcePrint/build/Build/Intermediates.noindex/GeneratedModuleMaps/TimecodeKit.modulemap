@@ -1,4 +1,0 @@
-module TimecodeKit {
-header "TimecodeKit-Swift.h"
-export *
-}

@@ -1,6 +1,0 @@
-version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
-options: "9ccb309789d02549f2bd8b9fd14d3e6454cffe794c1160710e96815b6a6b78c0"
-build_start_time: [1756551184, 706290000]
-build_end_time: [1756551184, 880524000]
-inputs:
-  "/Users/fq/Projects/ProResWriter/SourcePrint/build/SourcePackages/checkouts/TimecodeKit/Sources/TimecodeKit/TimecodeKit.swift": [1756551172, 353471250]

@@ -2,6 +2,8 @@
 /build/
 DerivedData/
 SourcePrint/build/
+
+/SourcePrint/build/
 # Xcode user settings
 xcuserdata/
 
