@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 import ProResWriterCore
 
 // MARK: - Project Manager
@@ -24,15 +25,19 @@ class ProjectManager: ObservableObject {
     
     // MARK: - Initialization
     init() {
+        NSLog("🚀 ProjectManager init called!")
         // Set up project storage directory
         documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         projectsDirectory = documentsDirectory.appendingPathComponent("ProResWriter Projects")
+        
+        print("📁 Projects directory: \(projectsDirectory.path)")
         
         // Ensure projects directory exists
         try? FileManager.default.createDirectory(at: projectsDirectory, withIntermediateDirectories: true)
         
         // Load existing projects
         loadProjects()
+        print("📊 Loaded \(projects.count) projects, \(recentProjects.count) recent")
     }
     
     // MARK: - Project Creation
@@ -79,11 +84,18 @@ class ProjectManager: ObservableObject {
     
     private func loadProject(from url: URL) -> Project? {
         do {
+            NSLog("📖 Loading project from: \(url.path)")
             let data = try Data(contentsOf: url)
-            let project = try JSONDecoder().decode(Project.self, from: data)
+            NSLog("📊 File data size: \(data.count) bytes")
+            
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            
+            let project = try decoder.decode(Project.self, from: data)
+            NSLog("✅ Successfully decoded project: \(project.name)")
             return project
         } catch {
-            print("❌ Failed to load project from \(url.lastPathComponent): \(error)")
+            NSLog("❌ Failed to load project from \(url.lastPathComponent): \(error)")
             return nil
         }
     }
@@ -115,8 +127,58 @@ class ProjectManager: ObservableObject {
     
     // MARK: - Project Management
     func openProject(_ project: Project) {
+        NSLog("📂 Opening project: \(project.name)")
+        NSLog("📊 Project has \(project.ocfFiles.count) OCF files and \(project.segments.count) segments")
+        
+        // Set as current project
         currentProject = project
         updateRecentProjects(project)
+        
+        // Trigger UI update
+        objectWillChange.send()
+        
+        NSLog("✅ Current project set to: \(currentProject?.name ?? "nil")")
+        NSLog("🔄 UI update triggered")
+    }
+    
+    func openProjectFile() {
+        NSLog("🎬 openProjectFile() called!")
+        
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.data] // Try allowing all data files first
+        panel.directoryURL = projectsDirectory
+        
+        NSLog("🔍 Opening file picker at: \(projectsDirectory.path)")
+        
+        let result = panel.runModal()
+        NSLog("📋 File picker result: \(result == .OK ? "OK" : "Cancelled")")
+        
+        if result == .OK, let url = panel.url {
+            NSLog("📁 Selected file: \(url.path)")
+            NSLog("📂 File extension: \(url.pathExtension)")
+            
+            if let project = loadProject(from: url) {
+                NSLog("✅ Successfully loaded project: \(project.name)")
+                
+                // Check if already loaded
+                if !projects.contains(where: { $0.name == project.name }) {
+                    projects.append(project)
+                    NSLog("➕ Added project to list")
+                } else {
+                    NSLog("ℹ️ Project already in list")
+                }
+                
+                openProject(project)
+                NSLog("🎯 Called openProject()")
+            } else {
+                NSLog("❌ Failed to load project from file")
+            }
+        } else {
+            NSLog("❌ File picker cancelled or failed")
+        }
     }
     
     func closeProject() {

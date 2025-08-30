@@ -27,9 +27,14 @@ struct ContentView: View {
         }
         .navigationTitle("SourcePrint")
         .toolbar {
-            ToolbarItem(placement: .navigation) {
+            ToolbarItemGroup(placement: .navigation) {
                 Button("New Project", systemImage: "plus") {
                     showingNewProject = true
+                }
+                
+                Button("Open Project", systemImage: "folder") {
+                    NSLog("🎯 Open Project button clicked!")
+                    projectManager.openProjectFile()
                 }
             }
         }
@@ -49,6 +54,7 @@ struct ProjectSidebar: View {
                 ForEach(projectManager.recentProjects, id: \.name) { project in
                     ProjectRowView(project: project)
                         .onTapGesture {
+                            print("🎯 Sidebar project clicked: \(project.name)")
                             projectManager.openProject(project)
                         }
                 }
@@ -58,6 +64,7 @@ struct ProjectSidebar: View {
                 ForEach(projectManager.projects, id: \.name) { project in
                     ProjectRowView(project: project)
                         .onTapGesture {
+                            print("🎯 Sidebar project clicked: \(project.name)")
                             projectManager.openProject(project)
                         }
                 }
@@ -147,7 +154,8 @@ struct ProjectDetailView: View {
                     Label("Overview", systemImage: "list.bullet")
                 }
             
-            Text("Media Import - Coming Soon")
+            MediaImportTab(project: project)
+                .environmentObject(projectManager)
                 .tabItem {
                     Label("Media", systemImage: "folder")
                 }
@@ -304,6 +312,193 @@ struct DirectoryPickerRow: View {
         if panel.runModal() == .OK {
             url = panel.url
         }
+    }
+}
+
+struct MediaImportTab: View {
+    let project: Project
+    @EnvironmentObject var projectManager: ProjectManager
+    @State private var showingFilePicker = false
+    @State private var importingOCF = false
+    @State private var isAnalyzing = false
+    @State private var analysisProgress = ""
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Import Actions
+            HStack(spacing: 16) {
+                VStack {
+                    Button("Import OCF Files") {
+                        importingOCF = true
+                        showingFilePicker = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isAnalyzing)
+                    
+                    Text("Original Camera Files")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                VStack {
+                    Button("Import Segments") {
+                        importingOCF = false
+                        showingFilePicker = true
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isAnalyzing)
+                    
+                    Text("Graded/Edited Footage")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+            
+            if isAnalyzing {
+                VStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text(analysisProgress)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+            }
+            
+            // Media Lists
+            HSplitView {
+                // OCF Files
+                VStack(alignment: .leading) {
+                    Text("OCF Files (\(project.ocfFiles.count))")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    List(project.ocfFiles, id: \.fileName) { file in
+                        MediaFileRowView(file: file, type: .ocf)
+                    }
+                }
+                .frame(minWidth: 300)
+                
+                // Segments
+                VStack(alignment: .leading) {
+                    Text("Segments (\(project.segments.count))")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    List(project.segments, id: \.fileName) { file in
+                        MediaFileRowView(file: file, type: .segment)
+                    }
+                }
+                .frame(minWidth: 300)
+            }
+        }
+        .fileImporter(
+            isPresented: $showingFilePicker,
+            allowedContentTypes: [.movie, .quickTimeMovie],
+            allowsMultipleSelection: true
+        ) { result in
+            handleFileSelection(result)
+        }
+    }
+    
+    private func handleFileSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            importMediaFiles(urls: urls, isOCF: importingOCF)
+        case .failure(let error):
+            print("File selection failed: \(error)")
+        }
+    }
+    
+    private func importMediaFiles(urls: [URL], isOCF: Bool) {
+        isAnalyzing = true
+        analysisProgress = "Analyzing \(urls.count) file(s)..."
+        
+        Task {
+            do {
+                var mediaFiles: [MediaFileInfo] = []
+                
+                for (index, url) in urls.enumerated() {
+                    await MainActor.run {
+                        analysisProgress = "Analyzing file \(index + 1)/\(urls.count): \(url.lastPathComponent)"
+                    }
+                    
+                    let mediaFile = try await MediaAnalyzer().analyzeMediaFile(at: url, type: isOCF ? .originalCameraFile : .gradedSegment)
+                    mediaFiles.append(mediaFile)
+                }
+                
+                await MainActor.run {
+                    if isOCF {
+                        project.addOCFFiles(mediaFiles)
+                    } else {
+                        project.addSegments(mediaFiles)
+                    }
+                    
+                    projectManager.saveProject(project)
+                    isAnalyzing = false
+                    analysisProgress = ""
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isAnalyzing = false
+                    analysisProgress = "Analysis failed: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+}
+
+struct MediaFileRowView: View {
+    let file: MediaFileInfo
+    let type: MediaType
+    
+    enum MediaType {
+        case ocf, segment
+    }
+    
+    var body: some View {
+        HStack {
+            Image(systemName: type == .ocf ? "camera" : "scissors")
+                .foregroundColor(type == .ocf ? .blue : .orange)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.fileName)
+                    .font(.system(.body, design: .monospaced))
+                
+                HStack {
+                    if let frames = file.durationInFrames, let fps = file.frameRate {
+                        Text("\(Double(frames) / Double(fps), specifier: "%.2f")s")
+                    } else {
+                        Text("Unknown duration")
+                    }
+                    Text("•")
+                    Text("\(file.durationInFrames ?? 0) frames")
+                    Text("•")
+                    Text("\(file.frameRate ?? 0, specifier: "%.3f") fps")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                
+                if let startTC = file.sourceTimecode {
+                    Text("TC: \(startTC)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            Text("\(file.mediaType)")
+                .font(.caption)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(4)
+        }
+        .padding(.vertical, 2)
     }
 }
 
