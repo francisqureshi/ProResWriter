@@ -47,30 +47,31 @@ struct ContentView: View {
 
 struct ProjectSidebar: View {
     @EnvironmentObject var projectManager: ProjectManager
+    @State private var selection: UUID?
     
     var body: some View {
-        List(selection: .constant(projectManager.currentProject?.id)) {
-            Section("Recent Projects") {
-                ForEach(projectManager.recentProjects, id: \.name) { project in
+        List(selection: $selection) {
+            Section("Projects") {
+                ForEach(projectManager.projects, id: \.id) { project in
                     ProjectRowView(project: project)
-                        .onTapGesture {
-                            print("🎯 Sidebar project clicked: \(project.name)")
-                            projectManager.openProject(project)
-                        }
-                }
-            }
-            
-            Section("All Projects") {
-                ForEach(projectManager.projects, id: \.name) { project in
-                    ProjectRowView(project: project)
-                        .onTapGesture {
-                            print("🎯 Sidebar project clicked: \(project.name)")
-                            projectManager.openProject(project)
-                        }
+                        .tag(project.id)
                 }
             }
         }
         .navigationTitle("Projects")
+        .onChange(of: selection) { oldValue, newValue in
+            if let selectedId = newValue,
+               let selectedProject = projectManager.projects.first(where: { $0.id == selectedId }) {
+                print("🎯 Sidebar project selected: \(selectedProject.name)")
+                projectManager.openProject(selectedProject)
+            }
+        }
+        .onAppear {
+            selection = projectManager.currentProject?.id
+        }
+        .onChange(of: projectManager.currentProject?.id) { oldValue, newValue in
+            selection = newValue
+        }
     }
 }
 
@@ -105,37 +106,62 @@ struct WelcomeView: View {
     @State private var showingNewProject = false
     
     var body: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "film.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 80, height: 80)
-                .foregroundColor(.blue)
-            
-            VStack(spacing: 8) {
-                Text("Welcome to SourcePrint")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        TabView {
+            // Welcome content in Overview tab
+            VStack(spacing: 24) {
+                Image(systemName: "film.fill")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80, height: 80)
+                    .foregroundColor(.blue)
                 
-                Text("Professional Media Workflow Management")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
-            }
-            
-            VStack(spacing: 16) {
-                Button("Create New Project") {
-                    showingNewProject = true
+                VStack(spacing: 8) {
+                    Text("Welcome to SourcePrint")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    
+                    Text("Professional Media Workflow Management")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 
-                if !projectManager.recentProjects.isEmpty {
-                    Text("or select a recent project from the sidebar")
+                VStack(spacing: 16) {
+                    Button("Create New Project") {
+                        showingNewProject = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    
+                    Text("or select a project from the sidebar")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
+            .tabItem {
+                Label("Overview", systemImage: "list.bullet")
+            }
+            
+            // Placeholder Media tab
+            VStack {
+                Text("Select a project to import media files")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+            }
+            .tabItem {
+                Label("Media", systemImage: "folder")
+            }
+            
+            // Placeholder Linking tab  
+            VStack {
+                Text("Select a project to manage segment linking")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+            }
+            .tabItem {
+                Label("Linking", systemImage: "link")
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showingNewProject) {
             NewProjectSheet()
                 .environmentObject(projectManager)
@@ -166,7 +192,7 @@ struct ProjectDetailView: View {
                     Label("Linking", systemImage: "link")
                 }
         }
-        .navigationTitle(project.name)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -323,6 +349,8 @@ struct MediaImportTab: View {
     @State private var importingOCF = false
     @State private var isAnalyzing = false
     @State private var analysisProgress = ""
+    @State private var selectedOCFFiles: Set<String> = []
+    @State private var selectedSegments: Set<String> = []
     
     var body: some View {
         VStack(spacing: 20) {
@@ -375,8 +403,9 @@ struct MediaImportTab: View {
                         .font(.headline)
                         .padding(.horizontal)
                     
-                    List(project.ocfFiles, id: \.fileName) { file in
+                    List(project.ocfFiles, id: \.fileName, selection: $selectedOCFFiles) { file in
                         MediaFileRowView(file: file, type: .ocf)
+                            .tag(file.fileName)
                     }
                 }
                 .frame(minWidth: 300)
@@ -387,8 +416,9 @@ struct MediaImportTab: View {
                         .font(.headline)
                         .padding(.horizontal)
                     
-                    List(project.segments, id: \.fileName) { file in
+                    List(project.segments, id: \.fileName, selection: $selectedSegments) { file in
                         MediaFileRowView(file: file, type: .segment)
+                            .tag(file.fileName)
                     }
                 }
                 .frame(minWidth: 300)
@@ -569,28 +599,19 @@ struct LinkingTab: View {
         linkingProgress = "Analyzing \(project.segments.count) segments against \(project.ocfFiles.count) OCF files..."
         
         Task {
-            do {
-                await MainActor.run {
-                    linkingProgress = "Running SegmentOCFLinker..."
-                }
-                
-                let linker = SegmentOCFLinker()
-                let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
-                
-                await MainActor.run {
-                    project.updateLinkingResult(result)
-                    projectManager.saveProject(project)
-                    isLinking = false
-                    linkingProgress = ""
-                    NSLog("✅ Linking completed: \(result.summary)")
-                }
-                
-            } catch {
-                await MainActor.run {
-                    isLinking = false
-                    linkingProgress = "Linking failed: \(error.localizedDescription)"
-                    NSLog("❌ Linking failed: \(error)")
-                }
+            await MainActor.run {
+                linkingProgress = "Running SegmentOCFLinker..."
+            }
+            
+            let linker = SegmentOCFLinker()
+            let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
+            
+            await MainActor.run {
+                project.updateLinkingResult(result)
+                projectManager.saveProject(project)
+                isLinking = false
+                linkingProgress = ""
+                NSLog("✅ Linking completed: \(result.summary)")
             }
         }
     }
@@ -598,6 +619,8 @@ struct LinkingTab: View {
 
 struct LinkingResultsView: View {
     let linkingResult: LinkingResult
+    @State private var selectedLinkedFiles: Set<String> = []
+    @State private var selectedUnmatchedFiles: Set<String> = []
     
     // Computed properties to separate high/medium confidence from low confidence segments
     var confidentlyLinkedParents: [OCFParent] {
@@ -629,8 +652,23 @@ struct LinkingResultsView: View {
                     .font(.headline)
                     .padding(.horizontal)
                 
-                List(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
-                    OCFParentRowView(parent: parent)
+                List(selection: $selectedLinkedFiles) {
+                    ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
+                        Section {
+                            // Individual segments are selectable with tree indentation
+                            ForEach(Array(parent.children.enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
+                                let isLast = index == parent.children.count - 1
+                                TreeLinkedSegmentRowView(
+                                    linkedSegment: linkedSegment, 
+                                    isLast: isLast
+                                )
+                                .tag(linkedSegment.segment.fileName)
+                            }
+                        } header: {
+                            OCFParentHeaderView(parent: parent)
+                                .tag(parent.ocf.fileName)
+                        }
+                    }
                 }
             }
             .frame(minWidth: 400)
@@ -641,11 +679,12 @@ struct LinkingResultsView: View {
                     .font(.headline)
                     .padding(.horizontal)
                 
-                List {
+                List(selection: $selectedUnmatchedFiles) {
                     if !linkingResult.unmatchedOCFs.isEmpty {
                         Section("Unmatched OCF Files (\(linkingResult.unmatchedOCFs.count))") {
                             ForEach(linkingResult.unmatchedOCFs, id: \.fileName) { ocf in
                                 UnmatchedFileRowView(file: ocf, type: .ocf)
+                                    .tag(ocf.fileName)
                             }
                         }
                     }
@@ -654,6 +693,7 @@ struct LinkingResultsView: View {
                         Section("Unmatched Segments (\(linkingResult.unmatchedSegments.count))") {
                             ForEach(linkingResult.unmatchedSegments, id: \.fileName) { segment in
                                 UnmatchedFileRowView(file: segment, type: .segment)
+                                    .tag(segment.fileName)
                             }
                         }
                     }
@@ -662,6 +702,7 @@ struct LinkingResultsView: View {
                         Section("Low Confidence Matches (\(lowConfidenceSegments.count))") {
                             ForEach(lowConfidenceSegments, id: \.segment.fileName) { linkedSegment in
                                 LowConfidenceSegmentRowView(linkedSegment: linkedSegment)
+                                    .tag(linkedSegment.segment.fileName)
                             }
                         }
                     }
@@ -669,6 +710,40 @@ struct LinkingResultsView: View {
             }
             .frame(minWidth: 300)
         }
+    }
+}
+
+struct OCFParentHeaderView: View {
+    let parent: OCFParent
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "camera")
+                .foregroundColor(.blue)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(parent.ocf.fileName)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
+                
+                HStack {
+                    Text("\(parent.childCount) linked segments")
+                    Text("•")
+                    if let fps = parent.ocf.frameRate {
+                        Text("\(fps, specifier: "%.3f") fps")
+                    }
+                    if let startTC = parent.ocf.sourceTimecode {
+                        Text("•")
+                        Text("TC: \(startTC)")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -723,6 +798,61 @@ struct OCFParentRowView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+struct TreeLinkedSegmentRowView: View {
+    let linkedSegment: LinkedSegment
+    let isLast: Bool
+    
+    var confidenceColor: Color {
+        switch linkedSegment.linkConfidence {
+        case .high: return .green
+        case .medium: return .orange  
+        case .low: return .red
+        case .none: return .gray
+        }
+    }
+    
+    var confidenceIcon: String {
+        switch linkedSegment.linkConfidence {
+        case .high: return "checkmark.circle.fill"
+        case .medium: return "exclamationmark.circle.fill"
+        case .low: return "questionmark.circle.fill"
+        case .none: return "xmark.circle.fill"
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: confidenceIcon)
+                .foregroundColor(confidenceColor)
+                .frame(width: 16)
+            
+            Image(systemName: "scissors")
+                .foregroundColor(.orange)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(linkedSegment.segment.fileName)
+                    .font(.system(.body, design: .monospaced))
+                
+                HStack {
+                    Text(linkedSegment.linkMethod)
+                    Text("•")
+                    Text("\(linkedSegment.linkConfidence)".lowercased())
+                    if let startTC = linkedSegment.segment.sourceTimecode {
+                        Text("•")
+                        Text("TC: \(startTC)")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.leading, 20)
     }
 }
 
