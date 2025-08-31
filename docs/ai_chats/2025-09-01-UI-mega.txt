@@ -1,0 +1,538 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/fq/Projects/ProResWriter            │
+╰───────────────────────────────────────────────────╯
+  ⎿  Read SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift (441 lines)
+  ⎿  Read SourcePrint/SourcePrint/Features/Linking/LinkingTab.swift (231 lines)
+  ⎿  Read SourcePrint/SourcePrint/Models/Project.swift (289 lines)
+  ⎿  Read SourcePrint/SourcePrint/Features/Render/RenderTab.swift (317 lines)
+  ⎿  Read SourcePrint/SourcePrint/ContentView.swift (51 lines)
+  ⎿  Todo list read (1 item)
+
+⏺ Looking at the conversation summary, I can see that I was working on implementing a
+  collapsible drawer UI for the unmatched items side in the linking interface. The task
+  was to create an Xcode-style drawer similar to what Xcode has.
+
+  Based on the todo list, I see there's a task "Add collapsible drawer UI for unmatched
+  items side in linking results" that's marked as in_progress. Let me complete this
+  implementation.
+
+⏺ Perfect! I've successfully completed the collapsible drawer implementation for the
+  LinkingResultsView. The implementation includes:
+
+  ✅ Xcode-style collapsible drawer with:
+  - Toggle button with unmatched item count display
+  - Smooth animations using .transition(.move(edge: .trailing).combined(with: .opacity))
+  - Visual divider similar to Xcode's sidebar separators
+  - Clean HStack layout replacing the previous HSplitView
+
+  ✅ Professional UI features:
+  - Unmatched item count badge in the toggle button
+  - Contextual help text showing item count when drawer is hidden
+  - Smooth 0.2-second easeInOut animation
+  - Proper sidebar icons (sidebar.trailing and sidebar.trailing.closed)
+
+  ✅ Full functionality preserved:
+  - All three sections: Unmatched OCF Files, Unmatched Segments, and Low Confidence
+  Matches
+  - Proper selection state management for both linked and unmatched items
+  - Blank rush status indicators in the OCF parent headers
+  - Professional media metadata display throughout
+
+  The drawer UI now provides a clean, professional interface that matches Xcode's design
+  patterns while maintaining all the existing functionality for the linking workflow.
+  Users can now hide/show the unmatched items drawer as needed to focus on either the
+  linked files or the items that need attention.
+
+> Ok when you hide it away its gone! but it did very nicely! can we move the toggle button 
+  to the to the right side of the window header in general ?
+
+⏺ I'll move the toggle button to the right side of the main window header instead of
+  having it in the "Linked Files" section header. Let me update the LinkingResultsView to
+  restructure the layout.
+
+⏺ Read(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Read 80 lines (ctrl+r to expand)
+
+⏺ I see the current structure. I need to restructure this to move the toggle button to a
+  header that spans the entire window, rather than being in the "Linked Files" section.
+  Let me update the LinkingResultsView:
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 41 
+     additions and 27 removals
+       44        }
+       45        
+       46        var body: some View {
+       47 -          HStack(spacing: 0) {
+       48 -              // Confidently Linked OCF Parents and Children
+       49 -              VStack(alignment: .leading) {
+       50 -                  HStack {
+       51 -                      Text("Linked Files (\(totalConfidentSegments) 
+          - segments)")
+       52 -                          .font(.headline)
+       53 -                          .padding(.horizontal)
+       54 -                      
+       55 -                      Spacer()
+       56 -                      
+       57 -                      // Xcode-style drawer toggle button
+       58 -                      Button {
+       59 -                          withAnimation(.easeInOut(duration: 0.2)) {
+       60 -                              showUnmatchedDrawer.toggle()
+       61 -                          }
+       62 -                      } label: {
+       63 -                          HStack(spacing: 4) {
+       64 -                              if totalUnmatchedItems > 0 {
+       65 -                                  Text("\(totalUnmatchedItems)")
+       66 -                                      .font(.caption2)
+       67 -                                      .foregroundColor(.secondary)
+       68 -                              }
+       69 -                              Image(systemName: showUnmatchedDrawer ? 
+          - "sidebar.trailing" : "sidebar.trailing.closed")
+       70 -                                  .font(.system(size: 14))
+       47 +          VStack(spacing: 0) {
+       48 +              // Top header with toggle button
+       49 +              HStack {
+       50 +                  Text("Linking Results")
+       51 +                      .font(.title2)
+       52 +                      .fontWeight(.medium)
+       53 +                      .padding(.leading)
+       54 +                  
+       55 +                  Spacer()
+       56 +                  
+       57 +                  // Xcode-style drawer toggle button
+       58 +                  Button {
+       59 +                      withAnimation(.easeInOut(duration: 0.2)) {
+       60 +                          showUnmatchedDrawer.toggle()
+       61 +                      }
+       62 +                  } label: {
+       63 +                      HStack(spacing: 4) {
+       64 +                          if totalUnmatchedItems > 0 {
+       65 +                              Text("\(totalUnmatchedItems)")
+       66 +                                  .font(.caption2)
+       67                                    .foregroundColor(.secondary)
+       68                            }
+       69 +                          Image(systemName: showUnmatchedDrawer ? 
+          + "sidebar.trailing" : "sidebar.trailing.closed")
+       70 +                              .font(.system(size: 14))
+       71 +                              .foregroundColor(.secondary)
+       72                        }
+       73 -                      .buttonStyle(.plain)
+       74 -                      .help(showUnmatchedDrawer ? "Hide Unmatched Items" : 
+          - "Show Unmatched Items (\(totalUnmatchedItems))")
+       75 -                      .padding(.trailing)
+       73                    }
+       74 +                  .buttonStyle(.plain)
+       75 +                  .help(showUnmatchedDrawer ? "Hide Unmatched Items" : "Show
+          +  Unmatched Items (\(totalUnmatchedItems))")
+       76 +                  .padding(.trailing)
+       77 +              }
+       78 +              .padding(.vertical, 8)
+       79 +              .background(Color(NSColor.controlBackgroundColor))
+       80 +              
+       81 +              // Main content area
+       82 +              HStack(spacing: 0) {
+       83 +                  // Confidently Linked OCF Parents and Children
+       84 +                  VStack(alignment: .leading) {
+       85 +                      HStack {
+       86 +                          Text("Linked Files (\(totalConfidentSegments) 
+          + segments)")
+       87 +                              .font(.headline)
+       88 +                              .padding(.horizontal)
+       89 +                          
+       90 +                          Spacer()
+       91 +                      }
+       92                    
+       93                    List(selection: $selectedLinkedFiles) {
+       94                        ForEach(confidentlyLinkedParents, id: \.ocf.fileName) 
+            { parent in
+
+⏺ Now I need to close the VStack properly and make sure the drawer section is also within
+  the main content area. Let me check the rest of the file and update it:
+
+⏺ Read(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ I need to add the closing braces for the VStack structure. Let me add them:
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 1    
+     addition
+       155                    .frame(minWidth: 300)
+       156                    .transition(.move(edge: .trailing).combined(with: 
+             .opacity))
+       157                }
+       158 +              }
+       159            }
+       160        }
+       161    }
+
+⏺ Now let me build and test the changes:
+
+⏺ Bash(./build-sourceprint.sh)
+  ⎿ 🔨 Building SourcePrint macOS app with ProResWriterCore support...                   
+    Command line invocation:
+        /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SourcePrin
+    … +416 lines (ctrl+r to expand)
+
+
+⏺ Perfect! The build completed successfully. Now the toggle button has been moved to the
+  top right of the window header with a "Linking Results" title. The layout is now:
+
+  ✅ Top Header Bar:
+  - Left side: "Linking Results" title
+  - Right side: Unmatched items toggle button with count badge
+
+  ✅ Main Content Area:
+  - Left side: "Linked Files" section (without the toggle button anymore)
+  - Right side: Collapsible unmatched items drawer
+
+  This provides a cleaner, more professional layout where the drawer control is prominent
+  and easily accessible from the main window header, similar to how Xcode organizes its
+  interface controls.
+
+  The toggle button now sits at the top-right of the entire linking results view, making
+  it more discoverable and giving it proper visual hierarchy as a primary interface
+  control rather than being buried in a section header.
+
+> OK this what we have now:
+
+  [Image #1]
+
+  would ne nice to tighten in up in the header .
+
+  lets remove "Linking Results" header
+
+  and leaver each header "Linked Files" and "Unmatched Items" and have the drawer icon right
+   most of these headers? 
+
+  we can drop the 227 unmatched files readout in the header too.
+
+⏺ I'll remove the "Linking Results" header and move the drawer toggle to be right-aligned
+  in the "Unmatched Items" section header, while keeping the "Linked Files" header as is.
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 1    
+     addition and 36 removals
+       44        }
+       45        
+       46        var body: some View {
+       47 -          VStack(spacing: 0) {
+       48 -              // Top header with toggle button
+       49 -              HStack {
+       50 -                  Text("Linking Results")
+       51 -                      .font(.title2)
+       52 -                      .fontWeight(.medium)
+       53 -                      .padding(.leading)
+       54 -                  
+       55 -                  Spacer()
+       56 -                  
+       57 -                  // Xcode-style drawer toggle button
+       58 -                  Button {
+       59 -                      withAnimation(.easeInOut(duration: 0.2)) {
+       60 -                          showUnmatchedDrawer.toggle()
+       61 -                      }
+       62 -                  } label: {
+       63 -                      HStack(spacing: 4) {
+       64 -                          if totalUnmatchedItems > 0 {
+       65 -                              Text("\(totalUnmatchedItems)")
+       66 -                                  .font(.caption2)
+       67 -                                  .foregroundColor(.secondary)
+       68 -                          }
+       69 -                          Image(systemName: showUnmatchedDrawer ? 
+          - "sidebar.trailing" : "sidebar.trailing.closed")
+       70 -                              .font(.system(size: 14))
+       71 -                              .foregroundColor(.secondary)
+       72 -                      }
+       73 -                  }
+       74 -                  .buttonStyle(.plain)
+       75 -                  .help(showUnmatchedDrawer ? "Hide Unmatched Items" : "Show
+          -  Unmatched Items (\(totalUnmatchedItems))")
+       76 -                  .padding(.trailing)
+       77 -              }
+       78 -              .padding(.vertical, 8)
+       79 -              .background(Color(NSColor.controlBackgroundColor))
+       80 -              
+       81 -              // Main content area
+       82 -              HStack(spacing: 0) {
+       47 +          HStack(spacing: 0) {
+       48                    // Confidently Linked OCF Parents and Children
+       49                    VStack(alignment: .leading) {
+       50                        HStack {
+
+⏺ Now I need to find the "Unmatched Items" section and add the toggle button there. Let me
+   read the section where the unmatched items are displayed:
+
+⏺ Read(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Read 40 lines (ctrl+r to expand)
+
+⏺ I need to find the "Unmatched Items" header. Let me search for it:
+
+⏺ Search(pattern: "Unmatched Items", path:
+        "SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift", output_mode:
+        "content")
+  ⎿  Found 2 lines (ctrl+r to expand)
+
+⏺ Now let me find that section and update it:
+
+⏺ Read(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ Perfect! Now I'll update the "Unmatched Items" header to include the toggle button on
+  the right side:
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 21 
+     additions and 3 removals
+        84                        .frame(width: 1)
+        85                    
+        86                    VStack(alignment: .leading) {
+        87 -                      Text("Unmatched Items")
+        88 -                          .font(.headline)
+        89 -                          .padding(.horizontal)
+        87 +                      HStack {
+        88 +                          Text("Unmatched Items")
+        89 +                              .font(.headline)
+        90 +                              .padding(.horizontal)
+        91 +                          
+        92 +                          Spacer()
+        93 +                          
+        94 +                          // Xcode-style drawer toggle button
+        95 +                          Button {
+        96 +                              withAnimation(.easeInOut(duration: 0.2)) {
+        97 +                                  showUnmatchedDrawer.toggle()
+        98 +                              }
+        99 +                          } label: {
+       100 +                              Image(systemName: showUnmatchedDrawer ? 
+           + "sidebar.trailing" : "sidebar.trailing.closed")
+       101 +                                  .font(.system(size: 14))
+       102 +                                  .foregroundColor(.secondary)
+       103 +                          }
+       104 +                          .buttonStyle(.plain)
+       105 +                          .help(showUnmatchedDrawer ? "Hide Unmatched 
+           + Items" : "Show Unmatched Items")
+       106 +                          .padding(.trailing)
+       107 +                      }
+       108                        
+       109                        List(selection: $selectedUnmatchedFiles) {
+       110                            if !linkingResult.unmatchedOCFs.isEmpty {
+
+⏺ Now I need to fix the closing braces. Let me check the end of the file:
+
+⏺ Read(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Read 15 lines (ctrl+r to expand)
+
+⏺ I see there's an extra closing brace. Let me fix that:
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 1    
+     removal
+       138                    .frame(minWidth: 300)
+       139                    .transition(.move(edge: .trailing).combined(with: 
+             .opacity))
+       140                }
+       141 -              }
+       141            }
+       142        }
+       143    }
+
+⏺ Now let me build and test the changes:
+
+⏺ Bash(./build-sourceprint.sh)
+  ⎿ 🔨 Building SourcePrint macOS app with ProResWriterCore support...                   
+    Command line invocation:
+        /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SourcePrin
+    … +416 lines (ctrl+r to expand)
+
+
+⏺ Excellent! The build completed successfully. Now the interface has been updated with a
+  much cleaner layout:
+
+  ✅ Removed:
+  - "Linking Results" main header
+  - Unmatched item count (227) badge in the top header
+
+  ✅ Improved Layout:
+  - "Linked Files" header remains clean on the left side
+  - "Unmatched Items" header now has the toggle button properly positioned on the right
+  - Toggle button is contextually placed where it belongs - in the section it controls
+  - Much tighter, more focused interface
+
+  The drawer toggle is now exactly where users would expect it - in the "Unmatched Items"
+  section header itself, similar to how Xcode organizes collapsible sections in its
+  interface. This provides better visual hierarchy and makes the control more intuitive to
+   find and use.
+
+  The interface now has a cleaner, more professional appearance with better information
+  architecture where each section header manages its own controls.
+
+> OK but can the icon then appear in the Linked Files header right as the unmatched side is 
+  hidden? so we are able get it back ? or make the icon a third colunm instead in general?
+
+  [Image #1] <hidden icon
+
+⏺ You're absolutely right! When the unmatched drawer is hidden, users need a way to get it
+   back. I'll modify the interface so the toggle button appears in the "Linked Files"
+  header when the drawer is closed, ensuring it's always accessible.
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 23 
+     additions
+       53                                .padding(.horizontal)
+       54                            
+       55                            Spacer()
+       56 +                          
+       57 +                          // Show toggle button here when drawer is hidden
+       58 +                          if !showUnmatchedDrawer {
+       59 +                              Button {
+       60 +                                  withAnimation(.easeInOut(duration: 0.2)) {
+       61 +                                      showUnmatchedDrawer.toggle()
+       62 +                                  }
+       63 +                              } label: {
+       64 +                                  HStack(spacing: 4) {
+       65 +                                      if totalUnmatchedItems > 0 {
+       66 +                                          Text("\(totalUnmatchedItems)")
+       67 +                                              .font(.caption2)
+       68 +                                              .foregroundColor(.secondary)
+       69 +                                      }
+       70 +                                      Image(systemName: 
+          + "sidebar.trailing.closed")
+       71 +                                          .font(.system(size: 14))
+       72 +                                          .foregroundColor(.secondary)
+       73 +                                  }
+       74 +                              }
+       75 +                              .buttonStyle(.plain)
+       76 +                              .help("Show Unmatched Items 
+          + (\(totalUnmatchedItems))")
+       77 +                              .padding(.trailing)
+       78 +                          }
+       79                        }
+       80                    
+       81                    List(selection: $selectedLinkedFiles) {
+
+⏺ Now let me build and test this change:
+
+⏺ Bash(./build-sourceprint.sh)
+  ⎿ 🔨 Building SourcePrint macOS app with ProResWriterCore support...                   
+    Command line invocation:
+        /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SourcePrin
+    … +416 lines (ctrl+r to expand)
+
+
+⏺ Perfect! The build completed successfully. Now the toggle button behavior is much more
+  user-friendly:
+
+  ✅ Intelligent Toggle Placement:
+  - When drawer is open: Toggle button appears in the "Unmatched Items" header (where it
+  logically belongs)
+  - When drawer is closed: Toggle button moves to the "Linked Files" header (ensuring it's
+   always accessible)
+  - Users can always find the toggle button to get the drawer back
+
+  ✅ Visual Feedback:
+  - Shows unmatched item count badge when drawer is hidden so users know what they're
+  getting
+  - Uses sidebar.trailing.closed icon when in the "Linked Files" header to indicate a
+  hidden panel
+  - Proper help text that shows the count: "Show Unmatched Items (227)"
+
+  ✅ Professional UX:
+  - No more "lost" controls - the toggle is always visible somewhere
+  - Contextual placement - appears in the relevant section header
+  - Smooth animations as the button moves between locations
+
+  This creates a much better user experience where the drawer control is never hidden, but
+   appears in the most contextually appropriate location based on the current state. Users
+   will never be stuck wondering how to get the unmatched items view back.
+
+> OK! 
+
+  but the when unmatched is hidden we only have the number of unmatched shown:
+
+  [Image #1]
+
+  this should have the drawer icon too! and have padding border too ? like: [Image #2] but 
+  just a little darker ?
+
+⏺ You're right! When the drawer is hidden, the toggle button needs the drawer icon and
+  better visual styling. Let me update it to match the visual treatment of the "Blank
+  Rush" indicators.
+
+⏺ Update(SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift)
+  ⎿  Updated SourcePrint/SourcePrint/Features/Linking/LinkingResultsView.swift with 9 
+     additions and 7 removals
+       62                                    }
+       63                                } label: {
+       64                                    HStack(spacing: 4) {
+       65 -                                      if totalUnmatchedItems > 0 {
+       66 -                                          Text("\(totalUnmatchedItems)")
+       67 -                                              .font(.caption2)
+       68 -                                              .foregroundColor(.secondary)
+       69 -                                      }
+       65 +                                      Text("\(totalUnmatchedItems)")
+       66 +                                          .font(.caption2)
+       67 +                                          .foregroundColor(.white)
+       68                                        Image(systemName: 
+            "sidebar.trailing.closed")
+       69 -                                          .font(.system(size: 14))
+       70 -                                          .foregroundColor(.secondary)
+       69 +                                          .font(.system(size: 12))
+       70 +                                          .foregroundColor(.white)
+       71                                    }
+       72 +                                  .padding(.horizontal, 8)
+       73 +                                  .padding(.vertical, 3)
+       74 +                                  .background(Color.gray.opacity(0.7))
+       75 +                                  .cornerRadius(4)
+       76                                }
+       77                                .buttonStyle(.plain)
+       78                                .help("Show Unmatched Items 
+            (\(totalUnmatchedItems))")
+
+⏺ Now let me build and test this styling update:
+
+⏺ Bash(./build-sourceprint.sh)
+  ⎿ 🔨 Building SourcePrint macOS app with ProResWriterCore support...                   
+    Command line invocation:
+        /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SourcePrin
+    … +402 lines (ctrl+r to expand)
+
+
+⏺ Perfect! The build completed successfully. Now when the unmatched drawer is hidden, the
+  toggle button will have much better styling:
+
+  ✅ Enhanced Visual Design:
+  - Both count AND drawer icon: Shows "227" + sidebar icon instead of just the count
+  - Professional styling: Gray background with padding and rounded corners
+  - White text/icons: Better contrast on the gray background
+  - Consistent sizing: Smaller icon (12pt) and proper spacing
+
+  ✅ Visual Consistency:
+  - Now matches the professional appearance of other status indicators like "Blank Rush"
+  - Has proper padding border and rounded corners like other UI elements
+  - Darker gray background as requested - similar to but distinct from the "Blank Rush"
+  green
+
+  The toggle button now has a much more professional appearance when hidden, making it
+  clear it's an actionable control rather than just informational text. Users will
+  immediately recognize it as a clickable element to restore the unmatched items view.
+
+> I tweaked a bit! thanks!
+
+  now can we also make a UI change that allows us remove a imported file by selecting 
+  it/many and pressing backsapce to remove or right click remove, this should also be 
+  possible on the linking tab and remove the imported file from project.
+
+⏺ I'll analyze the current import and linking UI structure and create a plan to add file
+  removal functionality with both keyboard shortcuts and context menus.
+
+⏺ Read(SourcePrint/SourcePrint/Features/MediaImport/MediaImportTab.swift)
+  ⎿  Read 287 lines (ctrl+r to expand)
+
+⏺ Read(SourcePrint/SourcePrint/Models/Project.swift)
+  ⎿  Read 40 lines (ctrl+r to expand)
+  ⎿  5-hour limit reached ∙ resets 1am
+     /upgrade to increase your usage limit.
+
