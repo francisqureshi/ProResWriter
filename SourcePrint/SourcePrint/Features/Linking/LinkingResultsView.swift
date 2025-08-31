@@ -62,13 +62,17 @@ struct LinkingResultsView: View {
                                 }
                             } label: {
                                 HStack(spacing: 2) {
-                                    Text("\(totalUnmatchedItems)")
-                                        .font(.caption2)
-                                        .foregroundColor(.white)
+                                    // Text("\(totalUnmatchedItems)")
+                                    //     .font(.caption2)
+                                    //     .foregroundColor(.white)
                                     Image(systemName: "inset.filled.righthalf.rectangle")
                                         .font(.system(size: 14))
                                         .foregroundColor(.white)
                                 }
+                                // .padding(.horizontal, 8)
+                                // .padding(.vertical, 3)
+                                // .background(Color.gray.opacity(0.7))
+                                // .cornerRadius(4)
                             }
                             .buttonStyle(.plain)
                             .help("Show Unmatched Items (\(totalUnmatchedItems))")
