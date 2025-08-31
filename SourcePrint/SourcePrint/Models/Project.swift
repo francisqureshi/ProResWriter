@@ -43,6 +43,14 @@ class Project: ObservableObject, Codable, Identifiable {
         linkingResult?.parentsWithChildren.isEmpty == false
     }
     
+    /// Check if blank rush file exists on disk for given OCF filename
+    func blankRushFileExists(for ocfFileName: String) -> Bool {
+        let baseName = (ocfFileName as NSString).deletingPathExtension
+        let blankRushFileName = "\(baseName)_BlankRush.mov"
+        let blankRushURL = blankRushDirectory.appendingPathComponent(blankRushFileName)
+        return FileManager.default.fileExists(atPath: blankRushURL.path)
+    }
+    
     var blankRushProgress: (completed: Int, total: Int) {
         let total = linkingResult?.parentsWithChildren.count ?? 0
         let completed = blankRushStatus.values.compactMap { 
