@@ -54,8 +54,16 @@ public class BlankRushIntermediate {
         self.projectBlankRushDirectory = projectDirectory
     }
 
+    /// Progress callback closure for real-time updates
+    public typealias ProgressCallback = @Sendable (String, Double, Double, Double) async -> Void // (clipName, current, total, fps)
+    
     /// Create blank rush files for all OCF parents that have children
     public func createBlankRushes(from linkingResult: LinkingResult) async -> [BlankRushResult] {
+        return await createBlankRushes(from: linkingResult, progressCallback: nil)
+    }
+    
+    /// Create blank rush files with progress callback
+    public func createBlankRushes(from linkingResult: LinkingResult, progressCallback: ProgressCallback?) async -> [BlankRushResult] {
         print("🎬 Creating blank rushes for \(linkingResult.ocfParents.count) OCF parents...")
 
         // Ensure output directory exists
@@ -69,7 +77,8 @@ public class BlankRushIntermediate {
             if parent.hasChildren {
                 print("\n📁 Processing \(parent.ocf.fileName) with \(parent.childCount) children...")
 
-                let result = await createBlankRush(for: parent.ocf, outputDirectory: outputURL)
+                let clipName = (parent.ocf.fileName as NSString).deletingPathExtension
+                let result = await createBlankRush(for: parent.ocf, outputDirectory: outputURL, clipName: clipName, progressCallback: progressCallback)
                 results.append(result)
 
                 if result.success {
@@ -98,7 +107,7 @@ public class BlankRushIntermediate {
     }
 
     /// Create blank rush for a single OCF file
-    private func createBlankRush(for ocf: MediaFileInfo, outputDirectory: URL) async
+    private func createBlankRush(for ocf: MediaFileInfo, outputDirectory: URL, clipName: String, progressCallback: ProgressCallback?) async
         -> BlankRushResult
     {
 
@@ -111,7 +120,9 @@ public class BlankRushIntermediate {
         do {
             let success = try await generateBlankRushFromOCF(
                 ocfFile: ocf,
-                outputPath: outputURL.path
+                outputPath: outputURL.path,
+                clipName: clipName,
+                progressCallback: progressCallback
             )
 
             return BlankRushResult(
@@ -137,6 +148,13 @@ public class BlankRushIntermediate {
     public func generateBlankRushFromOCF(ocfFile: MediaFileInfo, outputPath: String) async throws
         -> Bool
     {
+        return try await generateBlankRushFromOCF(ocfFile: ocfFile, outputPath: outputPath, clipName: (ocfFile.fileName as NSString).deletingPathExtension, progressCallback: nil)
+    }
+    
+    /// Generate black frames using MediaFileInfo metadata with progress callback
+    public func generateBlankRushFromOCF(ocfFile: MediaFileInfo, outputPath: String, clipName: String, progressCallback: ProgressCallback?) async throws
+        -> Bool
+    {
 
         print("  🖤 Starting black frame generation with MediaFileInfo...")
         print("  📝 Input: \(ocfFile.fileName)")
@@ -147,7 +165,7 @@ public class BlankRushIntermediate {
 
         do {
             try await Task {
-                try generateBlackFramesFromMediaFileInfo(ocfFile: ocfFile, outputPath: outputPath)
+                try generateBlackFramesFromMediaFileInfo(ocfFile: ocfFile, outputPath: outputPath, clipName: clipName, progressCallback: progressCallback)
             }.value
 
             print("  ✅ Black frame generation completed successfully!")
@@ -183,7 +201,7 @@ public class BlankRushIntermediate {
     }
 
     /// Generate black frames using pre-analyzed MediaFileInfo metadata
-    private func generateBlackFramesFromMediaFileInfo(ocfFile: MediaFileInfo, outputPath: String)
+    private func generateBlackFramesFromMediaFileInfo(ocfFile: MediaFileInfo, outputPath: String, clipName: String, progressCallback: ProgressCallback?)
         throws
     {
 
@@ -238,7 +256,9 @@ public class BlankRushIntermediate {
         // Generate synthetic black frames with metadata from source
         try generateBlackFramesToProRes(
             outputPath: outputPath,
-            properties: sourceProperties
+            properties: sourceProperties,
+            clipName: clipName,
+            progressCallback: progressCallback
         )
 
         print("  ✅ Black frame generation with MediaFileInfo completed: \(outputPath)")
@@ -262,10 +282,12 @@ public class BlankRushIntermediate {
         print("  📝 Duration: \(String(format: "%.2f", sourceProperties.duration))s")
         print("  📝 Timecode: \(sourceProperties.timecode)")
 
-        // Generate black frames
+        // Generate black frames (legacy method - no progress callback)
         try generateBlackFramesToProRes(
             outputPath: outputPath,
-            properties: sourceProperties
+            properties: sourceProperties,
+            clipName: sourceProperties.clipName,
+            progressCallback: nil
         )
 
         print("  ✅ Black frame generation from file path completed: \(outputPath)")
@@ -378,7 +400,7 @@ public class BlankRushIntermediate {
 
     /// Generate black video with timecode burn-in using VideoToolbox ProRes encoder
     private func generateBlackFramesToProRes(
-        outputPath: String, properties: BlankRushVideoProperties
+        outputPath: String, properties: BlankRushVideoProperties, clipName: String, progressCallback: ProgressCallback?
     ) throws {
 
         print(
@@ -486,13 +508,35 @@ public class BlankRushIntermediate {
         var frameCount = 0
         var encodedPacketCount = 0
 
-        // Progress bar setup using modular TUI system
-        let progressBar = ProgressBar.frameGeneration()
-        progressBar.start()
+        // Progress tracking setup
+        let startTime = CFAbsoluteTimeGetCurrent()
+        var lastProgressUpdate = startTime
+        let progressUpdateInterval = 0.1 // Update every 0.1 seconds
+        
+        // Progress bar setup using modular TUI system (only if no callback provided)
+        let progressBar = progressCallback == nil ? ProgressBar.frameGeneration() : nil
+        progressBar?.start()
 
         for frameIndex in 0..<totalFrames {
-            // Update progress bar using modular system
-            progressBar.update(current: frameIndex + 1, total: totalFrames)
+            // Update progress bar using modular system or callback
+            if let progressBar = progressBar {
+                progressBar.update(current: frameIndex + 1, total: totalFrames)
+            }
+            
+            // Send async progress callback if provided
+            if let callback = progressCallback {
+                let currentTime = CFAbsoluteTimeGetCurrent()
+                if currentTime - lastProgressUpdate >= progressUpdateInterval || frameIndex == 0 || frameIndex == totalFrames - 1 {
+                    let progress = Double(frameIndex + 1)
+                    let total = Double(totalFrames)
+                    let fps = frameIndex > 0 ? Double(frameIndex) / (currentTime - startTime) : 0.0
+                    
+                    Task { @MainActor in
+                        await callback(clipName, progress, total, fps)
+                    }
+                    lastProgressUpdate = currentTime
+                }
+            }
             let filterFrame = AVFrame()
 
             do {
@@ -558,7 +602,16 @@ public class BlankRushIntermediate {
         }
 
         // Complete progress bar using modular system
-        progressBar.complete(total: totalFrames)
+        progressBar?.complete(total: totalFrames)
+        
+        // Send final progress callback if provided
+        if let callback = progressCallback {
+            let finalTime = CFAbsoluteTimeGetCurrent()
+            let finalFPS = totalFrames > 0 ? Double(totalFrames) / (finalTime - startTime) : 0.0
+            Task { @MainActor in
+                await callback(clipName, Double(totalFrames), Double(totalFrames), finalFPS)
+            }
+        }
 
         // Flush encoder with proper timing (from straightTranscodeToProRes)
         print("  🔄 Force flushing encoder to ensure all frames are written")
