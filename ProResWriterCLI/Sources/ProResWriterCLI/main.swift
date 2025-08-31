@@ -205,18 +205,58 @@ func testBlankRushCreation(linkingResult: LinkingResult) async -> [BlankRushResu
 
     let blankRushIntermediate = BlankRushIntermediate(
         projectDirectory: testPaths.projectBlankRushDirectory)
-    let results = await blankRushIntermediate.createBlankRushes(from: linkingResult)
+    
+    // Test 1: Traditional TUI progress bar (no callback)
+    print("\n📊 Test 1: Using TUI progress bar system (no callback)")
+    let tuiResults = await blankRushIntermediate.createBlankRushes(from: linkingResult)
 
-    print("\n📊 Blank Rush Results:")
-    for result in results {
+    print("\n📊 TUI Progress Bar Results:")
+    for result in tuiResults {
         if result.success {
             print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent)")
         } else {
             print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
         }
     }
+    
+    // Test 2: New progress callback system (simulating GUI usage)
+    print("\n" + String(repeating: "-", count: 50))
+    print("📊 Test 2: Using progress callback system (simulating GUI)")
+    
+    // Create a simple progress callback that prints updates
+    let progressCallback: BlankRushIntermediate.ProgressCallback = { clipName, current, total, fps in
+        let percentage = Int((current / total) * 100)
+        let progressBar = String(repeating: "█", count: percentage / 4)  // Smaller bar for CLI
+        let emptyBar = String(repeating: "░", count: 25 - (percentage / 4))
+        let fpsText = fps > 0 ? String(format: " @ %.1ffps", fps) : ""
+        print("\r  📞 \(clipName): [\(progressBar)\(emptyBar)] \(percentage)%\(fpsText)", terminator: "")
+        if percentage >= 100 {
+            print("")  // New line when complete
+        }
+    }
+    
+    let callbackResults = await blankRushIntermediate.createBlankRushes(from: linkingResult, progressCallback: progressCallback)
 
-    return results
+    print("\n📊 Progress Callback Results:")
+    for result in callbackResults {
+        if result.success {
+            print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent)")
+        } else {
+            print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
+        }
+    }
+    
+    // Verify both approaches produce identical results
+    let tuiSuccess = tuiResults.filter { $0.success }.count
+    let callbackSuccess = callbackResults.filter { $0.success }.count
+    
+    if tuiSuccess == callbackSuccess {
+        print("\n✅ Both TUI and callback systems produced identical results: \(tuiSuccess) successful")
+    } else {
+        print("\n❌ Results differ: TUI=\(tuiSuccess), Callback=\(callbackSuccess)")
+    }
+
+    return tuiResults
 }
 
 func testTranscodeBlank() async {

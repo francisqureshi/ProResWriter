@@ -360,7 +360,6 @@ struct DirectoryPickerRow: View {
 struct MediaImportTab: View {
     let project: Project
     @EnvironmentObject var projectManager: ProjectManager
-    @State private var showingFilePicker = false
     @State private var importingOCF = false
     @State private var isAnalyzing = false
     @State private var analysisProgress = ""
@@ -370,31 +369,31 @@ struct MediaImportTab: View {
     var body: some View {
         VStack(spacing: 20) {
             // Import Actions
-            HStack(spacing: 16) {
+            HStack(spacing: 40) {
                 VStack {
-                    Button("Import OCF Files") {
+                    Text("Original Camera Files")
+                        .font(.headline)
+                        .foregroundColor(.blue)
+                    
+                    Button("Import OCF Files...") {
                         importingOCF = true
-                        showingFilePicker = true
+                        showImportPicker()
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isAnalyzing)
-                    
-                    Text("Original Camera Files")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
                 
                 VStack {
-                    Button("Import Segments") {
-                        importingOCF = false
-                        showingFilePicker = true
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(isAnalyzing)
-                    
                     Text("Graded/Edited Footage")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.headline)
+                        .foregroundColor(.orange)
+                    
+                    Button("Import Segments...") {
+                        importingOCF = false
+                        showImportPicker()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isAnalyzing)
                 }
             }
             .padding()
@@ -439,22 +438,95 @@ struct MediaImportTab: View {
                 .frame(minWidth: 300)
             }
         }
-        .fileImporter(
-            isPresented: $showingFilePicker,
-            allowedContentTypes: [.movie, .quickTimeMovie],
-            allowsMultipleSelection: true
-        ) { result in
-            handleFileSelection(result)
+    }
+    
+    private func showImportPicker() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.movie, .quickTimeMovie]
+        panel.title = importingOCF ? "Import OCF Files or Folders" : "Import Segment Files or Folders"
+        panel.message = "Select video files and/or folders. Folders will be scanned recursively for video files."
+        
+        if panel.runModal() == .OK {
+            let selectedURLs = panel.urls
+            guard !selectedURLs.isEmpty else { return }
+            
+            // Automatically handle mixed selection of files and folders
+            Task {
+                var allVideoFiles: [URL] = []
+                
+                for url in selectedURLs {
+                    var isDirectory: ObjCBool = false
+                    if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+                        if isDirectory.boolValue {
+                            // It's a folder - scan recursively
+                            let folderVideoFiles = await scanFolderForVideoFiles(url)
+                            allVideoFiles.append(contentsOf: folderVideoFiles)
+                        } else {
+                            // It's a file - add directly if it's a video file
+                            let fileExtension = url.pathExtension.lowercased()
+                            let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
+                            if videoExtensions.contains(fileExtension) {
+                                allVideoFiles.append(url)
+                            }
+                        }
+                    }
+                }
+                
+                await MainActor.run {
+                    if !allVideoFiles.isEmpty {
+                        importMediaFiles(urls: allVideoFiles, isOCF: importingOCF)
+                    } else {
+                        print("No video files found in selection")
+                    }
+                }
+            }
         }
     }
     
-    private func handleFileSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            importMediaFiles(urls: urls, isOCF: importingOCF)
-        case .failure(let error):
-            print("File selection failed: \(error)")
+    private func scanFolderForVideoFiles(_ folderURL: URL) async -> [URL] {
+        return await withTaskGroup(of: [URL].self) { taskGroup in
+            taskGroup.addTask {
+                await self.getAllVideoFiles(from: folderURL)
+            }
+            
+            var allFiles: [URL] = []
+            for await files in taskGroup {
+                allFiles.append(contentsOf: files)
+            }
+            return allFiles
         }
+    }
+    
+    private func getAllVideoFiles(from directoryURL: URL) async -> [URL] {
+        var videoFiles: [URL] = []
+        let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
+        
+        guard let enumerator = FileManager.default.enumerator(
+            at: directoryURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return videoFiles
+        }
+        
+        for case let fileURL as URL in enumerator {
+            do {
+                let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+                if resourceValues.isRegularFile == true {
+                    let fileExtension = fileURL.pathExtension.lowercased()
+                    if videoExtensions.contains(fileExtension) {
+                        videoFiles.append(fileURL)
+                    }
+                }
+            } catch {
+                print("Error processing file \(fileURL): \(error)")
+            }
+        }
+        
+        return videoFiles.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
     
     private func importMediaFiles(urls: [URL], isOCF: Bool) {
@@ -462,36 +534,102 @@ struct MediaImportTab: View {
         analysisProgress = "Analyzing \(urls.count) file(s)..."
         
         Task {
-            do {
-                var mediaFiles: [MediaFileInfo] = []
-                
-                for (index, url) in urls.enumerated() {
-                    await MainActor.run {
-                        analysisProgress = "Analyzing file \(index + 1)/\(urls.count): \(url.lastPathComponent)"
-                    }
-                    
-                    let mediaFile = try await MediaAnalyzer().analyzeMediaFile(at: url, type: isOCF ? .originalCameraFile : .gradedSegment)
-                    mediaFiles.append(mediaFile)
+            let mediaFiles = await analyzeMediaFilesInParallel(urls: urls, isOCF: isOCF)
+            
+            await MainActor.run {
+                if isOCF {
+                    project.addOCFFiles(mediaFiles)
+                } else {
+                    project.addSegments(mediaFiles)
                 }
                 
-                await MainActor.run {
-                    if isOCF {
-                        project.addOCFFiles(mediaFiles)
-                    } else {
-                        project.addSegments(mediaFiles)
-                    }
-                    
-                    projectManager.saveProject(project)
-                    isAnalyzing = false
-                    analysisProgress = ""
-                }
+                projectManager.saveProject(project)
+                isAnalyzing = false
+                analysisProgress = ""
+                NSLog("✅ Imported \(mediaFiles.count) \(isOCF ? "OCF" : "segment") files")
+            }
+        }
+    }
+    
+    private func analyzeMediaFilesInParallel(urls: [URL], isOCF: Bool) async -> [MediaFileInfo] {
+        // For I/O-bound tasks like media analysis, we can use much higher concurrency
+        let maxConcurrentTasks = min(urls.count, 50)  // Increased from CPU core count to 50
+        var completedCount = 0
+        let totalCount = urls.count
+        var lastUpdateTime = CFAbsoluteTimeGetCurrent()
+        let updateInterval: CFTimeInterval = 0.5  // Update UI every 0.5 seconds
+        
+        return await withTaskGroup(of: (Int, MediaFileInfo?).self, returning: [MediaFileInfo].self) { taskGroup in
+            var urlIndex = 0
+            
+            // Start initial batch of tasks
+            for _ in 0..<min(maxConcurrentTasks, urls.count) {
+                let index = urlIndex
+                let url = urls[index]
+                urlIndex += 1
                 
-            } catch {
-                await MainActor.run {
-                    isAnalyzing = false
-                    analysisProgress = "Analysis failed: \(error.localizedDescription)"
+                taskGroup.addTask {
+                    do {
+                        let mediaFile = try await MediaAnalyzer().analyzeMediaFile(
+                            at: url, 
+                            type: isOCF ? .originalCameraFile : .gradedSegment
+                        )
+                        return (index, mediaFile)
+                    } catch {
+                        NSLog("❌ Failed to analyze \(url.lastPathComponent): \(error)")
+                        return (index, nil)
+                    }
                 }
             }
+            
+            // Collect results and maintain steady concurrency
+            var results: [(Int, MediaFileInfo?)] = []
+            results.reserveCapacity(totalCount)  // Pre-allocate array capacity
+            
+            for await result in taskGroup {
+                results.append(result)
+                completedCount += 1
+                
+                // Add next task if we have more URLs to process
+                if urlIndex < urls.count {
+                    let index = urlIndex
+                    let url = urls[index]
+                    urlIndex += 1
+                    
+                    taskGroup.addTask {
+                        do {
+                            let mediaFile = try await MediaAnalyzer().analyzeMediaFile(
+                                at: url, 
+                                type: isOCF ? .originalCameraFile : .gradedSegment
+                            )
+                            return (index, mediaFile)
+                        } catch {
+                            NSLog("❌ Failed to analyze \(url.lastPathComponent): \(error)")
+                            return (index, nil)
+                        }
+                    }
+                }
+                
+                // Throttled UI updates
+                let currentTime = CFAbsoluteTimeGetCurrent()
+                if currentTime - lastUpdateTime >= updateInterval || completedCount == totalCount {
+                    lastUpdateTime = currentTime
+                    
+                    await MainActor.run {
+                        let (_, mediaFile) = result
+                        if let mediaFile = mediaFile {
+                            analysisProgress = "Analyzing files... \(completedCount)/\(totalCount) completed - \(mediaFile.fileName)"
+                        } else {
+                            analysisProgress = "Analyzing files... \(completedCount)/\(totalCount) completed"
+                        }
+                    }
+                }
+            }
+            
+            // Sort by original index and filter out failed analyses
+            return results
+                .sorted { $0.0 < $1.0 }
+                .compactMap { $0.1 }
         }
     }
 }
