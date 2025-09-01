@@ -9,14 +9,20 @@ import SwiftUI
 import ProResWriterCore
 
 struct LinkingResultsView: View {
-    let linkingResult: LinkingResult
-    let project: Project
+    @ObservedObject var project: Project
+    @EnvironmentObject var projectManager: ProjectManager
+    
+    // Use the project's current linking result instead of a cached copy
+    private var linkingResult: LinkingResult? {
+        project.linkingResult
+    }
     @State private var selectedLinkedFiles: Set<String> = []
     @State private var selectedUnmatchedFiles: Set<String> = []
     @State private var showUnmatchedDrawer = true
     
     // Computed properties to separate high/medium confidence from low confidence segments
     var confidentlyLinkedParents: [OCFParent] {
+        guard let linkingResult = linkingResult else { return [] }
         return linkingResult.ocfParents.compactMap { parent in
             let goodSegments = parent.children.filter { segment in
                 segment.linkConfidence == .high || segment.linkConfidence == .medium
@@ -26,6 +32,7 @@ struct LinkingResultsView: View {
     }
     
     var lowConfidenceSegments: [LinkedSegment] {
+        guard let linkingResult = linkingResult else { return [] }
         return linkingResult.ocfParents.flatMap { parent in
             parent.children.filter { segment in
                 segment.linkConfidence == .low
@@ -38,12 +45,36 @@ struct LinkingResultsView: View {
     }
     
     var totalUnmatchedItems: Int {
+        guard let linkingResult = linkingResult else { return 0 }
         return linkingResult.unmatchedOCFs.count + 
                linkingResult.unmatchedSegments.count + 
                lowConfidenceSegments.count
     }
     
     var body: some View {
+        Group {
+            if linkingResult == nil {
+                VStack {
+                    Image(systemName: "link.circle")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No linking results available")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Text("Files were removed. Run auto-linking again to see updated results.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                linkingResultsContent
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var linkingResultsContent: some View {
         HStack(spacing: 0) {
                 // Confidently Linked OCF Parents and Children
                 VStack(alignment: .leading) {
@@ -132,16 +163,30 @@ struct LinkingResultsView: View {
                     }
                     
                     List(selection: $selectedUnmatchedFiles) {
-                        if !linkingResult.unmatchedOCFs.isEmpty {
-                            Section("Unmatched OCF Files (\(linkingResult.unmatchedOCFs.count))") {
+                        if let linkingResult = linkingResult, !linkingResult.unmatchedOCFs.isEmpty {
+                            Section {
                                 ForEach(linkingResult.unmatchedOCFs, id: \.fileName) { ocf in
                                     UnmatchedFileRowView(file: ocf, type: .ocf)
                                         .tag(ocf.fileName)
                                 }
+                                
+                                // Remove unmatched OCF files button
+                                HStack {
+                                    Spacer()
+                                    Button("Remove Unmatched OCF Files from Project") {
+                                        removeUnmatchedOCFFiles()
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .foregroundColor(.red)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                            } header: {
+                                Text("Unmatched OCF Files (\(linkingResult.unmatchedOCFs.count))")
                             }
                         }
                         
-                        if !linkingResult.unmatchedSegments.isEmpty {
+                        if let linkingResult = linkingResult, !linkingResult.unmatchedSegments.isEmpty {
                             Section("Unmatched Segments (\(linkingResult.unmatchedSegments.count))") {
                                 ForEach(linkingResult.unmatchedSegments, id: \.fileName) { segment in
                                     UnmatchedFileRowView(file: segment, type: .segment)
@@ -164,6 +209,36 @@ struct LinkingResultsView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+    }
+    
+    // MARK: - Unmatched File Removal
+    
+    private func removeUnmatchedOCFFiles() {
+        guard let currentLinkingResult = linkingResult else { return }
+        let fileNamesToRemove = currentLinkingResult.unmatchedOCFs.map { $0.fileName }
+        
+        // Remove from project files
+        project.ocfFiles.removeAll { fileNamesToRemove.contains($0.fileName) }
+        
+        // Clean up related blank rush status
+        for fileName in fileNamesToRemove {
+            project.blankRushStatus.removeValue(forKey: fileName)
+        }
+        
+        // Update the linking result to remove these from unmatched list (keep all linked data)
+        let updatedUnmatchedOCFs = currentLinkingResult.unmatchedOCFs.filter { !fileNamesToRemove.contains($0.fileName) }
+        
+        let updatedLinkingResult = LinkingResult(
+            ocfParents: currentLinkingResult.ocfParents, // Keep all linked data
+            unmatchedSegments: currentLinkingResult.unmatchedSegments, // Keep unchanged
+            unmatchedOCFs: updatedUnmatchedOCFs // Remove the files we deleted
+        )
+        
+        project.linkingResult = updatedLinkingResult
+        project.updateModified()
+        projectManager.saveProject(project)
+        
+        NSLog("🗑️ Removed \(fileNamesToRemove.count) unmatched OCF file(s) from project: \(fileNamesToRemove.joined(separator: ", "))")
     }
 }
 

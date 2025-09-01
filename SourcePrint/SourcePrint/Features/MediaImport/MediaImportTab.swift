@@ -72,6 +72,17 @@ struct MediaImportTab: View {
                     List(project.ocfFiles, id: \.fileName, selection: $selectedOCFFiles) { file in
                         MediaFileRowView(file: file, type: .ocf)
                             .tag(file.fileName)
+                            .contextMenu {
+                                Button("Remove from Project", systemImage: "trash") {
+                                    removeOCFFiles([file.fileName])
+                                    // Clear selection to fix UI state
+                                    selectedOCFFiles.removeAll()
+                                }
+                                .foregroundColor(.red)
+                            }
+                    }
+                    .onDeleteCommand {
+                        removeSelectedOCFFiles()
                     }
                 }
                 .frame(minWidth: 300)
@@ -85,6 +96,17 @@ struct MediaImportTab: View {
                     List(project.segments, id: \.fileName, selection: $selectedSegments) { file in
                         MediaFileRowView(file: file, type: .segment)
                             .tag(file.fileName)
+                            .contextMenu {
+                                Button("Remove from Project", systemImage: "trash") {
+                                    removeSegments([file.fileName])
+                                    // Clear selection to fix UI state
+                                    selectedSegments.removeAll()
+                                }
+                                .foregroundColor(.red)
+                            }
+                    }
+                    .onDeleteCommand {
+                        removeSelectedSegments()
                     }
                 }
                 .frame(minWidth: 300)
@@ -283,5 +305,33 @@ struct MediaImportTab: View {
                 .sorted { $0.0 < $1.0 }
                 .compactMap { $0.1 }
         }
+    }
+    
+    // MARK: - File Removal Methods
+    
+    private func removeSelectedOCFFiles() {
+        guard !selectedOCFFiles.isEmpty else { return }
+        let fileNames = Array(selectedOCFFiles)
+        removeOCFFiles(fileNames)
+        selectedOCFFiles.removeAll()
+    }
+    
+    private func removeSelectedSegments() {
+        guard !selectedSegments.isEmpty else { return }
+        let fileNames = Array(selectedSegments)
+        removeSegments(fileNames)
+        selectedSegments.removeAll()
+    }
+    
+    private func removeOCFFiles(_ fileNames: [String]) {
+        project.removeOCFFiles(fileNames)
+        projectManager.saveProject(project)
+        NSLog("🗑️ Removed \(fileNames.count) OCF file(s): \(fileNames.joined(separator: ", "))")
+    }
+    
+    private func removeSegments(_ fileNames: [String]) {
+        project.removeSegments(fileNames)
+        projectManager.saveProject(project)
+        NSLog("🗑️ Removed \(fileNames.count) segment(s): \(fileNames.joined(separator: ", "))")
     }
 }

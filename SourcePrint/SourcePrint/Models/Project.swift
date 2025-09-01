@@ -213,6 +213,40 @@ class Project: ObservableObject, Codable, Identifiable {
         updateModified()
     }
     
+    /// Remove OCF files by filename
+    func removeOCFFiles(_ fileNames: [String]) {
+        ocfFiles.removeAll { fileNames.contains($0.fileName) }
+        
+        // Also clean up related linking results and blank rush status
+        for fileName in fileNames {
+            blankRushStatus.removeValue(forKey: fileName)
+        }
+        
+        // If linking result exists, invalidate it since OCF files changed
+        if linkingResult != nil {
+            linkingResult = nil
+        }
+        
+        updateModified()
+    }
+    
+    /// Remove segments by filename  
+    func removeSegments(_ fileNames: [String]) {
+        segments.removeAll { fileNames.contains($0.fileName) }
+        
+        // Clean up segment modification tracking
+        for fileName in fileNames {
+            segmentModificationDates.removeValue(forKey: fileName)
+        }
+        
+        // If linking result exists, invalidate it since segments changed
+        if linkingResult != nil {
+            linkingResult = nil
+        }
+        
+        updateModified()
+    }
+    
     // MARK: - File System Helpers
     
     /// Get file modification date from file system

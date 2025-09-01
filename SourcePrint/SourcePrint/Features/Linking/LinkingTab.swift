@@ -95,23 +95,7 @@ struct LinkingTab: View {
             .padding()
             
             // Linking Results Display
-            if let linkingResult = project.linkingResult {
-                LinkingResultsView(linkingResult: linkingResult, project: project)
-            } else {
-                VStack {
-                    Image(systemName: "link.circle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No linking results yet")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Text("Import OCF files and segments, then run auto-linking")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            LinkingResultsView(project: project)
         }
     }
     
