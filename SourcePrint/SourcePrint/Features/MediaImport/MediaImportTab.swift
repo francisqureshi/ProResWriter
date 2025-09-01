@@ -10,7 +10,7 @@ import ProResWriterCore
 import UniformTypeIdentifiers
 
 struct MediaImportTab: View {
-    let project: Project
+    @ObservedObject var project: Project
     @EnvironmentObject var projectManager: ProjectManager
     @State private var importingOCF = false
     @State private var isAnalyzing = false

@@ -54,6 +54,7 @@ pix_fmts=uyvy422
 - **Real-Time Progress**: Frame-accurate encoding feedback with FPS display
 - **Professional Metadata**: Frame counts, timecode ranges, resolution, confidence indicators
 - **Status Indicators**: 🟢🟡⚫️🔴 for workflow state tracking
+- **Reactive UI**: `@ObservedObject` for cross-tab synchronization (MediaImportTab updates when LinkingTab removes files)
 
 ## Key Technical Achievements
 
