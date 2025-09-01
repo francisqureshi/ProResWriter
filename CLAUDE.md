@@ -55,6 +55,7 @@ pix_fmts=uyvy422
 - **Professional Metadata**: Frame counts, timecode ranges, resolution, confidence indicators
 - **Status Indicators**: 🟢🟡⚫️🔴 for workflow state tracking
 - **Reactive UI**: `@ObservedObject` for cross-tab synchronization (MediaImportTab updates when LinkingTab removes files)
+- **Context Menu UX**: Left-click ellipsis menus with `.menuOrder(.fixed)` for window-bounded dropdowns
 
 ## Key Technical Achievements
 
