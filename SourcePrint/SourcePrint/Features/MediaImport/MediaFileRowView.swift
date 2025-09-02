@@ -16,11 +16,24 @@ struct MediaFileRowView: View {
         case ocf, segment
     }
     
+    // Check if this is a VFX shot
+    private var isVFXShot: Bool {
+        file.fileName.uppercased().contains("VFX")
+    }
+    
     var body: some View {
         HStack {
+            // Main type icon
             Image(systemName: type == .ocf ? "camera" : "scissors")
                 .foregroundColor(type == .ocf ? .blue : .orange)
                 .frame(width: 16)
+            
+            // VFX indicator for segments
+            if isVFXShot && type == .segment {
+                Image(systemName: "wand.and.stars")
+                    .foregroundColor(.purple)
+                    .frame(width: 16)
+            }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.fileName)
@@ -49,12 +62,26 @@ struct MediaFileRowView: View {
             
             Spacer()
             
-            Text("\(file.mediaType)")
-                .font(.caption)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.gray.opacity(0.2))
-                .cornerRadius(4)
+            HStack(spacing: 4) {
+                // VFX badge for segments
+                if isVFXShot && type == .segment {
+                    Text("VFX")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple.opacity(0.2))
+                        .foregroundColor(.purple)
+                        .cornerRadius(4)
+                }
+                
+                Text("\(file.mediaType)")
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(4)
+            }
         }
         .padding(.vertical, 2)
     }

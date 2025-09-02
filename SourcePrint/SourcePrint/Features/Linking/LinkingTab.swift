@@ -137,9 +137,24 @@ struct LinkingTab: View {
             return
         }
         
-        let ocfsToProcess = linkingResult.parentsWithChildren
-        guard !ocfsToProcess.isEmpty else {
+        let allOcfsWithChildren = linkingResult.parentsWithChildren
+        guard !allOcfsWithChildren.isEmpty else {
             NSLog("⚠️ No OCF files with children to process")
+            return
+        }
+        
+        // Filter out OCF files that already have blank rushes generated
+        let ocfsToProcess = allOcfsWithChildren.filter { parent in
+            !project.blankRushFileExists(for: parent.ocf.fileName)
+        }
+        
+        let skippedCount = allOcfsWithChildren.count - ocfsToProcess.count
+        if skippedCount > 0 {
+            NSLog("📋 Skipping \(skippedCount) OCF file(s) with existing blank rushes")
+        }
+        
+        guard !ocfsToProcess.isEmpty else {
+            NSLog("✅ All OCF files already have blank rushes - nothing to generate")
             return
         }
         

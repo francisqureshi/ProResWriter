@@ -149,8 +149,17 @@ public class ProResVideoCompositor: NSObject {
             print("⚠️ Failed to create timecode track in composition")
         }
 
-        // Sort segments by start time for trimming
-        let sortedSegments = settings.gradedSegments.sorted { $0.startTime < $1.startTime }
+        // Separate VFX shots from regular segments
+        let vfxSegments = settings.gradedSegments.filter { segment in
+            segment.url.lastPathComponent.uppercased().contains("VFX")
+        }
+        let regularSegments = settings.gradedSegments.filter { segment in
+            !segment.url.lastPathComponent.uppercased().contains("VFX")
+        }
+        
+        // Sort both groups by start time
+        let sortedRegularSegments = regularSegments.sorted { $0.startTime < $1.startTime }
+        let sortedVFXSegments = vfxSegments.sorted { $0.startTime < $1.startTime }
 
         // Create asset loader for segments
         let assetLoader = { (segment: GradedSegment) -> AVAsset in
@@ -160,31 +169,62 @@ public class ProResVideoCompositor: NSObject {
             return AVURLAsset(url: segment.url, options: assetOptions)
         }
 
-        print("🎬 Processing \(sortedSegments.count) segments...")
+        print("🎬 Processing \(regularSegments.count) regular segments + \(vfxSegments.count) VFX segments...")
 
-        // Process segments in reverse order to avoid time shifting
-        for (index, segment) in sortedSegments.reversed().enumerated() {
-            print(
-                "   Processing segment \(sortedSegments.count - index): \(segment.url.lastPathComponent)"
-            )
+        // Process regular segments first (in reverse order to avoid time shifting)
+        if !sortedRegularSegments.isEmpty {
+            print("📹 Processing regular segments...")
+            for (index, segment) in sortedRegularSegments.reversed().enumerated() {
+                print(
+                    "   Processing regular segment \(sortedRegularSegments.count - index): \(segment.url.lastPathComponent)"
+                )
 
-            // Remove the base video section that this segment will replace
-            videoTrack?.removeTimeRange(
-                CMTimeRange(start: segment.startTime, duration: segment.duration))
+                // Remove the base video section that this segment will replace
+                videoTrack?.removeTimeRange(
+                    CMTimeRange(start: segment.startTime, duration: segment.duration))
 
-            // Load asset on-demand and immediately release after use
-            let segmentAsset = assetLoader(segment)
-            let segmentVideoTrack = try? await getVideoTrack(from: segmentAsset)
-            try? videoTrack?.insertTimeRange(
-                CMTimeRange(start: .zero, duration: segment.duration),
-                of: segmentVideoTrack!,
-                at: segment.startTime
-            )
+                // Load asset on-demand and immediately release after use
+                let segmentAsset = assetLoader(segment)
+                let segmentVideoTrack = try? await getVideoTrack(from: segmentAsset)
+                try? videoTrack?.insertTimeRange(
+                    CMTimeRange(start: .zero, duration: segment.duration),
+                    of: segmentVideoTrack!,
+                    at: segment.startTime
+                )
 
-            // Memory cleanup after each segment
-            autoreleasepool {}
+                // Memory cleanup after each segment
+                autoreleasepool {}
+            }
+            print("   ✅ Regular segments processed")
         }
-        print("   ✅ All segments processed")
+
+        // Process VFX segments last (they will be on top by replacing content on main track)
+        if !sortedVFXSegments.isEmpty {
+            print("🎭 Processing VFX segments (on top via main track replacement)...")
+            
+            for (index, segment) in sortedVFXSegments.enumerated() {
+                print(
+                    "   Processing VFX segment \(index + 1): \(segment.url.lastPathComponent)"
+                )
+
+                // Remove whatever is currently at this time range (base video or regular segments)
+                videoTrack?.removeTimeRange(
+                    CMTimeRange(start: segment.startTime, duration: segment.duration))
+
+                // Insert VFX segment into main track (same method as regular segments)
+                let segmentAsset = assetLoader(segment)
+                let segmentVideoTrack = try? await getVideoTrack(from: segmentAsset)
+                try? videoTrack?.insertTimeRange(
+                    CMTimeRange(start: .zero, duration: segment.duration),
+                    of: segmentVideoTrack!,
+                    at: segment.startTime
+                )
+
+                // Memory cleanup after each segment
+                autoreleasepool {}
+            }
+            print("   ✅ VFX segments processed (on top)")
+        }
 
         // Get final composition duration
         let finalDuration = try await composition.load(.duration)

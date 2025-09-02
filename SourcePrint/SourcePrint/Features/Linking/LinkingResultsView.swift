@@ -318,6 +318,11 @@ struct TreeLinkedSegmentRowView: View {
     let linkedSegment: LinkedSegment
     let isLast: Bool
 
+    // Check if this is a VFX shot
+    private var isVFXShot: Bool {
+        linkedSegment.segment.fileName.uppercased().contains("VFX")
+    }
+
     var confidenceColor: Color {
         switch linkedSegment.linkConfidence {
         case .high: return .green
@@ -346,9 +351,30 @@ struct TreeLinkedSegmentRowView: View {
                 .foregroundColor(.orange)
                 .frame(width: 16)
 
+            // VFX indicator
+            if isVFXShot {
+                Image(systemName: "wand.and.stars")
+                    .foregroundColor(.purple)
+                    .frame(width: 16)
+            }
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(linkedSegment.segment.fileName)
-                    .font(.system(.body, design: .monospaced))
+                HStack {
+                    Text(linkedSegment.segment.fileName)
+                        .font(.system(.body, design: .monospaced))
+                    
+                    // VFX badge
+                    if isVFXShot {
+                        Text("VFX")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.purple.opacity(0.2))
+                            .foregroundColor(.purple)
+                            .cornerRadius(3)
+                    }
+                }
 
                 HStack {
                     Text(linkedSegment.linkMethod)
@@ -415,6 +441,11 @@ struct UnmatchedFileRowView: View {
 struct LowConfidenceSegmentRowView: View {
     let linkedSegment: LinkedSegment
 
+    // Check if this is a VFX shot
+    private var isVFXShot: Bool {
+        linkedSegment.segment.fileName.uppercased().contains("VFX")
+    }
+
     var body: some View {
         HStack {
             Image(systemName: "questionmark.circle.fill")
@@ -425,9 +456,30 @@ struct LowConfidenceSegmentRowView: View {
                 .foregroundColor(.orange)
                 .frame(width: 16)
 
+            // VFX indicator
+            if isVFXShot {
+                Image(systemName: "wand.and.stars")
+                    .foregroundColor(.purple)
+                    .frame(width: 16)
+            }
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(linkedSegment.segment.fileName)
-                    .font(.system(.body, design: .monospaced))
+                HStack {
+                    Text(linkedSegment.segment.fileName)
+                        .font(.system(.body, design: .monospaced))
+                    
+                    // VFX badge
+                    if isVFXShot {
+                        Text("VFX")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.purple.opacity(0.2))
+                            .foregroundColor(.purple)
+                            .cornerRadius(3)
+                    }
+                }
 
                 HStack {
                     Text(linkedSegment.linkMethod)
@@ -513,6 +565,11 @@ struct OCFParentRowView: View {
 struct LinkedSegmentRowView: View {
     let linkedSegment: LinkedSegment
 
+    // Check if this is a VFX shot
+    private var isVFXShot: Bool {
+        linkedSegment.segment.fileName.uppercased().contains("VFX")
+    }
+
     var confidenceColor: Color {
         switch linkedSegment.linkConfidence {
         case .high: return .green
@@ -541,9 +598,30 @@ struct LinkedSegmentRowView: View {
                 .foregroundColor(.orange)
                 .frame(width: 16)
 
+            // VFX indicator
+            if isVFXShot {
+                Image(systemName: "wand.and.stars")
+                    .foregroundColor(.purple)
+                    .frame(width: 16)
+            }
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(linkedSegment.segment.fileName)
-                    .font(.system(.body, design: .monospaced))
+                HStack {
+                    Text(linkedSegment.segment.fileName)
+                        .font(.system(.body, design: .monospaced))
+                    
+                    // VFX badge
+                    if isVFXShot {
+                        Text("VFX")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.purple.opacity(0.2))
+                            .foregroundColor(.purple)
+                            .cornerRadius(3)
+                    }
+                }
 
                 HStack {
                     Text(linkedSegment.linkMethod)
