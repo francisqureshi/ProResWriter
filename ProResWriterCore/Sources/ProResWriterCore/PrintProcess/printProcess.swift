@@ -15,7 +15,7 @@ public struct GradedSegment {
     public let startTime: CMTime  // Start time in the final timeline
     public let duration: CMTime  // Duration of the segment
     public let sourceStartTime: CMTime  // Start time in the source segment file
-    
+
     public init(url: URL, startTime: CMTime, duration: CMTime, sourceStartTime: CMTime) {
         self.url = url
         self.startTime = startTime
@@ -29,8 +29,11 @@ public struct CompositorSettings {
     public let baseVideoURL: URL
     public let gradedSegments: [GradedSegment]
     public let proResType: AVVideoCodecType  // .proRes422, .proRes422HQ, etc.
-    
-    public init(outputURL: URL, baseVideoURL: URL, gradedSegments: [GradedSegment], proResType: AVVideoCodecType) {
+
+    public init(
+        outputURL: URL, baseVideoURL: URL, gradedSegments: [GradedSegment],
+        proResType: AVVideoCodecType
+    ) {
         self.outputURL = outputURL
         self.baseVideoURL = baseVideoURL
         self.gradedSegments = gradedSegments
@@ -45,7 +48,7 @@ public class ProResVideoCompositor: NSObject {
     // Progress callback
     public var progressHandler: ((Double) -> Void)?
     public var completionHandler: ((Result<URL, Error>) -> Void)?
-    
+
     public override init() {
         super.init()
     }
@@ -157,7 +160,7 @@ public class ProResVideoCompositor: NSObject {
         let regularSegments = settings.gradedSegments.filter { segment in
             !segment.url.lastPathComponent.uppercased().contains("VFX")
         }
-        
+
         // Sort both groups by start time
         let sortedRegularSegments = regularSegments.sorted { $0.startTime < $1.startTime }
         let sortedVFXSegments = vfxSegments.sorted { $0.startTime < $1.startTime }
@@ -170,7 +173,9 @@ public class ProResVideoCompositor: NSObject {
             return AVURLAsset(url: segment.url, options: assetOptions)
         }
 
-        print("🎬 Processing \(regularSegments.count) regular segments + \(vfxSegments.count) VFX segments...")
+        print(
+            "🎬 Processing \(regularSegments.count) regular segments + \(vfxSegments.count) VFX segments..."
+        )
 
         // Process regular segments first (in reverse order to avoid time shifting)
         if !sortedRegularSegments.isEmpty {
@@ -202,7 +207,7 @@ public class ProResVideoCompositor: NSObject {
         // Process VFX segments last (they will be on top by replacing content on main track)
         if !sortedVFXSegments.isEmpty {
             print("🎭 Processing VFX segments (on top via main track replacement)...")
-            
+
             for (index, segment) in sortedVFXSegments.enumerated() {
                 print(
                     "   Processing VFX segment \(index + 1): \(segment.url.lastPathComponent)"
@@ -274,7 +279,7 @@ public class ProResVideoCompositor: NSObject {
         // Start export with modern async states monitoring using modular progress bar
         let progressBar = ProgressBar.assetExport()
         progressBar.start()
-        
+
         await withTaskGroup(of: Void.self) { group in
             // Task 1: Start the export
             group.addTask {
@@ -289,29 +294,31 @@ public class ProResVideoCompositor: NSObject {
             group.addTask {
                 do {
                     for try await state in exportSession.states(updateInterval: 0.1) {
-                    switch state {
-                    case .pending:
-                        print("\r🚀 Pending...", terminator: "")
-                        fflush(stdout)
-                    case .waiting:
-                        print("\r🚀 Waiting...", terminator: "")
-                        fflush(stdout)
-                    case .exporting(let progress):
-                        // Use modular progress bar with enhanced Progress object data
-                        if progress.totalUnitCount > 0 && progress.totalUnitCount < 1_000_000_000_000 { // < 1TB seems reasonable
-                            progressBar.updateUnits(
-                                completedUnits: progress.completedUnitCount,
-                                totalUnits: progress.totalUnitCount,
-                                throughput: progress.throughput,
-                                eta: progress.estimatedTimeRemaining
-                            )
-                        } else {
-                            // Fallback to percentage-based progress for unreasonable unit values
-                            progressBar.updateProgress(Float(progress.fractionCompleted))
+                        switch state {
+                        case .pending:
+                            print("\r🚀 Pending...", terminator: "")
+                            fflush(stdout)
+                        case .waiting:
+                            print("\r🚀 Waiting...", terminator: "")
+                            fflush(stdout)
+                        case .exporting(let progress):
+                            // Use modular progress bar with enhanced Progress object data
+                            if progress.totalUnitCount > 0
+                                && progress.totalUnitCount < 1_000_000_000_000
+                            {  // < 1TB seems reasonable
+                                progressBar.updateUnits(
+                                    completedUnits: progress.completedUnitCount,
+                                    totalUnits: progress.totalUnitCount,
+                                    throughput: progress.throughput,
+                                    eta: progress.estimatedTimeRemaining
+                                )
+                            } else {
+                                // Fallback to percentage-based progress for unreasonable unit values
+                                progressBar.updateProgress(Float(progress.fractionCompleted))
+                            }
+                        @unknown default:
+                            break
                         }
-                    @unknown default:
-                        break
-                    }
                     }
                 } catch {
                     print("⚠️ Progress monitoring error: \(error)")
@@ -322,7 +329,7 @@ public class ProResVideoCompositor: NSObject {
             await group.next()
             group.cancelAll()
         }
-        
+
         // Complete the progress bar
         progressBar.complete(total: 1, showFinalStats: false)
 
@@ -478,75 +485,76 @@ public class ProResVideoCompositor: NSObject {
         do {
             // Create TimecodeKit framerate based on the actual frame rate
             let tcFramerate = getTimecodeFrameRate(for: frameRate)
-            
+
             // Parse the timecodes using TimecodeKit
             let segmentTC = try Timecode(.string(timecode), at: tcFramerate)
-            
+
             if let baseTimecode = baseTimecode {
                 // Calculate relative offset using TimecodeKit
                 let baseTC = try Timecode(.string(baseTimecode), at: tcFramerate)
-                
+
                 // Use TimecodeKit's CMTime conversion for precision
                 let segmentCMTime = segmentTC.cmTimeValue
                 let baseCMTime = baseTC.cmTimeValue
                 let offsetCMTime = CMTimeSubtract(segmentCMTime, baseCMTime)
-                
+
                 return offsetCMTime
             } else {
                 // Absolute timecode - use TimecodeKit's CMTime conversion
                 return segmentTC.cmTimeValue
             }
-            
+
         } catch {
             print("⚠️ TimecodeKit conversion failed: \(error), falling back to manual parsing")
-            return manualTimecodeToCMTime(timecode, frameRate: frameRate, baseTimecode: baseTimecode)
+            return manualTimecodeToCMTime(
+                timecode, frameRate: frameRate, baseTimecode: baseTimecode)
         }
     }
-    
+
     private func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
         // Note: We're passing in Int32 but need to handle decimal frame rates differently
         // For now, we'll handle the integer approximations and rely on TimecodeKit's precision
-        
+
         switch frameRate {
         // Film / ATSC / HD Column - All supported by TimecodeKit
         case 23: return .fps23_976  // 23.976
-        case 24: return .fps24      // 24 (we'll handle 24.98 separately if needed)
+        case 24: return .fps24  // 24 (we'll handle 24.98 separately if needed)
         case 47: return .fps47_952  // 47.952
-        case 48: return .fps48      // 48
+        case 48: return .fps48  // 48
         case 95: return .fps95_904  // 95.904
-        case 96: return .fps96      // 96
-        
+        case 96: return .fps96  // 96
+
         // PAL / SECAM / DVB / ATSC Column - All supported by TimecodeKit
-        case 25: return .fps25      // 25
-        case 50: return .fps50      // 50
-        case 100: return .fps100    // 100
-        
+        case 25: return .fps25  // 25
+        case 50: return .fps50  // 50
+        case 100: return .fps100  // 100
+
         // NTSC / ATSC / PAL-M Column - All supported by TimecodeKit
-        case 29: return .fps29_97   // 29.97 (both DF and non-DF)
-        case 59: return .fps59_94   // 59.94 (both DF and non-DF) 
-        case 119: return .fps119_88 // 119.88 (both DF and non-DF)
-        
+        case 29: return .fps29_97  // 29.97 (both DF and non-DF)
+        case 59: return .fps59_94  // 59.94 (both DF and non-DF)
+        case 119: return .fps119_88  // 119.88 (both DF and non-DF)
+
         // NTSC Non-Standard / ATSC / HD Columns - All supported by TimecodeKit
-        case 30: return .fps30      // 30 (both DF and non-DF)
-        case 60: return .fps60      // 60 (both DF and non-DF)
-        case 90: return .fps90      // 90
-        case 120: return .fps120    // 120 (both DF and non-DF)
-        
+        case 30: return .fps30  // 30 (both DF and non-DF)
+        case 60: return .fps60  // 60 (both DF and non-DF)
+        case 90: return .fps90  // 90
+        case 120: return .fps120  // 120 (both DF and non-DF)
+
         // Fallback for unknown rates
-        default: return .fps25      // Default to PAL 25fps
+        default: return .fps25  // Default to PAL 25fps
         }
     }
-    
+
     private func getTimescale(for frameRate: Int32) -> CMTimeScale {
         let fps = Double(frameRate)
-        
+
         // NTSC rates (x/1001) - use exact denominators for perfect precision
         if abs(fps - 23.976) < 0.001 {
             return 24000  // 23.976fps = 24000/1001
         } else if abs(fps - 24.98) < 0.001 {
             return 25000  // 24.98fps ≈ 25000/1001
         } else if abs(fps - 29.97) < 0.001 {
-            return 30000  // 29.97fps = 30000/1001  
+            return 30000  // 29.97fps = 30000/1001
         } else if abs(fps - 47.952) < 0.001 {
             return 48000  // 47.952fps = 48000/1001
         } else if abs(fps - 59.94) < 0.001 {
@@ -554,9 +562,9 @@ public class ProResVideoCompositor: NSObject {
         } else if abs(fps - 95.904) < 0.001 {
             return 96000  // 95.904fps = 96000/1001
         } else if abs(fps - 119.88) < 0.001 {
-            return 120000 // 119.88fps = 120000/1001
+            return 120000  // 119.88fps = 120000/1001
         }
-        
+
         // Exact integer rates - use high precision timescales
         else if abs(fps - 24.0) < 0.001 {
             return 24000  // 24fps exactly
@@ -575,18 +583,20 @@ public class ProResVideoCompositor: NSObject {
         } else if abs(fps - 96.0) < 0.001 {
             return 96000  // 96fps exactly
         } else if abs(fps - 100.0) < 0.001 {
-            return 100000 // 100fps PAL ultra high
+            return 100000  // 100fps PAL ultra high
         } else if abs(fps - 120.0) < 0.001 {
-            return 120000 // 120fps exactly
+            return 120000  // 120fps exactly
         }
-        
+
         // Fallback for unknown rates
         else {
-            return 600    // Apple's standard fallback
+            return 600  // Apple's standard fallback
         }
     }
-    
-    private func manualTimecodeToCMTime(_ timecode: String, frameRate: Int32, baseTimecode: String? = nil) -> CMTime? {
+
+    private func manualTimecodeToCMTime(
+        _ timecode: String, frameRate: Int32, baseTimecode: String? = nil
+    ) -> CMTime? {
         // Fallback manual parsing (original logic)
         let components = timecode.components(separatedBy: ":")
         guard components.count == 4,
@@ -609,17 +619,18 @@ public class ProResVideoCompositor: NSObject {
                 return nil
             }
 
-            let totalSeconds = (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
+            let totalSeconds =
+                (hours - baseHours) * 3600 + (minutes - baseMinutes) * 60 + (seconds - baseSeconds)
             let frameDifference = frames - baseFrames
             let frameTime = Double(frameDifference) / Double(frameRate)
             let timescale = getTimescale(for: frameRate)
-            
+
             return CMTime(seconds: Double(totalSeconds) + frameTime, preferredTimescale: timescale)
         } else {
             let totalSeconds = hours * 3600 + minutes * 60 + seconds
             let frameTime = Double(frames) / Double(frameRate)
             let timescale = getTimescale(for: frameRate)
-            
+
             return CMTime(seconds: Double(totalSeconds) + frameTime, preferredTimescale: timescale)
         }
     }
@@ -629,13 +640,13 @@ public class ProResVideoCompositor: NSObject {
         do {
             // Create TimecodeKit framerate based on the actual frame rate
             let tcFramerate = getTimecodeFrameRate(for: frameRate)
-            
+
             // Convert CMTime to frame number using precise calculation
             let totalFrames = Int(round(time.seconds * Double(frameRate)))
-            
+
             // Create Timecode from frame count
             let timecode = try Timecode(.frames(totalFrames), at: tcFramerate)
-            
+
             return timecode.stringValue()
         } catch {
             // Fallback to manual calculation if TimecodeKit fails
@@ -643,7 +654,8 @@ public class ProResVideoCompositor: NSObject {
             let hours = Int(totalSeconds) / 3600
             let minutes = (Int(totalSeconds) % 3600) / 60
             let seconds = Int(totalSeconds) % 60
-            let frames = Int(round((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate)))
+            let frames = Int(
+                round((totalSeconds.truncatingRemainder(dividingBy: 1.0)) * Double(frameRate)))
 
             return String(format: "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames)
         }
@@ -675,7 +687,8 @@ public class ProResVideoCompositor: NSObject {
                 // Use extracted timecode-based timing
                 startTime = timecodeTime
                 sourceStartTime = .zero
-                let frameNumber = Int(round(timecodeTime.seconds * Double(baseProperties.frameRate)))
+                let frameNumber = Int(
+                    round(timecodeTime.seconds * Double(baseProperties.frameRate)))
                 let outputTimecode = cmTimeToTimecode(
                     timecodeTime, frameRate: baseProperties.frameRate)
                 print("🎬 Using extracted timecode for \(segmentInfo.filename):")
@@ -685,7 +698,8 @@ public class ProResVideoCompositor: NSObject {
                 // Use parsed start time if available
                 startTime = parsedStartTime
                 sourceStartTime = .zero
-                let frameNumber = Int(round(parsedStartTime.seconds * Double(baseProperties.frameRate)))
+                let frameNumber = Int(
+                    round(parsedStartTime.seconds * Double(baseProperties.frameRate)))
                 let outputTimecode = cmTimeToTimecode(
                     parsedStartTime, frameRate: baseProperties.frameRate)
                 print("🎬 Using parsed start time for \(segmentInfo.filename):")
@@ -731,8 +745,11 @@ public struct VideoProperties {
     public let transferFunction: String
     public let yCbCrMatrix: String
     public let sourceTimecode: String?  // Source timecode from the base video
-    
-    public init(width: Int, height: Int, frameRate: Int32, colorPrimaries: String, transferFunction: String, yCbCrMatrix: String, sourceTimecode: String?) {
+
+    public init(
+        width: Int, height: Int, frameRate: Int32, colorPrimaries: String, transferFunction: String,
+        yCbCrMatrix: String, sourceTimecode: String?
+    ) {
         self.width = width
         self.height = height
         self.frameRate = frameRate
@@ -823,7 +840,8 @@ func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL
         print("🎬 Created \(segments.count) graded segments:")
         for (index, segment) in segments.enumerated() {
             print("  \(index + 1). \(segment.url.lastPathComponent)")
-            let startFrame = Int(round(segment.startTime.seconds * Double(baseProperties.frameRate)))
+            let startFrame = Int(
+                round(segment.startTime.seconds * Double(baseProperties.frameRate)))
             let endFrame =
                 startFrame + Int(round(segment.duration.seconds * Double(baseProperties.frameRate)))
             let startTimecode = compositor.cmTimeToTimecode(
@@ -877,4 +895,3 @@ func runComposition(blankRushURL: URL, segmentsDirectoryURL: URL, outputURL: URL
         print("❌ Failed to discover or parse segments: \(error.localizedDescription)")
     }
 }
-
