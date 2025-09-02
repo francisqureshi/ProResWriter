@@ -320,7 +320,7 @@ struct TreeLinkedSegmentRowView: View {
 
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
-        linkedSegment.segment.fileName.uppercased().contains("VFX")
+        linkedSegment.segment.isVFX
     }
 
     var confidenceColor: Color {
@@ -443,7 +443,7 @@ struct LowConfidenceSegmentRowView: View {
 
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
-        linkedSegment.segment.fileName.uppercased().contains("VFX")
+        linkedSegment.segment.isVFX
     }
 
     var body: some View {
@@ -567,7 +567,7 @@ struct LinkedSegmentRowView: View {
 
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
-        linkedSegment.segment.fileName.uppercased().contains("VFX")
+        linkedSegment.segment.isVFX
     }
 
     var confidenceColor: Color {

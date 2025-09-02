@@ -25,8 +25,9 @@ public struct MediaFileInfo: Codable {
     public let isInterlaced: Bool?  // nil = unknown, true = interlaced, false = progressive
     public let fieldOrder: String?
     public let mediaType: MediaType
+    public var isVFXShot: Bool?  // VFX shot flag (can be modified by user)
 
-    public init(fileName: String, url: URL, resolution: CGSize?, displayResolution: CGSize?, sampleAspectRatio: String?, frameRate: Float?, sourceTimecode: String?, endTimecode: String?, durationInFrames: Int64?, isDropFrame: Bool?, reelName: String?, isInterlaced: Bool?, fieldOrder: String?, mediaType: MediaType) {
+    public init(fileName: String, url: URL, resolution: CGSize?, displayResolution: CGSize?, sampleAspectRatio: String?, frameRate: Float?, sourceTimecode: String?, endTimecode: String?, durationInFrames: Int64?, isDropFrame: Bool?, reelName: String?, isInterlaced: Bool?, fieldOrder: String?, mediaType: MediaType, isVFXShot: Bool? = nil) {
         self.fileName = fileName
         self.url = url
         self.resolution = resolution
@@ -41,9 +42,16 @@ public struct MediaFileInfo: Codable {
         self.isInterlaced = isInterlaced
         self.fieldOrder = fieldOrder
         self.mediaType = mediaType
+        // Auto-detect VFX from filename if not explicitly set
+        self.isVFXShot = isVFXShot
     }
 
     // MARK: - Computed Properties
+    
+    /// Returns true if this is marked as a VFX shot (with filename fallback for legacy files)
+    public var isVFX: Bool {
+        return isVFXShot ?? fileName.uppercased().contains("VFX")
+    }
 
     /// Effective display resolution (SAR-corrected for ARRI, or coded resolution for others)
     public var effectiveDisplayResolution: CGSize? {

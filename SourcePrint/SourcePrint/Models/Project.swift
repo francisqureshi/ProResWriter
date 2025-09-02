@@ -247,6 +247,22 @@ class Project: ObservableObject, Codable, Identifiable {
         updateModified()
     }
     
+    /// Toggle VFX status for OCF file
+    func toggleOCFVFXStatus(_ fileName: String, isVFX: Bool) {
+        if let index = ocfFiles.firstIndex(where: { $0.fileName == fileName }) {
+            ocfFiles[index].isVFXShot = isVFX
+            updateModified()
+        }
+    }
+    
+    /// Toggle VFX status for segment file
+    func toggleSegmentVFXStatus(_ fileName: String, isVFX: Bool) {
+        if let index = segments.firstIndex(where: { $0.fileName == fileName }) {
+            segments[index].isVFXShot = isVFX
+            updateModified()
+        }
+    }
+    
     // MARK: - File System Helpers
     
     /// Get file modification date from file system

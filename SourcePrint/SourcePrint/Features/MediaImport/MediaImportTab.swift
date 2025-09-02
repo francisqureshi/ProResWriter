@@ -70,7 +70,10 @@ struct MediaImportTab: View {
                         .padding(.horizontal)
                     
                     List(project.ocfFiles, id: \.fileName, selection: $selectedOCFFiles) { file in
-                        MediaFileRowView(file: file, type: .ocf)
+                        MediaFileRowView(file: file, type: .ocf, onVFXToggle: { fileName, isVFX in
+                            project.toggleOCFVFXStatus(fileName, isVFX: isVFX)
+                            projectManager.saveProject(project)
+                        })
                             .tag(file.fileName)
                             .contextMenu {
                                 Button("Remove from Project", systemImage: "trash") {
@@ -94,7 +97,10 @@ struct MediaImportTab: View {
                         .padding(.horizontal)
                     
                     List(project.segments, id: \.fileName, selection: $selectedSegments) { file in
-                        MediaFileRowView(file: file, type: .segment)
+                        MediaFileRowView(file: file, type: .segment, onVFXToggle: { fileName, isVFX in
+                            project.toggleSegmentVFXStatus(fileName, isVFX: isVFX)
+                            projectManager.saveProject(project)
+                        })
                             .tag(file.fileName)
                             .contextMenu {
                                 Button("Remove from Project", systemImage: "trash") {

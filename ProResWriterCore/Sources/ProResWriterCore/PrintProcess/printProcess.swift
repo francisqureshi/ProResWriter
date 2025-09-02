@@ -150,6 +150,7 @@ public class ProResVideoCompositor: NSObject {
         }
 
         // Separate VFX shots from regular segments
+        // Note: We need a way to pass VFX info to print process - for now using filename fallback
         let vfxSegments = settings.gradedSegments.filter { segment in
             segment.url.lastPathComponent.uppercased().contains("VFX")
         }

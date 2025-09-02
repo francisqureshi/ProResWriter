@@ -11,6 +11,7 @@ import ProResWriterCore
 struct MediaFileRowView: View {
     let file: MediaFileInfo
     let type: MediaType
+    let onVFXToggle: ((String, Bool) -> Void)?  // Callback to toggle VFX status (fileName, newValue)
     
     enum MediaType {
         case ocf, segment
@@ -18,7 +19,7 @@ struct MediaFileRowView: View {
     
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
-        file.fileName.uppercased().contains("VFX")
+        file.isVFX
     }
     
     var body: some View {
@@ -84,6 +85,16 @@ struct MediaFileRowView: View {
             }
         }
         .padding(.vertical, 2)
+        .contextMenu {
+            if type == .segment {
+                Button {
+                    onVFXToggle?(file.fileName, !isVFXShot)
+                } label: {
+                    Label(isVFXShot ? "Unmark as VFX Shot" : "Mark as VFX Shot", 
+                          systemImage: isVFXShot ? "wand.and.stars.slash" : "wand.and.stars")
+                }
+            }
+        }
     }
 }
 
@@ -107,8 +118,10 @@ struct MediaFileRowView: View {
     )
     
     VStack {
-        MediaFileRowView(file: sampleFile, type: .ocf)
-        MediaFileRowView(file: sampleFile, type: .segment)
+        MediaFileRowView(file: sampleFile, type: .ocf, onVFXToggle: nil)
+        MediaFileRowView(file: sampleFile, type: .segment, onVFXToggle: { fileName, isVFX in
+            print("Toggle VFX for \(fileName): \(isVFX)")
+        })
     }
     .padding()
 }

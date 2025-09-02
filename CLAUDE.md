@@ -3,6 +3,15 @@
 - Build with `@build.sh` for CLI, let me handle building/running for error reporting
 - Build GUI with `build-sourceprint.sh` 
 
+## Major Technical Debt / Architecture Issues ⚠️
+
+### VFX Information Disconnect Between UI and Print Process
+- **Problem**: UI layer uses explicit `MediaFileInfo.isVFXShot` flags, but print process uses `GradedSegment` data model without VFX metadata
+- **Current Workaround**: Print process falls back to filename detection (`segment.url.lastPathComponent.uppercased().contains("VFX")`) 
+- **Impact**: Users can manually mark VFX shots in UI, but print process doesn't respect those explicit flags
+- **Solution Needed**: Either extend `GradedSegment` to include VFX flag, or create new print process data model that carries MediaFileInfo metadata
+- **Priority**: Medium (functionality works, but architecture is inconsistent)
+
 ## Core Architecture (Current Status)
 
 ### ProResWriter Package Structure
