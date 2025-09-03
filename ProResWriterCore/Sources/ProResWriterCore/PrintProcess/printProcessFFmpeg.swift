@@ -443,11 +443,12 @@ public class SwiftFFmpegProResCompositor {
         var segmentFrames: [Int: [AVPacket]] = [:]
         
         for segment in segments {
-            let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRateFloat))
+            let startFrameExact = segment.startTime.seconds * Double(baseProperties.frameRateFloat)
+            let startFrame = Int(round(startFrameExact)) // Use proper rounding instead of truncation
             let segmentFrames_temp = try await loadSegmentFrames(segment: segment)
             segmentFrames[startFrame] = segmentFrames_temp
             
-            print("📝 Loaded \(segmentFrames_temp.count) frames from \(segment.url.lastPathComponent) starting at frame \(startFrame)")
+            print("📝 Loaded \(segmentFrames_temp.count) frames from \(segment.url.lastPathComponent) starting at frame \(startFrame) (exact: \(startFrameExact))")
         }
         
         // Pre-load all base video frames
@@ -464,12 +465,12 @@ public class SwiftFFmpegProResCompositor {
             
             // Check if any segment starts at this frame
             if let segmentFrames_at_index = segmentFrames.keys.first(where: { startFrame in
-                let segment = segments.first(where: { Int($0.startTime.seconds * Double(baseProperties.frameRateFloat)) == startFrame })!
-                let endFrame = startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRateFloat))
+                let segment = segments.first(where: { Int(round($0.startTime.seconds * Double(baseProperties.frameRateFloat))) == startFrame })!
+                let endFrame = startFrame + Int(round(segment.duration.seconds * Double(baseProperties.frameRateFloat)))
                 return frameIndex >= startFrame && frameIndex < endFrame
             }) {
                 // Use segment frame
-                let segment = segments.first(where: { Int($0.startTime.seconds * Double(baseProperties.frameRateFloat)) == segmentFrames_at_index })!
+                let segment = segments.first(where: { Int(round($0.startTime.seconds * Double(baseProperties.frameRateFloat))) == segmentFrames_at_index })!
                 let segmentFrameIndex = frameIndex - segmentFrames_at_index
                 
                 if segmentFrameIndex < segmentFrames[segmentFrames_at_index]!.count {
