@@ -417,7 +417,10 @@ func testSwiftFFmpegPrintProcess(linkingResult: LinkingResult, blankRushResults:
                     startTime: startTime,
                     duration: duration,
                     sourceStartTime: .zero,
-                    isVFXShot: mediaFileInfo.isVFXShot ?? false  // Use explicit VFX metadata from UI
+                    isVFXShot: mediaFileInfo.isVFXShot ?? false,  // Use explicit VFX metadata from UI
+                    sourceTimecode: segmentInfo.sourceTimecode,
+                    frameRate: segmentInfo.frameRate,
+                    isDropFrame: segmentInfo.isDropFrame
                 )
                 
                 ffmpegGradedSegments.append(ffmpegSegment)

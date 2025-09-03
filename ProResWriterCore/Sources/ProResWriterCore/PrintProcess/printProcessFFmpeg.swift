@@ -21,12 +21,21 @@ public struct FFmpegGradedSegment {
     public let sourceStartTime: CMTime
     public let isVFXShot: Bool  // VFX metadata from MediaFileInfo
     
-    public init(url: URL, startTime: CMTime, duration: CMTime, sourceStartTime: CMTime, isVFXShot: Bool = false) {
+    // SMPTE timecode information for precise frame calculation
+    public let sourceTimecode: String?
+    public let frameRate: Float?
+    public let isDropFrame: Bool?
+    
+    public init(url: URL, startTime: CMTime, duration: CMTime, sourceStartTime: CMTime, isVFXShot: Bool = false, 
+                sourceTimecode: String? = nil, frameRate: Float? = nil, isDropFrame: Bool? = nil) {
         self.url = url
         self.startTime = startTime
         self.duration = duration
         self.sourceStartTime = sourceStartTime
         self.isVFXShot = isVFXShot
+        self.sourceTimecode = sourceTimecode
+        self.frameRate = frameRate
+        self.isDropFrame = isDropFrame
     }
 }
 
@@ -439,16 +448,42 @@ public class SwiftFFmpegProResCompositor {
         baseProperties: VideoStreamProperties
     ) async throws {
         
-        // Pre-load all segments into arrays for direct frame access
+        // Pre-load all segments into arrays for direct frame access using SMPTE calculations
         var segmentFrames: [Int: [AVPacket]] = [:]
         
         for segment in segments {
-            let startFrameExact = segment.startTime.seconds * Double(baseProperties.frameRateFloat)
-            let startFrame = Int(round(startFrameExact)) // Use proper rounding instead of truncation
+            let startFrame: Int
+            
+            // Use SMPTE calculation for precise frame positioning
+            if let baseTimecode = baseProperties.timecode,
+               let segmentTimecode = segment.sourceTimecode,
+               let segmentFrameRate = segment.frameRate {
+                
+                // Use SMPTE for professional timecode calculation
+                let smpte = SMPTE(fps: Double(segmentFrameRate), dropFrame: segment.isDropFrame ?? false)
+                
+                do {
+                    let baseFrames = try smpte.getFrames(tc: baseTimecode)
+                    let segmentFrames = try smpte.getFrames(tc: segmentTimecode)
+                    startFrame = segmentFrames - baseFrames
+                    
+                    print("📝 SMPTE calculation: base \(baseTimecode) = \(baseFrames), segment \(segmentTimecode) = \(segmentFrames), relative start = \(startFrame)")
+                } catch {
+                    print("⚠️ SMPTE calculation failed for \(segment.url.lastPathComponent): \(error). Falling back to time-based.")
+                    let startFrameExact = segment.startTime.seconds * Double(baseProperties.frameRateFloat)
+                    startFrame = Int(round(startFrameExact))
+                }
+            } else {
+                // Fallback to time-based calculation when timecode info is missing
+                let startFrameExact = segment.startTime.seconds * Double(baseProperties.frameRateFloat)
+                startFrame = Int(round(startFrameExact))
+                print("📝 Using time-based calculation: \(startFrameExact) → \(startFrame)")
+            }
+            
             let segmentFrames_temp = try await loadSegmentFrames(segment: segment)
             segmentFrames[startFrame] = segmentFrames_temp
             
-            print("📝 Loaded \(segmentFrames_temp.count) frames from \(segment.url.lastPathComponent) starting at frame \(startFrame) (exact: \(startFrameExact))")
+            print("📝 Loaded \(segmentFrames_temp.count) frames from \(segment.url.lastPathComponent) starting at frame \(startFrame)")
         }
         
         // Pre-load all base video frames
