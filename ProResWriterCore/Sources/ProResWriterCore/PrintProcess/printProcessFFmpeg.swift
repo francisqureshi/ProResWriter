@@ -658,38 +658,47 @@ public class SwiftFFmpegProResCompositor {
         
         let packet = AVPacket()
         var framesCopied = 0
+        var currentPTS = convertFramesToPTS(frame: startFrame, frameRate: baseProperties.frameRate, timebase: outputVideoStream.timebase)
         
-        // Copy segment frames with proper timeline positioning
+        // Calculate frame duration once
+        let frameDuration = AVMath.rescale(
+            1, // One frame duration
+            AVRational(num: 1, den: Int32(baseProperties.frameRateFloat)),
+            outputVideoStream.timebase,
+            rounding: .nearInf,
+            passMinMax: true
+        )
+        
+        print("🚀 Bulk copying segment: \(frameCount) frames at passthrough speed")
+        
+        // Bulk segment copy with minimal processing (PASSTHROUGH SPEED!)
         while framesCopied < frameCount {
-            try segmentContext.readFrame(into: packet)
-            
-            if packet.streamIndex == segmentVideoStream.index {
-                // Set for output stream
-                packet.streamIndex = outputVideoStream.index
+            do {
+                try segmentContext.readFrame(into: packet)
                 
-                // Calculate frame-accurate PTS for timeline position
-                let frameIndex = startFrame + framesCopied
-                let outputPTS = convertFramesToPTS(frame: frameIndex, frameRate: baseProperties.frameRate, timebase: outputVideoStream.timebase)
-                packet.pts = outputPTS
-                packet.dts = outputPTS
+                if packet.streamIndex == segmentVideoStream.index {
+                    // Direct stream copy with continuous timeline (FAST!)
+                    packet.streamIndex = outputVideoStream.index
+                    packet.pts = currentPTS
+                    packet.dts = currentPTS
+                    packet.duration = frameDuration
+                    
+                    // Direct write without re-encoding (passthrough!)
+                    try outputContext.interleavedWriteFrame(packet)
+                    
+                    framesCopied += 1
+                    currentPTS += frameDuration
+                    lastOutputDTS = packet.dts
+                }
                 
-                // Set frame duration
-                packet.duration = AVMath.rescale(
-                    1, // One frame duration
-                    AVRational(num: 1, den: Int32(baseProperties.frameRateFloat)),
-                    outputVideoStream.timebase,
-                    rounding: .nearInf,
-                    passMinMax: true
-                )
-                
-                try outputContext.interleavedWriteFrame(packet)
-                
-                framesCopied += 1
-                lastOutputDTS = packet.dts
+                packet.unref()
+            } catch let error as SwiftFFmpeg.AVError where error == .eof {
+                print("⚠️ Segment EOF after \(framesCopied) frames (expected \(frameCount))")
+                break
             }
-            
-            packet.unref()
         }
+        
+        print("✅ Segment passthrough: \(framesCopied) frames copied")
     }
     
     
