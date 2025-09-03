@@ -448,11 +448,12 @@ public class SwiftFFmpegProResCompositor {
         baseProperties: VideoStreamProperties
     ) async throws {
         
-        // Pre-load all segments into arrays for direct frame access using SMPTE calculations
-        var segmentFrames: [Int: [AVPacket]] = [:]
+        // Build segment timeline with SMPTE precision
+        var segmentRanges: [(startFrame: Int, endFrame: Int, segment: FFmpegGradedSegment)] = []
         
         for segment in segments {
             let startFrame: Int
+            let endFrame: Int
             
             // Use SMPTE calculation for precise frame positioning
             if let baseTimecode = baseProperties.timecode,
@@ -467,124 +468,230 @@ public class SwiftFFmpegProResCompositor {
                     let segmentFrames = try smpte.getFrames(tc: segmentTimecode)
                     startFrame = segmentFrames - baseFrames
                     
-                    print("📝 SMPTE calculation: base \(baseTimecode) = \(baseFrames), segment \(segmentTimecode) = \(segmentFrames), relative start = \(startFrame)")
+                    // Calculate segment duration from its own frame count or duration
+                    let segmentDurationFrames = Int(segment.duration.seconds * Double(segmentFrameRate))
+                    endFrame = startFrame + segmentDurationFrames
+                    
+                    print("📝 SMPTE segment: \(segment.url.lastPathComponent) frames \(startFrame)-\(endFrame-1) (\(segmentDurationFrames) frames)")
                 } catch {
                     print("⚠️ SMPTE calculation failed for \(segment.url.lastPathComponent): \(error). Falling back to time-based.")
                     let startFrameExact = segment.startTime.seconds * Double(baseProperties.frameRateFloat)
                     startFrame = Int(round(startFrameExact))
+                    endFrame = startFrame + Int(round(segment.duration.seconds * Double(baseProperties.frameRateFloat)))
                 }
             } else {
                 // Fallback to time-based calculation when timecode info is missing
                 let startFrameExact = segment.startTime.seconds * Double(baseProperties.frameRateFloat)
                 startFrame = Int(round(startFrameExact))
-                print("📝 Using time-based calculation: \(startFrameExact) → \(startFrame)")
+                endFrame = startFrame + Int(round(segment.duration.seconds * Double(baseProperties.frameRateFloat)))
+                print("📝 Time-based segment: \(segment.url.lastPathComponent) frames \(startFrame)-\(endFrame-1)")
             }
             
-            let segmentFrames_temp = try await loadSegmentFrames(segment: segment)
-            segmentFrames[startFrame] = segmentFrames_temp
-            
-            print("📝 Loaded \(segmentFrames_temp.count) frames from \(segment.url.lastPathComponent) starting at frame \(startFrame)")
+            segmentRanges.append((startFrame, endFrame, segment))
         }
         
-        // Pre-load all base video frames
-        let baseFrames = try await loadBaseFrames(baseContext: baseContext, baseStream: baseStream)
-        print("📝 Loaded \(baseFrames.count) base frames")
+        // Sort segments by start frame
+        segmentRanges.sort { $0.startFrame < $1.startFrame }
         
-        let totalFrames = min(baseFrames.count, Int(baseProperties.duration * Double(baseProperties.frameRateFloat)))
-        print("📹 Processing \(totalFrames) frames with segment replacements...")
+        let totalFrames = Int(baseProperties.duration * Double(baseProperties.frameRateFloat))
+        print("📹 Stream-copying \(totalFrames) frames with \(segmentRanges.count) segment insertions...")
         
-        // Simple frame-by-frame output with replacements
-        for frameIndex in 0..<totalFrames {
-            var outputPacket: AVPacket
-            var sourceStream: AVStream
-            
-            // Check if any segment starts at this frame
-            if let segmentFrames_at_index = segmentFrames.keys.first(where: { startFrame in
-                let segment = segments.first(where: { Int(round($0.startTime.seconds * Double(baseProperties.frameRateFloat))) == startFrame })!
-                let endFrame = startFrame + Int(round(segment.duration.seconds * Double(baseProperties.frameRateFloat)))
-                return frameIndex >= startFrame && frameIndex < endFrame
-            }) {
-                // Use segment frame
-                let segment = segments.first(where: { Int(round($0.startTime.seconds * Double(baseProperties.frameRateFloat))) == segmentFrames_at_index })!
-                let segmentFrameIndex = frameIndex - segmentFrames_at_index
-                
-                if segmentFrameIndex < segmentFrames[segmentFrames_at_index]!.count {
-                    outputPacket = segmentFrames[segmentFrames_at_index]![segmentFrameIndex]
-                    // Get source stream info (we'll need this for proper setup)
-                    let segmentContext = try AVFormatContext(url: segment.url.path)
-                    try segmentContext.findStreamInfo()
-                    sourceStream = segmentContext.streams.first(where: { $0.codecParameters.width > 0 && $0.codecParameters.height > 0 })!
-                } else {
-                    // Fallback to base frame
-                    outputPacket = baseFrames[frameIndex]
-                    sourceStream = baseStream
-                }
-            } else {
-                // Use base frame
-                outputPacket = baseFrames[frameIndex] 
-                sourceStream = baseStream
-            }
-            
-            try await writePacketToOutput(packet: outputPacket, outputContext: outputContext,
-                                        outputStream: outputVideoStream, frameIndex: frameIndex,
-                                        sourceStream: sourceStream, baseProperties: baseProperties)
-        }
+        // Process timeline with bulk stream copying for maximum speed
+        try await processTimelineWithStreamCopying(
+            baseContext: baseContext,
+            baseStream: baseStream,
+            segmentRanges: segmentRanges,
+            outputContext: outputContext,
+            outputVideoStream: outputVideoStream,
+            baseProperties: baseProperties,
+            totalFrames: totalFrames
+        )
         
-        print("✅ Processed \(totalFrames) frames with segment replacements")
+        print("✅ Stream-based timeline processing complete")
     }
     
-    private func loadSegmentFrames(segment: FFmpegGradedSegment) async throws -> [AVPacket] {
+    private func processTimelineWithStreamCopying(
+        baseContext: AVFormatContext,
+        baseStream: AVStream,
+        segmentRanges: [(startFrame: Int, endFrame: Int, segment: FFmpegGradedSegment)],
+        outputContext: AVFormatContext,
+        outputVideoStream: AVStream,
+        baseProperties: VideoStreamProperties,
+        totalFrames: Int
+    ) async throws {
+        
+        var currentFrame = 0
+        var baseFramesRead = 0
+        let packet = AVPacket()
+        
+        for segmentRange in segmentRanges {
+            let (segmentStart, segmentEnd, segment) = segmentRange
+            
+            // 1. Copy base video from currentFrame to segmentStart (PASSTHROUGH SPEED)
+            if currentFrame < segmentStart {
+                let framesToCopy = segmentStart - currentFrame
+                print("🚀 Bulk copying base video: frames \(currentFrame)-\(segmentStart-1) (\(framesToCopy) frames)")
+                
+                try await copyBaseVideoFrames(
+                    baseContext: baseContext,
+                    baseStream: baseStream,
+                    outputContext: outputContext,
+                    outputVideoStream: outputVideoStream,
+                    startFrame: currentFrame,
+                    frameCount: framesToCopy,
+                    baseFramesRead: &baseFramesRead,
+                    baseProperties: baseProperties
+                )
+                
+                currentFrame = segmentStart
+            }
+            
+            // 2. Copy segment frames (ONLY re-encode when necessary)
+            let segmentFrameCount = segmentEnd - segmentStart
+            print("🎬 Inserting segment: frames \(segmentStart)-\(segmentEnd-1) (\(segmentFrameCount) frames)")
+            
+            try await copySegmentFrames(
+                segment: segment,
+                outputContext: outputContext,
+                outputVideoStream: outputVideoStream,
+                startFrame: segmentStart,
+                frameCount: segmentFrameCount,
+                baseProperties: baseProperties
+            )
+            
+            currentFrame = segmentEnd
+        }
+        
+        // 3. Copy remaining base video to end (PASSTHROUGH SPEED)
+        if currentFrame < totalFrames {
+            let remainingFrames = totalFrames - currentFrame
+            print("🚀 Bulk copying final base video: frames \(currentFrame)-\(totalFrames-1) (\(remainingFrames) frames)")
+            
+            try await copyBaseVideoFrames(
+                baseContext: baseContext,
+                baseStream: baseStream,
+                outputContext: outputContext,
+                outputVideoStream: outputVideoStream,
+                startFrame: currentFrame,
+                frameCount: remainingFrames,
+                baseFramesRead: &baseFramesRead,
+                baseProperties: baseProperties
+            )
+        }
+    }
+    
+    private func copyBaseVideoFrames(
+        baseContext: AVFormatContext,
+        baseStream: AVStream,
+        outputContext: AVFormatContext,
+        outputVideoStream: AVStream,
+        startFrame: Int,
+        frameCount: Int,
+        baseFramesRead: inout Int,
+        baseProperties: VideoStreamProperties
+    ) async throws {
+        
+        let packet = AVPacket()
+        var framesCopied = 0
+        
+        // Skip to correct position if needed
+        while baseFramesRead < startFrame {
+            try baseContext.readFrame(into: packet)
+            if packet.streamIndex == baseStream.index {
+                baseFramesRead += 1
+            }
+            packet.unref()
+        }
+        
+        // Bulk copy frames at passthrough speed
+        while framesCopied < frameCount {
+            try baseContext.readFrame(into: packet)
+            
+            if packet.streamIndex == baseStream.index {
+                // Direct stream copy with minimal processing (FAST!)
+                packet.streamIndex = outputVideoStream.index
+                
+                // Set frame-accurate PTS/DTS
+                let frameIndex = startFrame + framesCopied
+                let outputPTS = convertFramesToPTS(frame: frameIndex, frameRate: baseProperties.frameRate, timebase: outputVideoStream.timebase)
+                packet.pts = outputPTS
+                packet.dts = outputPTS
+                
+                // Use calculated frame duration
+                packet.duration = AVMath.rescale(
+                    1, // One frame duration
+                    AVRational(num: 1, den: Int32(baseProperties.frameRateFloat)),
+                    outputVideoStream.timebase,
+                    rounding: .nearInf,
+                    passMinMax: true
+                )
+                
+                // Direct write (passthrough speed!)
+                try outputContext.interleavedWriteFrame(packet)
+                
+                framesCopied += 1
+                baseFramesRead += 1
+                lastOutputDTS = packet.dts
+            }
+            
+            packet.unref()
+        }
+    }
+    
+    private func copySegmentFrames(
+        segment: FFmpegGradedSegment,
+        outputContext: AVFormatContext,
+        outputVideoStream: AVStream,
+        startFrame: Int,
+        frameCount: Int,
+        baseProperties: VideoStreamProperties
+    ) async throws {
+        
         let segmentContext = try AVFormatContext(url: segment.url.path)
         try segmentContext.findStreamInfo()
         
-        guard let segmentStream = segmentContext.streams.first(where: {
+        guard let segmentVideoStream = segmentContext.streams.first(where: {
             $0.codecParameters.width > 0 && $0.codecParameters.height > 0
         }) else {
             throw FFmpegCompositorError.noVideoStream
         }
         
-        var frames: [AVPacket] = []
+        let packet = AVPacket()
+        var framesCopied = 0
         
-        while true {
-            let packet = AVPacket() // Create new packet for each frame
+        // Copy segment frames with proper timeline positioning
+        while framesCopied < frameCount {
+            try segmentContext.readFrame(into: packet)
             
-            do {
-                try segmentContext.readFrame(into: packet)
+            if packet.streamIndex == segmentVideoStream.index {
+                // Set for output stream
+                packet.streamIndex = outputVideoStream.index
                 
-                if packet.streamIndex == segmentStream.index {
-                    frames.append(packet)
-                } else {
-                    packet.unref()
-                }
-            } catch let error as SwiftFFmpeg.AVError where error == .eof {
-                break
+                // Calculate frame-accurate PTS for timeline position
+                let frameIndex = startFrame + framesCopied
+                let outputPTS = convertFramesToPTS(frame: frameIndex, frameRate: baseProperties.frameRate, timebase: outputVideoStream.timebase)
+                packet.pts = outputPTS
+                packet.dts = outputPTS
+                
+                // Set frame duration
+                packet.duration = AVMath.rescale(
+                    1, // One frame duration
+                    AVRational(num: 1, den: Int32(baseProperties.frameRateFloat)),
+                    outputVideoStream.timebase,
+                    rounding: .nearInf,
+                    passMinMax: true
+                )
+                
+                try outputContext.interleavedWriteFrame(packet)
+                
+                framesCopied += 1
+                lastOutputDTS = packet.dts
             }
+            
+            packet.unref()
         }
-        
-        return frames
     }
     
-    private func loadBaseFrames(baseContext: AVFormatContext, baseStream: AVStream) async throws -> [AVPacket] {
-        var frames: [AVPacket] = []
-        
-        while true {
-            let packet = AVPacket() // Create new packet for each frame
-            
-            do {
-                try baseContext.readFrame(into: packet)
-                
-                if packet.streamIndex == baseStream.index {
-                    frames.append(packet)
-                } else {
-                    packet.unref()
-                }
-            } catch let error as SwiftFFmpeg.AVError where error == .eof {
-                break
-            }
-        }
-        
-        return frames
-    }
     
     private func writePacketToOutput(
         packet: AVPacket,
