@@ -398,7 +398,7 @@ public class SwiftFFmpegProResCompositor {
         baseProperties: VideoStreamProperties
     ) async throws {
         
-        print("📹 Processing timeline chronologically (no overlapping)...")
+        print("📹 Processing complete timeline with segment replacements...")
         
         // Combine all segments and sort by start time
         let allSegments = (regularSegments + vfxSegments).sorted { $0.startTime < $1.startTime }
@@ -407,9 +407,9 @@ public class SwiftFFmpegProResCompositor {
         let baseFormatContext = try AVFormatContext(url: baseURL.path)
         try baseFormatContext.findStreamInfo()
         
-        guard baseFormatContext.streams.first(where: {
+        guard let baseVideoStream = baseFormatContext.streams.first(where: {
             $0.codecParameters.width > 0 && $0.codecParameters.height > 0
-        }) != nil else {
+        }) else {
             throw FFmpegCompositorError.noVideoStream
         }
         
@@ -417,85 +417,104 @@ public class SwiftFFmpegProResCompositor {
             throw FFmpegCompositorError.failedToAddStream
         }
         
-        var currentOutputPTS: Int64 = 0
+        // Process entire timeline frame by frame with replacements
+        try await processCompleteTimeline(
+            baseContext: baseFormatContext,
+            baseStream: baseVideoStream,
+            segments: allSegments,
+            outputContext: outputContext,
+            outputVideoStream: outputVideoStream,
+            baseProperties: baseProperties
+        )
         
-        // Process timeline chronologically
-        for segment in allSegments {
-            let segmentStartFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRateFloat))
-            let segmentEndFrame = segmentStartFrame + Int(segment.duration.seconds * Double(baseProperties.frameRateFloat))
-            
-            print("🎬 Processing segment: \(segment.url.lastPathComponent) at frames \(segmentStartFrame)-\(segmentEndFrame)")
-            
-            // Copy segment content directly with proper timestamp continuity
-            try await copySegmentContent(
-                segment: segment,
-                outputContext: outputContext,
-                outputVideoStream: outputVideoStream,
-                currentOutputPTS: &currentOutputPTS
-            )
-            
-            // Update progress
-            completedSegments += 1
-            updateProgress()
-        }
-        
-        print("✅ Chronological timeline processing complete")
+        print("✅ Complete timeline processing finished")
     }
     
-    private func copySegmentContent(
-        segment: FFmpegGradedSegment,
+    private func processCompleteTimeline(
+        baseContext: AVFormatContext,
+        baseStream: AVStream,
+        segments: [FFmpegGradedSegment],
         outputContext: AVFormatContext,
         outputVideoStream: AVStream,
-        currentOutputPTS: inout Int64
+        baseProperties: VideoStreamProperties
     ) async throws {
         
-        // Open segment for reading
-        let segmentFormatContext = try AVFormatContext(url: segment.url.path)
-        try segmentFormatContext.findStreamInfo()
-        
-        guard let segmentVideoStream = segmentFormatContext.streams.first(where: {
-            $0.codecParameters.width > 0 && $0.codecParameters.height > 0
-        }) else {
-            throw FFmpegCompositorError.noVideoStream
+        // Create segment lookup table for frame ranges
+        var segmentLookup: [Int: FFmpegGradedSegment] = [:]
+        for segment in segments {
+            let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRateFloat))
+            let endFrame = startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRateFloat))
+            
+            print("📝 Segment \(segment.url.lastPathComponent): frames \(startFrame)-\(endFrame)")
+            
+            // Mark all frames in this range as needing replacement
+            for frame in startFrame..<endFrame {
+                segmentLookup[frame] = segment
+            }
         }
         
         let packet = AVPacket()
-        var packetCount = 0
+        var frameIndex = 0
+        var currentSegment: FFmpegGradedSegment?
+        var segmentContext: AVFormatContext?
+        var segmentStream: AVStream?
+        var segmentFrameOffset = 0
         
-        // Read and copy all packets from segment
+        // Process base video frame by frame
+        print("📹 Processing \(Int(baseProperties.duration * Double(baseProperties.frameRateFloat))) frames...")
+        
         while true {
             do {
-                try segmentFormatContext.readFrame(into: packet)
-                
-                // Only process video stream packets
-                if packet.streamIndex == segmentVideoStream.index {
+                // Check if current frame should be replaced by a segment
+                if let replacementSegment = segmentLookup[frameIndex] {
                     
-                    // Update stream index for output
-                    packet.streamIndex = outputVideoStream.index
+                    // Switch to segment if different from current
+                    if currentSegment?.url != replacementSegment.url {
+                        print("   🔄 Switching to segment: \(replacementSegment.url.lastPathComponent) at frame \(frameIndex)")
+                        
+                        // Close previous segment if any
+                        segmentContext = nil
+                        
+                        // Open new segment
+                        currentSegment = replacementSegment
+                        segmentContext = try AVFormatContext(url: replacementSegment.url.path)
+                        try segmentContext!.findStreamInfo()
+                        
+                        segmentStream = segmentContext!.streams.first(where: {
+                            $0.codecParameters.width > 0 && $0.codecParameters.height > 0
+                        })
+                        
+                        segmentFrameOffset = 0 // Reset frame offset for new segment
+                    }
                     
-                    // Set continuous timestamps (no gaps or jumps)
-                    packet.pts = currentOutputPTS
-                    packet.dts = currentOutputPTS
+                    // Read frame from segment
+                    try segmentContext!.readFrame(into: packet)
                     
-                    // Set duration in output timebase
-                    packet.duration = AVMath.rescale(
-                        packet.duration,
-                        segmentVideoStream.timebase,
-                        outputVideoStream.timebase,
-                        rounding: .nearInf,
-                        passMinMax: true
-                    )
+                    if packet.streamIndex == segmentStream!.index {
+                        segmentFrameOffset += 1
+                        try await writePacketToOutput(packet: packet, outputContext: outputContext, 
+                                                    outputStream: outputVideoStream, frameIndex: frameIndex,
+                                                    sourceStream: segmentStream!, baseProperties: baseProperties)
+                    }
                     
-                    // Write packet to output
-                    try outputContext.interleavedWriteFrame(packet)
+                } else {
+                    // Use base video frame
+                    if currentSegment != nil {
+                        print("   🔄 Switching back to base video at frame \(frameIndex)")
+                        currentSegment = nil
+                        segmentContext = nil
+                    }
                     
-                    // Advance timeline
-                    currentOutputPTS += packet.duration
-                    lastOutputDTS = packet.dts
+                    try baseContext.readFrame(into: packet)
                     
-                    packetCount += 1
+                    if packet.streamIndex == baseStream.index {
+                        try await writePacketToOutput(packet: packet, outputContext: outputContext,
+                                                    outputStream: outputVideoStream, frameIndex: frameIndex,
+                                                    sourceStream: baseStream, baseProperties: baseProperties)
+                    }
                 }
                 
+                frameIndex += 1
                 packet.unref()
                 
             } catch let error as SwiftFFmpeg.AVError where error == .eof {
@@ -503,7 +522,40 @@ public class SwiftFFmpegProResCompositor {
             }
         }
         
-        print("   ✅ Copied \(packetCount) packets from \(segment.url.lastPathComponent)")
+        print("✅ Processed \(frameIndex) frames with segment replacements")
+    }
+    
+    private func writePacketToOutput(
+        packet: AVPacket,
+        outputContext: AVFormatContext,
+        outputStream: AVStream,
+        frameIndex: Int,
+        sourceStream: AVStream,
+        baseProperties: VideoStreamProperties
+    ) async throws {
+        
+        // Update stream index for output
+        packet.streamIndex = outputStream.index
+        
+        // Calculate frame-accurate PTS for output timeline
+        let outputPTS = convertFramesToPTS(frame: frameIndex, frameRate: baseProperties.frameRate, timebase: outputStream.timebase)
+        
+        packet.pts = outputPTS
+        packet.dts = outputPTS
+        
+        // Set duration in output timebase
+        packet.duration = AVMath.rescale(
+            packet.duration,
+            sourceStream.timebase,
+            outputStream.timebase,
+            rounding: .nearInf,
+            passMinMax: true
+        )
+        
+        // Write packet to output
+        try outputContext.interleavedWriteFrame(packet)
+        
+        lastOutputDTS = packet.dts
     }
 
     // MARK: - Segment Application
