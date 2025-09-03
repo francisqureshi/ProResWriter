@@ -453,73 +453,103 @@ public class SwiftFFmpegProResCompositor {
             }
         }
         
-        let packet = AVPacket()
+        let basePacket = AVPacket()
+        let segmentPacket = AVPacket()
         var frameIndex = 0
+        var baseFramesRead = 0
         var currentSegment: FFmpegGradedSegment?
         var segmentContext: AVFormatContext?
         var segmentStream: AVStream?
-        var segmentFrameOffset = 0
+        var segmentFramesRead = 0
         
-        // Process base video frame by frame
-        print("📹 Processing \(Int(baseProperties.duration * Double(baseProperties.frameRateFloat))) frames...")
+        let totalFrames = Int(baseProperties.duration * Double(baseProperties.frameRateFloat))
+        print("📹 Processing \(totalFrames) frames with segment replacements...")
         
-        while true {
-            do {
-                // Check if current frame should be replaced by a segment
-                if let replacementSegment = segmentLookup[frameIndex] {
+        // Process exact number of base video frames
+        while frameIndex < totalFrames {
+            
+            // Check if current frame should be replaced by a segment
+            if let replacementSegment = segmentLookup[frameIndex] {
+                
+                // Switch to segment if different from current
+                if currentSegment?.url != replacementSegment.url {
+                    print("   🔄 Switching to segment: \(replacementSegment.url.lastPathComponent) at frame \(frameIndex)")
                     
-                    // Switch to segment if different from current
-                    if currentSegment?.url != replacementSegment.url {
-                        print("   🔄 Switching to segment: \(replacementSegment.url.lastPathComponent) at frame \(frameIndex)")
-                        
-                        // Close previous segment if any
-                        segmentContext = nil
-                        
-                        // Open new segment
-                        currentSegment = replacementSegment
-                        segmentContext = try AVFormatContext(url: replacementSegment.url.path)
-                        try segmentContext!.findStreamInfo()
-                        
-                        segmentStream = segmentContext!.streams.first(where: {
-                            $0.codecParameters.width > 0 && $0.codecParameters.height > 0
-                        })
-                        
-                        segmentFrameOffset = 0 // Reset frame offset for new segment
-                    }
+                    // Close previous segment if any
+                    segmentContext = nil
                     
-                    // Read frame from segment
-                    try segmentContext!.readFrame(into: packet)
+                    // Open new segment
+                    currentSegment = replacementSegment
+                    segmentContext = try AVFormatContext(url: replacementSegment.url.path)
+                    try segmentContext!.findStreamInfo()
                     
-                    if packet.streamIndex == segmentStream!.index {
-                        segmentFrameOffset += 1
-                        try await writePacketToOutput(packet: packet, outputContext: outputContext, 
+                    segmentStream = segmentContext!.streams.first(where: {
+                        $0.codecParameters.width > 0 && $0.codecParameters.height > 0
+                    })
+                    
+                    segmentFramesRead = 0 // Reset frame counter for new segment
+                }
+                
+                // Read frame from segment (REPLACE base frame)
+                do {
+                    try segmentContext!.readFrame(into: segmentPacket)
+                    
+                    if segmentPacket.streamIndex == segmentStream!.index {
+                        try await writePacketToOutput(packet: segmentPacket, outputContext: outputContext, 
                                                     outputStream: outputVideoStream, frameIndex: frameIndex,
                                                     sourceStream: segmentStream!, baseProperties: baseProperties)
+                        segmentFramesRead += 1
                     }
-                    
-                } else {
-                    // Use base video frame
-                    if currentSegment != nil {
-                        print("   🔄 Switching back to base video at frame \(frameIndex)")
-                        currentSegment = nil
-                        segmentContext = nil
-                    }
-                    
-                    try baseContext.readFrame(into: packet)
-                    
-                    if packet.streamIndex == baseStream.index {
-                        try await writePacketToOutput(packet: packet, outputContext: outputContext,
-                                                    outputStream: outputVideoStream, frameIndex: frameIndex,
-                                                    sourceStream: baseStream, baseProperties: baseProperties)
+                    segmentPacket.unref()
+                } catch let error as SwiftFFmpeg.AVError where error == .eof {
+                    // Segment ran out of frames, fall back to base video
+                    print("   ⚠️ Segment \(replacementSegment.url.lastPathComponent) EOF at frame \(segmentFramesRead)")
+                    segmentLookup[frameIndex] = nil // Remove from lookup to use base
+                    continue // Retry with base video
+                }
+                
+            } else {
+                // Use base video frame (skip frames we already processed)
+                if currentSegment != nil {
+                    print("   🔄 Switching back to base video at frame \(frameIndex)")
+                    currentSegment = nil
+                    segmentContext = nil
+                }
+                
+                // Skip to correct position in base video
+                while baseFramesRead < frameIndex {
+                    do {
+                        try baseContext.readFrame(into: basePacket)
+                        if basePacket.streamIndex == baseStream.index {
+                            baseFramesRead += 1
+                        }
+                        basePacket.unref()
+                    } catch let error as SwiftFFmpeg.AVError where error == .eof {
+                        print("   ⚠️ Base video EOF at frame \(baseFramesRead)")
+                        break
                     }
                 }
                 
-                frameIndex += 1
-                packet.unref()
-                
-            } catch let error as SwiftFFmpeg.AVError where error == .eof {
-                break
+                // Read the actual frame we want to output
+                if baseFramesRead == frameIndex {
+                    do {
+                        try baseContext.readFrame(into: basePacket)
+                        
+                        if basePacket.streamIndex == baseStream.index {
+                            try await writePacketToOutput(packet: basePacket, outputContext: outputContext,
+                                                        outputStream: outputVideoStream, frameIndex: frameIndex,
+                                                        sourceStream: baseStream, baseProperties: baseProperties)
+                            baseFramesRead += 1
+                        }
+                        basePacket.unref()
+                    } catch let error as SwiftFFmpeg.AVError where error == .eof {
+                        print("   ⚠️ Base video EOF at frame \(baseFramesRead)")
+                        break
+                    }
+                }
             }
+            
+            frameIndex += 1
         }
         
         print("✅ Processed \(frameIndex) frames with segment replacements")
