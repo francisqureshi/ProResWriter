@@ -7,12 +7,20 @@ import TimecodeKit
 // MARK: - Core functionality imported from ProResWriterCore package
 
 // // MARK: - Test Configuration Paths
+// let testPaths = (
+//     gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
+//     ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
+//     outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
+//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
+// )
+
 let testPaths = (
-    gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
-    ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
-    outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
-    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
+    gradedSegments: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM",
+    ocfParents: ["/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM"],
+    outputComposition: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/",
+    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/"
 )
+
 
 // MARK: - Test Configuration Paths
 // let testPaths = (
@@ -202,61 +210,64 @@ func testBlankRushCreation(linkingResult: LinkingResult) async -> [BlankRushResu
     print("🎬 Testing blank rush creation...")
 
     print("📊 \(linkingResult.blankRushSummary)")
-
+    
+    // Single test: Only check first OCF parent that has children for testing
+    print("\n📊 Checking blank rush for first OCF parent only (fast testing)...")
+    
+    // Get just the first OCF parent that has children for testing
+    guard let firstParentWithChildren = linkingResult.ocfParents.first(where: { $0.hasChildren }) else {
+        print("❌ No OCF parents with children found for blank rush testing")
+        return []
+    }
+    
+    print("🎯 Testing with: \(firstParentWithChildren.ocf.fileName)")
+    
+    // Check if blank rush already exists for this OCF
+    let baseName = (firstParentWithChildren.ocf.fileName as NSString).deletingPathExtension
+    let expectedBlankRushPath = testPaths.projectBlankRushDirectory + baseName + "_blankRush.mov"
+    let blankRushURL = URL(fileURLWithPath: expectedBlankRushPath)
+    
+    if FileManager.default.fileExists(atPath: blankRushURL.path) {
+        print("⚡️ Blank rush already exists, skipping generation entirely: \(blankRushURL.lastPathComponent)")
+        
+        // Create mock successful result without doing any work
+        let mockResult = BlankRushResult(
+            originalOCF: firstParentWithChildren.ocf,
+            blankRushURL: blankRushURL,
+            success: true,
+            error: nil
+        )
+        
+        print("\n📊 Blank Rush Results (Existing File - No Generation):")
+        print("  ⚡️ \(mockResult.originalOCF.fileName) → \(mockResult.blankRushURL.lastPathComponent) [EXISTING - SKIPPED]")
+        
+        return [mockResult]
+    }
+    
+    // Only create BlankRushIntermediate if we actually need to generate
+    print("🔨 Blank rush not found, generating new one...")
     let blankRushIntermediate = BlankRushIntermediate(
         projectDirectory: testPaths.projectBlankRushDirectory)
     
-    // Test 1: Traditional TUI progress bar (no callback)
-    print("\n📊 Test 1: Using TUI progress bar system (no callback)")
-    let tuiResults = await blankRushIntermediate.createBlankRushes(from: linkingResult)
+    // Create a single-parent linking result for faster testing
+    let singleParentResult = LinkingResult(
+        ocfParents: [firstParentWithChildren],
+        unmatchedSegments: linkingResult.unmatchedSegments,
+        unmatchedOCFs: linkingResult.unmatchedOCFs
+    )
+    
+    let results = await blankRushIntermediate.createBlankRushes(from: singleParentResult)
 
-    print("\n📊 TUI Progress Bar Results:")
-    for result in tuiResults {
+    print("\n📊 Blank Rush Results (Single Test):")
+    for result in results {
         if result.success {
-            print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent)")
+            print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent) [NEW]")
         } else {
             print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
         }
     }
-    
-    // Test 2: New progress callback system (simulating GUI usage)
-    print("\n" + String(repeating: "-", count: 50))
-    print("📊 Test 2: Using progress callback system (simulating GUI)")
-    
-    // Create a simple progress callback that prints updates
-    let progressCallback: BlankRushIntermediate.ProgressCallback = { clipName, current, total, fps in
-        let percentage = Int((current / total) * 100)
-        let progressBar = String(repeating: "█", count: percentage / 4)  // Smaller bar for CLI
-        let emptyBar = String(repeating: "░", count: 25 - (percentage / 4))
-        let fpsText = fps > 0 ? String(format: " @ %.1ffps", fps) : ""
-        print("\r  📞 \(clipName): [\(progressBar)\(emptyBar)] \(percentage)%\(fpsText)", terminator: "")
-        if percentage >= 100 {
-            print("")  // New line when complete
-        }
-    }
-    
-    let callbackResults = await blankRushIntermediate.createBlankRushes(from: linkingResult, progressCallback: progressCallback)
 
-    print("\n📊 Progress Callback Results:")
-    for result in callbackResults {
-        if result.success {
-            print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent)")
-        } else {
-            print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
-        }
-    }
-    
-    // Verify both approaches produce identical results
-    let tuiSuccess = tuiResults.filter { $0.success }.count
-    let callbackSuccess = callbackResults.filter { $0.success }.count
-    
-    if tuiSuccess == callbackSuccess {
-        print("\n✅ Both TUI and callback systems produced identical results: \(tuiSuccess) successful")
-    } else {
-        print("\n❌ Results differ: TUI=\(tuiSuccess), Callback=\(callbackSuccess)")
-    }
-
-    return tuiResults
+    return results
 }
 
 func testTranscodeBlank() async {

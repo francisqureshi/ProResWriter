@@ -3,6 +3,22 @@
 - Build with `@build.sh` for CLI, let me handle building/running for error reporting
 - Build GUI with `build-sourceprint.sh` 
 
+## 🚀 TOP PRIORITY OPTIMIZATION TODO
+
+### SwiftFFmpeg Performance Optimization Goal
+**Target**: Match Apple AVFoundation passthrough speed (currently 2x faster than SwiftFFmpeg)
+- **AVFoundation**: 8.22s for 425.4s timeline with 13 segments
+- **SwiftFFmpeg**: 16.83s for same timeline (2x slower)
+
+**Investigation Areas:**
+- Memory loading patterns: SwiftFFmpeg may be loading clips to RAM vs AVFoundation's direct stream access
+- VideoToolbox encoder efficiency differences between AVFoundation and SwiftFFmpeg paths
+- Stream copying overhead: Direct packet copying vs AVFoundation's optimized composition
+- Bulk copying batch sizes and I/O patterns
+- Hardware acceleration utilization differences
+
+**Expected Outcome**: SwiftFFmpeg matching or exceeding AVFoundation's 8.22s performance while maintaining Premiere Pro compatibility (no edit lists)
+
 ## SwiftFFmpeg Print Process Implementation (2025-09-02)
 
 ### Premiere Pro Compatibility Solution ✅
