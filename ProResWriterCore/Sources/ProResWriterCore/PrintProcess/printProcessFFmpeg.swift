@@ -99,6 +99,7 @@ public class SwiftFFmpegProResCompositor {
     
     private func processCompositionFFmpeg(settings: FFmpegCompositorSettings) async throws -> URL {
         
+        let totalStartTime = CFAbsoluteTimeGetCurrent()
         print("🔍 Starting SwiftFFmpeg composition process...")
         
         // 1. Analyze base video using SwiftFFmpeg (like blank rush)
@@ -108,10 +109,31 @@ public class SwiftFFmpegProResCompositor {
         let baseProperties = try analyzeVideoWithFFmpeg(url: settings.baseVideoURL)
         
         let analysisEndTime = CFAbsoluteTimeGetCurrent()
-        print("📹 SwiftFFmpeg analysis completed in: \(String(format: "%.2f", analysisEndTime - analysisStartTime))s")
+        let analysisTime = analysisEndTime - analysisStartTime
+        print("📹 SwiftFFmpeg analysis completed in: \(String(format: "%.3f", analysisTime))s")
         print("✅ Base video properties: \(baseProperties.width)x\(baseProperties.height) @ \(String(format: "%.3f", baseProperties.frameRateFloat))fps")
         
-        // 2. Direct stream processing approach (no composition, no edit lists)
+        // 2. Analyze all segments (timing measurement)
+        let segmentAnalysisStart = CFAbsoluteTimeGetCurrent()
+        print("🔍 Analyzing \(settings.gradedSegments.count) segment files...")
+        
+        // Pre-analyze all segments for performance measurement
+        var segmentAnalysisTime: Double = 0
+        for (index, segment) in settings.gradedSegments.enumerated() {
+            let segStartTime = CFAbsoluteTimeGetCurrent()
+            _ = try analyzeVideoWithFFmpeg(url: segment.url)
+            let segEndTime = CFAbsoluteTimeGetCurrent()
+            segmentAnalysisTime += segEndTime - segStartTime
+            if index % 5 == 0 || index == settings.gradedSegments.count - 1 {
+                print("  📊 Analyzed \(index + 1)/\(settings.gradedSegments.count) segments (\(String(format: "%.3f", segmentAnalysisTime))s total)")
+            }
+        }
+        
+        let segmentAnalysisEnd = CFAbsoluteTimeGetCurrent()
+        let totalSegmentAnalysisTime = segmentAnalysisEnd - segmentAnalysisStart
+        print("📊 Segment analysis completed in: \(String(format: "%.3f", totalSegmentAnalysisTime))s (avg: \(String(format: "%.3f", totalSegmentAnalysisTime / Double(settings.gradedSegments.count)))s per segment)")
+        
+        // 3. Direct stream processing approach (no composition, no edit lists)
         let exportStartTime = CFAbsoluteTimeGetCurrent()
         print("🚀 Using SwiftFFmpeg direct stream copying (avoiding edit lists for Premiere compatibility)...")
         
@@ -120,7 +142,17 @@ public class SwiftFFmpegProResCompositor {
         
         let exportEndTime = CFAbsoluteTimeGetCurrent()
         let exportDuration = exportEndTime - exportStartTime
-        print("🚀 SwiftFFmpeg export completed in: \(String(format: "%.2f", exportDuration))s")
+        print("🚀 SwiftFFmpeg export completed in: \(String(format: "%.3f", exportDuration))s")
+        
+        let totalEndTime = CFAbsoluteTimeGetCurrent()
+        let totalTime = totalEndTime - totalStartTime
+        
+        // Performance breakdown
+        print("\n📊 Performance Breakdown:")
+        print("  🔍 Base analysis: \(String(format: "%.3f", analysisTime))s (\(String(format: "%.1f", analysisTime/totalTime*100))%)")
+        print("  📝 Segment analysis: \(String(format: "%.3f", totalSegmentAnalysisTime))s (\(String(format: "%.1f", totalSegmentAnalysisTime/totalTime*100))%)")
+        print("  🚀 Stream copying: \(String(format: "%.3f", exportDuration))s (\(String(format: "%.1f", exportDuration/totalTime*100))%)")
+        print("  📊 Total: \(String(format: "%.3f", totalTime))s")
         
         return settings.outputURL
     }
@@ -280,6 +312,7 @@ public class SwiftFFmpegProResCompositor {
         settings: FFmpegCompositorSettings
     ) throws {
         
+        let encoderSetupStart = CFAbsoluteTimeGetCurrent()
         print("🔧 Setting up ProRes VideoToolbox output stream...")
         
         // Find VideoToolbox ProRes encoder (like blank rush)
@@ -494,6 +527,7 @@ public class SwiftFFmpegProResCompositor {
         segmentRanges.sort { $0.startFrame < $1.startFrame }
         
         let totalFrames = Int(baseProperties.duration * Double(baseProperties.frameRateFloat))
+        let streamCopyStartTime = CFAbsoluteTimeGetCurrent()
         print("📹 Stream-copying \(totalFrames) frames with \(segmentRanges.count) segment insertions...")
         
         // Process timeline with bulk stream copying for maximum speed
@@ -508,6 +542,11 @@ public class SwiftFFmpegProResCompositor {
         )
         
         print("✅ Stream-based timeline processing complete")
+        
+        // Overall stream copying performance summary
+        let totalStreamCopyTime = CFAbsoluteTimeGetCurrent() - streamCopyStartTime
+        let overallFPS = Double(totalFrames) / totalStreamCopyTime
+        print("📊 Stream copying summary: \(totalFrames) frames in \(String(format: "%.3f", totalStreamCopyTime))s (\(String(format: "%.1f", overallFPS)) fps overall)")
     }
     
     private func processTimelineWithStreamCopying(
@@ -530,6 +569,7 @@ public class SwiftFFmpegProResCompositor {
             // 1. Copy base video from currentFrame to segmentStart (PASSTHROUGH SPEED)
             if currentFrame < segmentStart {
                 let framesToCopy = segmentStart - currentFrame
+                let baseCopyStart = CFAbsoluteTimeGetCurrent()
                 print("🚀 Bulk copying base video: frames \(currentFrame)-\(segmentStart-1) (\(framesToCopy) frames)")
                 
                 try await copyBaseVideoFrames(
@@ -543,11 +583,17 @@ public class SwiftFFmpegProResCompositor {
                     baseProperties: baseProperties
                 )
                 
+                let baseCopyEnd = CFAbsoluteTimeGetCurrent()
+                let baseCopyTime = baseCopyEnd - baseCopyStart
+                let baseFPS = Double(framesToCopy) / baseCopyTime
+                print("✅ Base copying: \(framesToCopy) frames in \(String(format: "%.3f", baseCopyTime))s (\(String(format: "%.1f", baseFPS)) fps)")
+                
                 currentFrame = segmentStart
             }
             
             // 2. Copy segment frames (ONLY re-encode when necessary)
             let segmentFrameCount = segmentEnd - segmentStart
+            let segmentCopyStart = CFAbsoluteTimeGetCurrent()
             print("🎬 Inserting segment: frames \(segmentStart)-\(segmentEnd-1) (\(segmentFrameCount) frames)")
             
             try await copySegmentFrames(
@@ -559,12 +605,18 @@ public class SwiftFFmpegProResCompositor {
                 baseProperties: baseProperties
             )
             
+            let segmentCopyEnd = CFAbsoluteTimeGetCurrent()
+            let segmentCopyTime = segmentCopyEnd - segmentCopyStart
+            let segmentFPS = Double(segmentFrameCount) / segmentCopyTime
+            print("✅ Segment copying: \(segmentFrameCount) frames in \(String(format: "%.3f", segmentCopyTime))s (\(String(format: "%.1f", segmentFPS)) fps)")
+            
             currentFrame = segmentEnd
         }
         
         // 3. Copy remaining base video to end (PASSTHROUGH SPEED)
         if currentFrame < totalFrames {
             let remainingFrames = totalFrames - currentFrame
+            let finalCopyStart = CFAbsoluteTimeGetCurrent()
             print("🚀 Bulk copying final base video: frames \(currentFrame)-\(totalFrames-1) (\(remainingFrames) frames)")
             
             try await copyBaseVideoFrames(
@@ -577,6 +629,11 @@ public class SwiftFFmpegProResCompositor {
                 baseFramesRead: &baseFramesRead,
                 baseProperties: baseProperties
             )
+            
+            let finalCopyEnd = CFAbsoluteTimeGetCurrent()
+            let finalCopyTime = finalCopyEnd - finalCopyStart
+            let finalFPS = Double(remainingFrames) / finalCopyTime
+            print("✅ Final base copying: \(remainingFrames) frames in \(String(format: "%.3f", finalCopyTime))s (\(String(format: "%.1f", finalFPS)) fps)")
         }
     }
     
@@ -647,6 +704,7 @@ public class SwiftFFmpegProResCompositor {
         baseProperties: VideoStreamProperties
     ) async throws {
         
+        let segmentAnalysisStart = CFAbsoluteTimeGetCurrent()
         let segmentContext = try AVFormatContext(url: segment.url.path)
         try segmentContext.findStreamInfo()
         
@@ -655,6 +713,10 @@ public class SwiftFFmpegProResCompositor {
         }) else {
             throw FFmpegCompositorError.noVideoStream
         }
+        
+        let segmentAnalysisEnd = CFAbsoluteTimeGetCurrent()
+        let analysisTime = segmentAnalysisEnd - segmentAnalysisStart
+        print("    🔍 Segment analysis: \(String(format: "%.3f", analysisTime))s")
         
         let packet = AVPacket()
         var framesCopied = 0
@@ -669,6 +731,7 @@ public class SwiftFFmpegProResCompositor {
             passMinMax: true
         )
         
+        let segmentReadStart = CFAbsoluteTimeGetCurrent()
         print("🚀 Bulk copying segment: \(frameCount) frames at passthrough speed")
         
         // Bulk segment copy with minimal processing (PASSTHROUGH SPEED!)
@@ -698,7 +761,10 @@ public class SwiftFFmpegProResCompositor {
             }
         }
         
-        print("✅ Segment passthrough: \(framesCopied) frames copied")
+        let segmentReadEnd = CFAbsoluteTimeGetCurrent()
+        let segmentReadTime = segmentReadEnd - segmentReadStart
+        let segmentReadFPS = Double(framesCopied) / segmentReadTime
+        print("✅ Segment passthrough: \(framesCopied) frames copied in \(String(format: "%.3f", segmentReadTime))s (\(String(format: "%.1f", segmentReadFPS)) fps)")
     }
     
     

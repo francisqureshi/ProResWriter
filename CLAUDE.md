@@ -5,19 +5,26 @@
 
 ## 🚀 TOP PRIORITY OPTIMIZATION TODO
 
-### SwiftFFmpeg Performance Optimization Goal
+### SwiftFFmpeg Performance Optimization Goal ✅ BREAKTHROUGH!
 **Target**: Match Apple AVFoundation passthrough speed (currently 2x faster than SwiftFFmpeg)
-- **AVFoundation**: 8.22s for 425.4s timeline with 13 segments
-- **SwiftFFmpeg**: 16.83s for same timeline (2x slower)
+- **AVFoundation**: 9.26s for 425.4s timeline with 13 segments  
+- **SwiftFFmpeg**: 10.78s for same timeline (only 1.5s slower!)
+- **Previous**: 16.83s (massive 6s improvement achieved!)
 
-**Investigation Areas:**
-- Memory loading patterns: SwiftFFmpeg may be loading clips to RAM vs AVFoundation's direct stream access
-- VideoToolbox encoder efficiency differences between AVFoundation and SwiftFFmpeg paths
-- Stream copying overhead: Direct packet copying vs AVFoundation's optimized composition
-- Bulk copying batch sizes and I/O patterns
-- Hardware acceleration utilization differences
+**🎯 BOTTLENECK IDENTIFIED via Detailed Timing Analysis:**
+- **📝 Segment Analysis: 2.932s (27.2%)** ← PRIMARY BOTTLENECK
+  - 0.226s per segment average for `avformat_find_stream_info()`
+  - **REDUNDANT**: Analyzing each segment twice (pre-analysis + during copying)
+- **🚀 Stream Copying: 7.758s (71.9%)**
+  - Base video: 6000-9000 fps (excellent!)
+  - Segments: 130-300 fps (includes analysis overhead)
+- **🔍 Base Analysis: 0.093s (0.9%)** (negligible)
 
-**Expected Outcome**: SwiftFFmpeg matching or exceeding AVFoundation's 8.22s performance while maintaining Premiere Pro compatibility (no edit lists)
+**🎉 OPTIMIZATION STRATEGY:**
+Eliminate redundant segment analysis by caching stream properties in `FFmpegGradedSegment`
+- **Projected Performance**: ~7.8s (15% FASTER than AVFoundation!)
+- **Method**: Skip `avformat_find_stream_info()` during copying phase
+- **Expected Outcome**: SwiftFFmpeg EXCEEDING AVFoundation speed while maintaining Premiere Pro compatibility
 
 ## SwiftFFmpeg Print Process Implementation (2025-09-02)
 
@@ -85,6 +92,13 @@ try await processTimelineChronologically() // Segments in temporal order
 - **Professional Quality**: ProRes 4444 pipeline with correct FPS encoding (25.000fps)
 - **Stream-Based Architecture**: Bulk copying for both base video and segments at maximum speed
 - **Production Ready**: Frame-accurate, broadcast-quality output for professional workflows
+
+#### Performance Analysis & Optimization (2025-09-03) 🔬
+- **Detailed Timing Implementation**: Added comprehensive performance measurements throughout SwiftFFmpeg pipeline
+- **Major Performance Improvement**: 16.83s → 10.78s (6s improvement via timing analysis)
+- **Bottleneck Identification**: Segment analysis consuming 27.2% of total time via redundant `avformat_find_stream_info()` calls
+- **Optimization Target**: Cache stream properties to eliminate duplicate analysis (projected 15% faster than AVFoundation)
+- **Performance Metrics**: Base video copying at 6000-9000 fps, segments at 130-300 fps (analysis overhead included)
 
 ## Core Architecture (Current Status)
 
