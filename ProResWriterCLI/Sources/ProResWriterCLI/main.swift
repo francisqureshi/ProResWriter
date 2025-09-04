@@ -7,20 +7,19 @@ import TimecodeKit
 // MARK: - Core functionality imported from ProResWriterCore package
 
 // // MARK: - Test Configuration Paths
-// let testPaths = (
-//     gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
-//     ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
-//     outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
-//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
-// )
-
 let testPaths = (
-    gradedSegments: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM",
-    ocfParents: ["/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM"],
-    outputComposition: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/",
-    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/"
+    gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
+    ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
+    outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
+    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
 )
 
+// let testPaths = (
+//     gradedSegments: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM",
+//     ocfParents: ["/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM"],
+//     outputComposition: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/",
+//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/"
+// )
 
 // MARK: - Test Configuration Paths
 // let testPaths = (
@@ -210,26 +209,29 @@ func testBlankRushCreation(linkingResult: LinkingResult) async -> [BlankRushResu
     print("🎬 Testing blank rush creation...")
 
     print("📊 \(linkingResult.blankRushSummary)")
-    
+
     // Single test: Only check first OCF parent that has children for testing
     print("\n📊 Checking blank rush for first OCF parent only (fast testing)...")
-    
+
     // Get just the first OCF parent that has children for testing
-    guard let firstParentWithChildren = linkingResult.ocfParents.first(where: { $0.hasChildren }) else {
+    guard let firstParentWithChildren = linkingResult.ocfParents.first(where: { $0.hasChildren })
+    else {
         print("❌ No OCF parents with children found for blank rush testing")
         return []
     }
-    
+
     print("🎯 Testing with: \(firstParentWithChildren.ocf.fileName)")
-    
+
     // Check if blank rush already exists for this OCF
     let baseName = (firstParentWithChildren.ocf.fileName as NSString).deletingPathExtension
     let expectedBlankRushPath = testPaths.projectBlankRushDirectory + baseName + "_blankRush.mov"
     let blankRushURL = URL(fileURLWithPath: expectedBlankRushPath)
-    
+
     if FileManager.default.fileExists(atPath: blankRushURL.path) {
-        print("⚡️ Blank rush already exists, skipping generation entirely: \(blankRushURL.lastPathComponent)")
-        
+        print(
+            "⚡️ Blank rush already exists, skipping generation entirely: \(blankRushURL.lastPathComponent)"
+        )
+
         // Create mock successful result without doing any work
         let mockResult = BlankRushResult(
             originalOCF: firstParentWithChildren.ocf,
@@ -237,31 +239,35 @@ func testBlankRushCreation(linkingResult: LinkingResult) async -> [BlankRushResu
             success: true,
             error: nil
         )
-        
+
         print("\n📊 Blank Rush Results (Existing File - No Generation):")
-        print("  ⚡️ \(mockResult.originalOCF.fileName) → \(mockResult.blankRushURL.lastPathComponent) [EXISTING - SKIPPED]")
-        
+        print(
+            "  ⚡️ \(mockResult.originalOCF.fileName) → \(mockResult.blankRushURL.lastPathComponent) [EXISTING - SKIPPED]"
+        )
+
         return [mockResult]
     }
-    
+
     // Only create BlankRushIntermediate if we actually need to generate
     print("🔨 Blank rush not found, generating new one...")
     let blankRushIntermediate = BlankRushIntermediate(
         projectDirectory: testPaths.projectBlankRushDirectory)
-    
+
     // Create a single-parent linking result for faster testing
     let singleParentResult = LinkingResult(
         ocfParents: [firstParentWithChildren],
         unmatchedSegments: linkingResult.unmatchedSegments,
         unmatchedOCFs: linkingResult.unmatchedOCFs
     )
-    
+
     let results = await blankRushIntermediate.createBlankRushes(from: singleParentResult)
 
     print("\n📊 Blank Rush Results (Single Test):")
     for result in results {
         if result.success {
-            print("  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent) [NEW]")
+            print(
+                "  ✅ \(result.originalOCF.fileName) → \(result.blankRushURL.lastPathComponent) [NEW]"
+            )
         } else {
             print("  ❌ \(result.originalOCF.fileName) → \(result.error ?? "Unknown error")")
         }
@@ -359,70 +365,81 @@ func testBlackFrameGeneration() async {
 }
 
 @available(macOS 15, *)
-func testSwiftFFmpegPrintProcess(linkingResult: LinkingResult, blankRushResults: [BlankRushResult], segments: [MediaFileInfo]) async {
+func testSwiftFFmpegPrintProcess(
+    linkingResult: LinkingResult, blankRushResults: [BlankRushResult], segments: [MediaFileInfo]
+) async {
     print("🚀 Testing SwiftFFmpeg Print Process (Premiere Pro Compatible)...")
-    
+
     // Process all OCF parents that have children and successful blank rushes
     let validParents = linkingResult.ocfParents.filter { $0.hasChildren }
     let successfulBlankRushes = blankRushResults.filter { $0.success }
-    
-    print("📊 SwiftFFmpeg: Found \(validParents.count) OCF parents with children and \(successfulBlankRushes.count) successful blank rushes")
-    
+
+    print(
+        "📊 SwiftFFmpeg: Found \(validParents.count) OCF parents with children and \(successfulBlankRushes.count) successful blank rushes"
+    )
+
     // Test with first OCF parent for now
     guard let firstParent = validParents.first,
-          let blankRushResult = successfulBlankRushes.first(where: { 
-              $0.originalOCF.fileName == firstParent.ocf.fileName 
-          }) else {
+        let blankRushResult = successfulBlankRushes.first(where: {
+            $0.originalOCF.fileName == firstParent.ocf.fileName
+        })
+    else {
         print("❌ No valid OCF parent with blank rush found for testing")
         return
     }
-    
+
     let blankRushURL = blankRushResult.blankRushURL
-    
+
     // Generate output filename
     let baseName = (firstParent.ocf.fileName as NSString).deletingPathExtension
     let outputFileName = "\(baseName)_SwiftFFmpeg.mov"
-    let outputURL = URL(fileURLWithPath: testPaths.outputComposition).appendingPathComponent(outputFileName)
-    
+    let outputURL = URL(fileURLWithPath: testPaths.outputComposition).appendingPathComponent(
+        outputFileName)
+
     print("\n🎬 Testing SwiftFFmpeg compositor with: \(firstParent.ocf.fileName)")
     print("📁 Using blank rush: \(blankRushURL.lastPathComponent)")
     print("📝 Processing \(firstParent.children.count) linked segments")
     print("🎯 Output: \(outputFileName)")
-    
+
     // Create graded segments with VFX metadata from MediaFileInfo
     var ffmpegGradedSegments: [FFmpegGradedSegment] = []
-    
+
     for child in firstParent.children {
         let segmentInfo = child.segment
-        
+
         // Find corresponding MediaFileInfo for VFX metadata
-        guard let mediaFileInfo = segments.first(where: { $0.fileName == segmentInfo.fileName }) else {
+        guard let mediaFileInfo = segments.first(where: { $0.fileName == segmentInfo.fileName })
+        else {
             print("⚠️ Warning: No MediaFileInfo found for \(segmentInfo.fileName)")
             continue
         }
-        
+
         // Calculate timing like the AVFoundation version
         if let segmentTC = segmentInfo.sourceTimecode,
-           let baseTC = blankRushResult.originalOCF.sourceTimecode {
-            
+            let baseTC = blankRushResult.originalOCF.sourceTimecode
+        {
+
             // Use same timing calculation as AVFoundation version
-            let smpte = SMPTE(fps: Double(segmentInfo.frameRate ?? 25.0), dropFrame: segmentInfo.isDropFrame ?? false)
-            
+            let smpte = SMPTE(
+                fps: Double(segmentInfo.frameRate ?? 25.0),
+                dropFrame: segmentInfo.isDropFrame ?? false)
+
             do {
                 let segmentFrames = try smpte.getFrames(tc: segmentTC)
                 let baseFrames = try smpte.getFrames(tc: baseTC)
                 let relativeFrames = segmentFrames - baseFrames
-                
+
                 let startTime = CMTime(
                     value: CMTimeValue(relativeFrames),
                     timescale: CMTimeScale(segmentInfo.frameRate ?? 25.0)
                 )
-                
+
                 let duration = CMTime(
-                    seconds: Double(segmentInfo.durationInFrames ?? 0) / Double(segmentInfo.frameRate ?? 25.0),
+                    seconds: Double(segmentInfo.durationInFrames ?? 0)
+                        / Double(segmentInfo.frameRate ?? 25.0),
                     preferredTimescale: CMTimeScale((segmentInfo.frameRate ?? 25.0) * 1000)
                 )
-                
+
                 let ffmpegSegment = FFmpegGradedSegment(
                     url: segmentInfo.url,
                     startTime: startTime,
@@ -433,36 +450,38 @@ func testSwiftFFmpegPrintProcess(linkingResult: LinkingResult, blankRushResults:
                     frameRate: segmentInfo.frameRate,
                     isDropFrame: segmentInfo.isDropFrame
                 )
-                
+
                 ffmpegGradedSegments.append(ffmpegSegment)
-                
+
                 let frameNumber = Int(startTime.seconds * Double(segmentInfo.frameRate ?? 25.0))
                 let vfxStatus = ffmpegSegment.isVFXShot ? " [VFX]" : ""
-                print("📝 \(segmentInfo.fileName): Frame \(frameNumber) (TC: \(segmentTC))\(vfxStatus)")
-                
+                print(
+                    "📝 \(segmentInfo.fileName): Frame \(frameNumber) (TC: \(segmentTC))\(vfxStatus)"
+                )
+
             } catch {
                 print("⚠️ Failed to calculate timing for \(segmentInfo.fileName): \(error)")
             }
         }
     }
-    
+
     guard !ffmpegGradedSegments.isEmpty else {
         print("❌ No valid FFmpeg graded segments created")
         return
     }
-    
+
     let ffmpegSettings = FFmpegCompositorSettings(
         outputURL: outputURL,
         baseVideoURL: blankRushURL,
         gradedSegments: ffmpegGradedSegments,
         proResProfile: "4"  // ProRes 4444
     )
-    
+
     // Test SwiftFFmpeg compositor
     let ffmpegCompositor = SwiftFFmpegProResCompositor()
-    
+
     print("🚀 Starting SwiftFFmpeg composition (no edit lists for Premiere compatibility)...")
-    
+
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
         ffmpegCompositor.completionHandler = { result in
             print("\n")  // New line after progress
@@ -477,7 +496,7 @@ func testSwiftFFmpegPrintProcess(linkingResult: LinkingResult, blankRushResults:
                 continuation.resume()
             }
         }
-        
+
         // Start SwiftFFmpeg composition
         ffmpegCompositor.composeVideo(with: ffmpegSettings)
     }
@@ -618,9 +637,11 @@ Task {
         // Pass the linked data to print process instead of re-discovering
         if #available(macOS 15, *) {
             await testPrintProcess(linkingResult: linkingResult, blankRushResults: blankRushResults)
-            
+
             // Test SwiftFFmpeg print process for Premiere Pro compatibility
-            await testSwiftFFmpegPrintProcess(linkingResult: linkingResult, blankRushResults: blankRushResults, segments: gradedSegments)
+            await testSwiftFFmpegPrintProcess(
+                linkingResult: linkingResult, blankRushResults: blankRushResults,
+                segments: gradedSegments)
         } else {
             print("⚠️ Print process requires macOS 15+ - skipping")
         }
