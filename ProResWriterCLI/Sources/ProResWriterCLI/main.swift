@@ -7,19 +7,22 @@ import TimecodeKit
 // MARK: - Core functionality imported from ProResWriterCore package
 
 // // MARK: - Test Configuration Paths
-let testPaths = (
-    gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
-    ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
-    outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
-    projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
-)
-
 // let testPaths = (
-//     gradedSegments: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM",
-//     ocfParents: ["/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM"],
-//     outputComposition: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/",
-//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/"
+//     gradedSegments: "/Users/fq/Movies/ProResWriter/Ganni/ALL_GRADES_MM",
+//     ocfParents: ["/Volumes/EVO-POST/__POST/1683 - GANNI/02_FOOTAGE/OCF/3"],
+//     outputComposition: "/Users/fq/Movies/ProResWriter/Ganni/w2",
+//     projectBlankRushDirectory: "/Users/fq/Movies/ProResWriter/Ganni/blankRush"
 // )
+
+let testPaths = (
+    gradedSegments:
+        "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/ALL_GRADES_MM",
+    ocfParents: ["/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/02_FOOTAGE/OCF/8MM"],
+    outputComposition:
+        "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/OUT/w2/",
+    projectBlankRushDirectory:
+        "/Users/fq/Movies/ProResWriter/9999 - COS AW ProResWriter/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/blankRush/"
+)
 
 // MARK: - Test Configuration Paths
 // let testPaths = (

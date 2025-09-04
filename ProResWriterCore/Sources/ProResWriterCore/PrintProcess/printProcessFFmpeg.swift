@@ -14,6 +14,17 @@ import TimecodeKit
 
 // MARK: - SwiftFFmpeg-based Data Models
 
+// Video stream properties for caching (eliminate redundant analysis)
+public struct VideoStreamProperties {
+    let width: Int
+    let height: Int
+    let frameRate: AVRational
+    let frameRateFloat: Float
+    let duration: Double
+    let timebase: AVRational
+    let timecode: String?
+}
+
 public struct FFmpegGradedSegment {
     public let url: URL
     public let startTime: CMTime
@@ -25,11 +36,15 @@ public struct FFmpegGradedSegment {
     public let sourceTimecode: String?
     public let frameRate: Float?
     public let isDropFrame: Bool?
+    
+    // Cached stream properties to eliminate redundant analysis
+    public let cachedStreamProperties: VideoStreamProperties?
 
     public init(
         url: URL, startTime: CMTime, duration: CMTime, sourceStartTime: CMTime,
         isVFXShot: Bool = false,
-        sourceTimecode: String? = nil, frameRate: Float? = nil, isDropFrame: Bool? = nil
+        sourceTimecode: String? = nil, frameRate: Float? = nil, isDropFrame: Bool? = nil,
+        cachedStreamProperties: VideoStreamProperties? = nil
     ) {
         self.url = url
         self.startTime = startTime
@@ -39,6 +54,7 @@ public struct FFmpegGradedSegment {
         self.sourceTimecode = sourceTimecode
         self.frameRate = frameRate
         self.isDropFrame = isDropFrame
+        self.cachedStreamProperties = cachedStreamProperties
     }
 }
 
@@ -118,17 +134,34 @@ public class SwiftFFmpegProResCompositor {
             "✅ Base video properties: \(baseProperties.width)x\(baseProperties.height) @ \(String(format: "%.3f", baseProperties.frameRateFloat))fps"
         )
 
-        // 2. Analyze all segments (timing measurement)
+        // 2. Analyze and cache segment properties (eliminates redundant analysis)
         let segmentAnalysisStart = CFAbsoluteTimeGetCurrent()
-        print("🔍 Analyzing \(settings.gradedSegments.count) segment files...")
+        print("🔍 Analyzing and caching \(settings.gradedSegments.count) segment properties...")
 
-        // Pre-analyze all segments for performance measurement
+        // Pre-analyze all segments and cache properties to eliminate duplicate analysis
         var segmentAnalysisTime: Double = 0
+        var cachedSegments: [FFmpegGradedSegment] = []
+        
         for (index, segment) in settings.gradedSegments.enumerated() {
             let segStartTime = CFAbsoluteTimeGetCurrent()
-            _ = try analyzeVideoWithFFmpeg(url: segment.url)
+            let streamProperties = try analyzeVideoWithFFmpeg(url: segment.url)
             let segEndTime = CFAbsoluteTimeGetCurrent()
             segmentAnalysisTime += segEndTime - segStartTime
+            
+            // Create new segment with cached properties
+            let cachedSegment = FFmpegGradedSegment(
+                url: segment.url,
+                startTime: segment.startTime,
+                duration: segment.duration,
+                sourceStartTime: segment.sourceStartTime,
+                isVFXShot: segment.isVFXShot,
+                sourceTimecode: segment.sourceTimecode,
+                frameRate: segment.frameRate,
+                isDropFrame: segment.isDropFrame,
+                cachedStreamProperties: streamProperties
+            )
+            cachedSegments.append(cachedSegment)
+            
             if index % 5 == 0 || index == settings.gradedSegments.count - 1 {
                 print(
                     "  📊 Analyzed \(index + 1)/\(settings.gradedSegments.count) segments (\(String(format: "%.3f", segmentAnalysisTime))s total)"
@@ -148,8 +181,16 @@ public class SwiftFFmpegProResCompositor {
             "🚀 Using SwiftFFmpeg direct stream copying (avoiding edit lists for Premiere compatibility)..."
         )
 
-        // Process timeline with direct stream copying
-        try await processTimelineDirectly(settings: settings, baseProperties: baseProperties)
+        // Create settings with cached segments to eliminate redundant analysis
+        let optimizedSettings = FFmpegCompositorSettings(
+            outputURL: settings.outputURL,
+            baseVideoURL: settings.baseVideoURL,
+            gradedSegments: cachedSegments,
+            proResProfile: settings.proResProfile
+        )
+        
+        // Process timeline with direct stream copying (no more redundant analysis!)
+        try await processTimelineDirectly(settings: optimizedSettings, baseProperties: baseProperties)
 
         let exportEndTime = CFAbsoluteTimeGetCurrent()
         let exportDuration = exportEndTime - exportStartTime
@@ -175,16 +216,6 @@ public class SwiftFFmpegProResCompositor {
     }
 
     // MARK: - Video Analysis (Adapted from Blank Rush)
-
-    private struct VideoStreamProperties {
-        let width: Int
-        let height: Int
-        let frameRate: AVRational
-        let frameRateFloat: Float
-        let duration: Double
-        let timebase: AVRational
-        let timecode: String?
-    }
 
     private func analyzeVideoWithFFmpeg(url: URL) throws -> VideoStreamProperties {
         print("🔍 Opening format context for: \(url.lastPathComponent)")
@@ -774,10 +805,23 @@ public class SwiftFFmpegProResCompositor {
         baseProperties: VideoStreamProperties
     ) async throws {
 
-        let segmentAnalysisStart = CFAbsoluteTimeGetCurrent()
+        // Open segment context for reading
         let segmentContext = try AVFormatContext(url: segment.url.path)
-        try segmentContext.findStreamInfo()
-
+        
+        // Use cached properties to eliminate expensive findStreamInfo() call!
+        if let cachedProperties = segment.cachedStreamProperties {
+            print("    ⚡️ Using cached properties (skipping analysis!)")
+            // Skip findStreamInfo() - we already have all the properties!
+        } else {
+            // Fallback: analyze if no cached properties (shouldn't happen)
+            print("    ⚠️ No cached properties, analyzing segment...")
+            let segmentAnalysisStart = CFAbsoluteTimeGetCurrent()
+            try segmentContext.findStreamInfo()
+            let segmentAnalysisEnd = CFAbsoluteTimeGetCurrent()
+            let analysisTime = segmentAnalysisEnd - segmentAnalysisStart
+            print("    🔍 Segment analysis: \(String(format: "%.3f", analysisTime))s")
+        }
+        
         guard
             let segmentVideoStream = segmentContext.streams.first(where: {
                 $0.codecParameters.width > 0 && $0.codecParameters.height > 0
@@ -785,10 +829,6 @@ public class SwiftFFmpegProResCompositor {
         else {
             throw FFmpegCompositorError.noVideoStream
         }
-
-        let segmentAnalysisEnd = CFAbsoluteTimeGetCurrent()
-        let analysisTime = segmentAnalysisEnd - segmentAnalysisStart
-        print("    🔍 Segment analysis: \(String(format: "%.3f", analysisTime))s")
 
         let packet = AVPacket()
         var framesCopied = 0
