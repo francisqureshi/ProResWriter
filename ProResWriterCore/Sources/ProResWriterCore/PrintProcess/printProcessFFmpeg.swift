@@ -330,7 +330,7 @@ public class SwiftFFmpegProResCompositor {
         let codecContext = AVCodecContext(codec: proresCodec)
         codecContext.width = baseProperties.width
         codecContext.height = baseProperties.height
-        codecContext.pixelFormat = AVPixelFormat.UYVY422  // VideoToolbox compatible
+        codecContext.pixelFormat = AVPixelFormat.YUV444P10LE  // VideoToolbox compatible shoukd be 10/12/16 bit? or just what resolve PR4444 does! 
         
         // Use exact timebase and framerate from base video (like blank rush)
         codecContext.timebase = AVRational(
