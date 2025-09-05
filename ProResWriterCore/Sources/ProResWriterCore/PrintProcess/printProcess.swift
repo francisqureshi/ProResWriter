@@ -247,7 +247,7 @@ public class ProResVideoCompositor: NSObject {
             print("✅ Timecode track found in composition - should be exported")
 
             // Associate timecode track with video track for export
-            if let videoTrack = videoTrack, let timecodeTrack = timecodeTracks.first {
+            if let videoTrack = videoTrack, timecodeTracks.first != nil {
                 // Note: AVMutableComposition doesn't support addTrackAssociation,
                 // but AVAssetExportSession should preserve the timecode track
                 print("🔗 Video and timecode tracks ready for export")
@@ -513,7 +513,7 @@ public class ProResVideoCompositor: NSObject {
         }
     }
 
-    private func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
+    internal func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
         // Note: We're passing in Int32 but need to handle decimal frame rates differently
         // For now, we'll handle the integer approximations and rely on TimecodeKit's precision
 
