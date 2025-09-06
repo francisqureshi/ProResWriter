@@ -303,12 +303,12 @@ public class SwiftFFmpegProResCompositor {
 
         print("📊 Timeline segments: \(regularSegments.count) regular + \(vfxSegments.count) VFX")
         for (index, segment) in regularSegments.enumerated() {
-            let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRateFloat))
+            let startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
             print(
                 "   Regular \(index + 1): \(segment.url.lastPathComponent) at frame \(startFrame)")
         }
         for (index, segment) in vfxSegments.enumerated() {
-            let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRateFloat))
+            let startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
             print("   VFX \(index + 1): \(segment.url.lastPathComponent) at frame \(startFrame)")
         }
 
@@ -548,8 +548,8 @@ public class SwiftFFmpegProResCompositor {
         var segmentRanges: [(startFrame: Int, endFrame: Int, segment: FFmpegGradedSegment)] = []
 
         for segment in segments {
-            let startFrame: Int
-            let endFrame: Int
+            var startFrame: Int
+            var endFrame: Int
 
             // Use SMPTE calculation for precise frame positioning
             if let baseTimecode = baseProperties.timecode,
@@ -563,37 +563,46 @@ public class SwiftFFmpegProResCompositor {
 
                 do {
                     let baseFrames = try smpte.getFrames(tc: baseTimecode)
-                    let segmentFrames = try smpte.getFrames(tc: segmentTimecode)
-                    startFrame = segmentFrames - baseFrames
+                    let segmentStartFrames = try smpte.getFrames(tc: segmentTimecode)
+                    startFrame = segmentStartFrames - baseFrames
 
-                    // Calculate segment duration from its own frame count or duration
-                    let segmentDurationFrames = Int(
-                        segment.duration.seconds * Double(segmentFrameRate))
-                    endFrame = startFrame + segmentDurationFrames
+                    // Calculate end frame based on segment's actual end timecode if available,
+                    // otherwise fall back to duration calculation
+                    if let segmentSourceTC = segment.sourceTimecode,
+                       let segmentEndTC = calculateEndTimecode(
+                           startTC: segmentSourceTC,
+                           durationSeconds: segment.duration.seconds,
+                           frameRate: segmentFrameRate,
+                           isDropFrame: segment.isDropFrame ?? false
+                       ) {
+                        let segmentEndFrames = try smpte.getFrames(tc: segmentEndTC)
+                        endFrame = segmentEndFrames - baseFrames + 1  // +1 because end timecode is inclusive
+                    } else {
+                        // Fallback to duration-based calculation
+                        let segmentDurationFrames = Int(
+                            segment.duration.seconds * Double(segmentFrameRate))
+                        endFrame = startFrame + segmentDurationFrames
+                    }
 
+                    let actualFrameCount = endFrame - startFrame
                     print(
-                        "📝 SMPTE segment: \(segment.url.lastPathComponent) frames \(startFrame)-\(endFrame-1) (\(segmentDurationFrames) frames)"
+                        "📝 SMPTE segment: \(segment.url.lastPathComponent) frames \(startFrame)-\(endFrame-1) (\(actualFrameCount) frames)"
                     )
                 } catch {
                     print(
                         "⚠️ SMPTE calculation failed for \(segment.url.lastPathComponent): \(error). Falling back to time-based."
                     )
-                    let startFrameExact =
-                        segment.startTime.seconds * Double(baseProperties.frameRateFloat)
-                    startFrame = Int(round(startFrameExact))
+                    startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
                     endFrame =
                         startFrame
-                        + Int(
-                            round(segment.duration.seconds * Double(baseProperties.frameRateFloat)))
+                        + convertTimeToFrame(seconds: segment.duration.seconds, frameRate: baseProperties.frameRate)
                 }
             } else {
                 // Fallback to time-based calculation when timecode info is missing
-                let startFrameExact =
-                    segment.startTime.seconds * Double(baseProperties.frameRateFloat)
-                startFrame = Int(round(startFrameExact))
+                startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
                 endFrame =
                     startFrame
-                    + Int(round(segment.duration.seconds * Double(baseProperties.frameRateFloat)))
+                    + convertTimeToFrame(seconds: segment.duration.seconds, frameRate: baseProperties.frameRate)
                 print(
                     "📝 Time-based segment: \(segment.url.lastPathComponent) frames \(startFrame)-\(endFrame-1)"
                 )
@@ -605,7 +614,16 @@ public class SwiftFFmpegProResCompositor {
         // Sort segments by start frame
         segmentRanges.sort { $0.startFrame < $1.startFrame }
 
-        let totalFrames = Int(baseProperties.duration * Double(baseProperties.frameRateFloat))
+        let totalFrames = convertTimeToFrame(seconds: baseProperties.duration, frameRate: baseProperties.frameRate)
+        
+        // Ensure no segment exceeds timeline bounds - common with 59.94 DF where
+        // floating point duration calculations can cause slight frame count discrepancies
+        for i in 0..<segmentRanges.count {
+            if segmentRanges[i].endFrame > totalFrames {
+                print("⚠️ Segment \(segmentRanges[i].segment.url.lastPathComponent) end frame \(segmentRanges[i].endFrame) exceeds timeline \(totalFrames), clamping to \(totalFrames)")
+                segmentRanges[i].endFrame = totalFrames
+            }
+        }
         let streamCopyStartTime = CFAbsoluteTimeGetCurrent()
         print(
             "📹 Stream-copying \(totalFrames) frames with \(segmentRanges.count) segment insertions..."
@@ -749,7 +767,7 @@ public class SwiftFFmpegProResCompositor {
         // Calculate exact frame duration once for consistent timing
         let frameDuration = AVMath.rescale(
             1,  // One frame duration
-            AVRational(num: 1, den: Int32(baseProperties.frameRateFloat)),
+            AVRational(num: baseProperties.frameRate.den, den: baseProperties.frameRate.num),
             outputVideoStream.timebase,
             rounding: .nearInf,
             passMinMax: true
@@ -836,7 +854,7 @@ public class SwiftFFmpegProResCompositor {
         // Calculate exact frame duration once for consistent timing
         let frameDuration = AVMath.rescale(
             1,  // One frame duration
-            AVRational(num: 1, den: Int32(baseProperties.frameRateFloat)),
+            AVRational(num: baseProperties.frameRate.den, den: baseProperties.frameRate.num),
             outputVideoStream.timebase,
             rounding: .nearInf,
             passMinMax: true
@@ -927,9 +945,9 @@ public class SwiftFFmpegProResCompositor {
     ) async throws {
 
         let segmentType = isVFX ? "VFX" : "regular"
-        let startFrame = Int(segment.startTime.seconds * Double(baseProperties.frameRateFloat))
+        let startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
         let endFrame =
-            startFrame + Int(segment.duration.seconds * Double(baseProperties.frameRateFloat))
+            startFrame + convertTimeToFrame(seconds: segment.duration.seconds, frameRate: baseProperties.frameRate)
         print("🎬 Applying \(segmentType) segment: \(segment.url.lastPathComponent)")
         print("   Timeline position: frame \(startFrame) - \(endFrame)")
 
@@ -1037,6 +1055,32 @@ public class SwiftFFmpegProResCompositor {
     private func convertTimeToPTS(time: CMTime, timebase: AVRational) -> Int64 {
         // Convert CMTime to PTS using timebase
         return Int64(time.seconds * Double(timebase.den) / Double(timebase.num))
+    }
+    
+    private func convertTimeToFrame(seconds: Double, frameRate: AVRational) -> Int {
+        // Convert time to frame using precise rational arithmetic
+        let fps = Double(frameRate.num) / Double(frameRate.den)
+        return Int(round(seconds * fps))
+    }
+    
+    private func calculateEndTimecode(
+        startTC: String,
+        durationSeconds: Double,
+        frameRate: Float,
+        isDropFrame: Bool
+    ) -> String? {
+        // Use SMPTE to calculate end timecode from start + duration
+        let smpte = SMPTE(fps: Double(frameRate), dropFrame: isDropFrame)
+        
+        do {
+            let startFrames = try smpte.getFrames(tc: startTC)
+            let durationFrames = Int(round(durationSeconds * Double(frameRate)))
+            let endFrames = startFrames + durationFrames - 1  // -1 because end is inclusive
+            return try smpte.getTC(frames: endFrames)
+        } catch {
+            print("⚠️ Failed to calculate end timecode: \(error)")
+            return nil
+        }
     }
 
     // MARK: - Progress Updates

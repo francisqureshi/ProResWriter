@@ -93,6 +93,10 @@ class ProjectManager: ObservableObject {
             
             let project = try decoder.decode(Project.self, from: data)
             NSLog("✅ Successfully decoded project: \(project.name)")
+            
+            // Scan for existing blank rushes after loading
+            project.scanForExistingBlankRushes()
+            
             return project
         } catch {
             NSLog("❌ Failed to load project from \(url.lastPathComponent): \(error)")

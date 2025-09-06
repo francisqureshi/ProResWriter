@@ -269,3 +269,33 @@ compositor.composeVideo(with: ffmpegSettings)
 ```
 
 **🎬 SwiftFFmpeg is now the production standard for professional post-production workflows.**
+
+## 🎯 Critical Bug Fixes (2025-09-06)
+
+### Frame Rate Precision Fix ✅
+- **Problem**: 23.976 fps clips showing as 23.011 fps in QuickTime/MediaInfo due to float precision loss
+- **Root Cause**: Using `frameRateFloat` instead of rational `AVRational` for frame calculations
+- **Solution**: Implemented rational arithmetic throughout using `convertTimeToFrame()` helper
+- **Result**: Perfect 23.976 fps (24000/1001) encoding in output files
+
+### Last Frame Issue Resolution ✅ 
+- **Problem**: Segments ending on final timeline frame showed blank rush instead of graded segment
+- **Root Cause**: `endFrame` calculated from duration instead of actual timecode position
+- **Critical Case**: 59.94 DF clips where segment ends exactly at OCF boundary (e.g., `12:37:55;47`)
+- **Solution**: Timecode-based end frame calculation with inclusive boundary handling
+- **Architecture**: 
+  ```swift
+  // OLD: Duration-based (inaccurate)
+  endFrame = startFrame + segmentDurationFrames
+  
+  // NEW: Timecode-based (frame-accurate)  
+  let segmentEndFrames = try smpte.getFrames(tc: segmentEndTC)
+  endFrame = segmentEndFrames - baseFrames + 1  // +1 for inclusive
+  ```
+- **Result**: Perfect final frame accuracy for segments ending at timeline boundary
+
+### Production Impact
+- **✅ Frame Rate Metadata**: All frame rates now encode correctly (23.976, 59.94 DF, etc.)
+- **✅ Boundary Accuracy**: No more missing final frames in segments
+- **✅ SMPTE Precision**: Professional timecode calculations eliminate floating-point errors
+- **✅ 59.94 DF Support**: Drop frame sequences handled with frame-perfect accuracy

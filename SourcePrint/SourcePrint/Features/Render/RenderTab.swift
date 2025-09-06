@@ -13,7 +13,7 @@ import TimecodeKit
 
 @available(macOS 15, *)
 struct RenderTab: View {
-    let project: Project
+    @ObservedObject var project: Project
     @EnvironmentObject var projectManager: ProjectManager
     @State private var isRendering = false
     @State private var renderProgress = ""
