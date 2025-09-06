@@ -9,6 +9,7 @@ import SwiftUI
 import ProResWriterCore
 import AVFoundation
 import CoreMedia
+import TimecodeKit
 
 @available(macOS 15, *)
 struct RenderTab: View {
@@ -122,7 +123,7 @@ struct RenderTab: View {
     }
     
     var isReadyForRender: Bool {
-        guard let linkingResult = project.linkingResult else { return false }
+        guard project.linkingResult != nil else { return false }
         
         // Check if we have any completed blank rushes
         let completedBlankRushes = project.blankRushStatus.values.compactMap { status in
@@ -189,48 +190,73 @@ struct RenderTab: View {
                     let outputFileName = "\(baseName).mov"
                     let outputURL = project.outputDirectory.appendingPathComponent(outputFileName)
                     
-                    // Create compositor and analyze base video
-                    let compositor = ProResVideoCompositor()
-                    let baseAsset = AVURLAsset(url: blankRushURL)
-                    let baseTrack = try await compositor.getVideoTrack(from: baseAsset)
-                    let baseProperties = try await compositor.getVideoProperties(from: baseTrack)
+                    // Create SwiftFFmpeg compositor (Premiere Pro compatible)
+                    let compositor = SwiftFFmpegProResCompositor()
                     
-                    // Convert linked children to GradedSegments
-                    var gradedSegments: [GradedSegment] = []
+                    // Convert linked children to FFmpegGradedSegments with VFX metadata
+                    var ffmpegGradedSegments: [FFmpegGradedSegment] = []
                     for child in ocfParent.children {
                         let segmentInfo = child.segment
                         
+                        // Find corresponding MediaFileInfo for VFX metadata
+                        guard let mediaFileInfo = project.segments.first(where: { $0.fileName == segmentInfo.fileName }) else {
+                            NSLog("⚠️ Warning: No MediaFileInfo found for \(segmentInfo.fileName)")
+                            continue
+                        }
+                        
                         if let segmentTC = segmentInfo.sourceTimecode,
-                           let baseTC = baseProperties.sourceTimecode,
-                           let startTime = compositor.timecodeToCMTime(segmentTC, frameRate: baseProperties.frameRate, baseTimecode: baseTC),
+                           let baseTC = ocfParent.ocf.sourceTimecode,
+                           let segmentFrameRate = segmentInfo.frameRate,
                            let duration = segmentInfo.durationInFrames {
                             
-                            let segmentDuration = CMTime(
-                                seconds: Double(duration) / Double(baseProperties.frameRate),
-                                preferredTimescale: CMTimeScale(baseProperties.frameRate * 1000)
-                            )
+                            // Use SMPTE for precise timecode calculation like CLI
+                            let smpte = SMPTE(fps: Double(segmentFrameRate), dropFrame: segmentInfo.isDropFrame ?? false)
                             
-                            let gradedSegment = GradedSegment(
-                                url: segmentInfo.url,
-                                startTime: startTime,
-                                duration: segmentDuration,
-                                sourceStartTime: .zero
-                            )
-                            gradedSegments.append(gradedSegment)
+                            do {
+                                let segmentFrames = try smpte.getFrames(tc: segmentTC)
+                                let baseFrames = try smpte.getFrames(tc: baseTC)
+                                let relativeFrames = segmentFrames - baseFrames
+                                
+                                let startTime = CMTime(
+                                    value: CMTimeValue(relativeFrames),
+                                    timescale: CMTimeScale(segmentFrameRate)
+                                )
+                                
+                                let segmentDuration = CMTime(
+                                    seconds: Double(duration) / Double(segmentFrameRate),
+                                    preferredTimescale: CMTimeScale(segmentFrameRate * 1000)
+                                )
+                                
+                                let ffmpegSegment = FFmpegGradedSegment(
+                                    url: segmentInfo.url,
+                                    startTime: startTime,
+                                    duration: segmentDuration,
+                                    sourceStartTime: .zero,
+                                    isVFXShot: mediaFileInfo.isVFXShot ?? false,
+                                    sourceTimecode: segmentInfo.sourceTimecode,
+                                    frameRate: segmentInfo.frameRate,
+                                    isDropFrame: segmentInfo.isDropFrame
+                                )
+                                ffmpegGradedSegments.append(ffmpegSegment)
+                                
+                            } catch {
+                                NSLog("⚠️ SMPTE calculation failed for \(segmentInfo.fileName): \(error)")
+                                continue
+                            }
                         }
                     }
                     
-                    guard !gradedSegments.isEmpty else {
-                        NSLog("❌ No valid graded segments for \(ocfParent.ocf.fileName)")
+                    guard !ffmpegGradedSegments.isEmpty else {
+                        NSLog("❌ No valid FFmpeg graded segments for \(ocfParent.ocf.fileName)")
                         continue
                     }
                     
-                    // Setup compositor settings
-                    let settings = CompositorSettings(
+                    // Setup SwiftFFmpeg compositor settings
+                    let settings = FFmpegCompositorSettings(
                         outputURL: outputURL,
                         baseVideoURL: blankRushURL,
-                        gradedSegments: gradedSegments,
-                        proResType: .proRes4444
+                        gradedSegments: ffmpegGradedSegments,
+                        proResProfile: "4"  // ProRes 4444
                     )
                     
                     // Remove progress handler for indeterminate progress bar
@@ -252,7 +278,7 @@ struct RenderTab: View {
                         let printRecord = PrintRecord(
                             date: Date(),
                             outputURL: finalOutputURL,
-                            segmentCount: gradedSegments.count,
+                            segmentCount: ffmpegGradedSegments.count,
                             duration: compositionDuration,
                             success: true
                         )
@@ -263,7 +289,7 @@ struct RenderTab: View {
                         let printRecord = PrintRecord(
                             date: Date(),
                             outputURL: outputURL,
-                            segmentCount: gradedSegments.count,
+                            segmentCount: ffmpegGradedSegments.count,
                             duration: compositionDuration,
                             success: false
                         )

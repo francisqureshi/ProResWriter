@@ -639,12 +639,13 @@ Task {
 
         // Pass the linked data to print process instead of re-discovering
         if #available(macOS 15, *) {
-            await testPrintProcess(linkingResult: linkingResult, blankRushResults: blankRushResults)
-
-            // Test SwiftFFmpeg print process for Premiere Pro compatibility
+            // Use SwiftFFmpeg print process by default (Premiere Pro compatible)
             await testSwiftFFmpegPrintProcess(
                 linkingResult: linkingResult, blankRushResults: blankRushResults,
                 segments: gradedSegments)
+
+            // Optional: Test AVFoundation print process for comparison
+            // await testPrintProcess(linkingResult: linkingResult, blankRushResults: blankRushResults)
         } else {
             print("⚠️ Print process requires macOS 15+ - skipping")
         }
