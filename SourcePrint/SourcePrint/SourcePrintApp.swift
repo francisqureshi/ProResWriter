@@ -10,6 +10,7 @@ import ProResWriterCore
 
 extension Notification.Name {
     static let showNewProject = Notification.Name("showNewProject")
+    static let toggleSidebar = Notification.Name("toggleSidebar")
 }
 
 @main
@@ -36,6 +37,27 @@ struct SourcePrintApp: App {
                 }
                 .keyboardShortcut("o")
                 
+                Menu("Open Recent") {
+                    if projectManager.recentProjects.isEmpty {
+                        Text("No Recent Projects")
+                            .disabled(true)
+                    } else {
+                        ForEach(projectManager.recentProjects.indices, id: \.self) { index in
+                            let project = projectManager.recentProjects[index]
+                            Button(project.name) {
+                                projectManager.openRecentProject(project)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        Button("Clear Menu") {
+                            projectManager.clearRecentProjects()
+                        }
+                    }
+                }
+                .disabled(projectManager.recentProjects.isEmpty)
+                
                 Divider()
                 
                 Button("Save Project") {
@@ -53,6 +75,13 @@ struct SourcePrintApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(projectManager.currentProject == nil)
+            }
+            
+            CommandGroup(after: .sidebar) {
+                Button("Toggle Sidebar") {
+                    NotificationCenter.default.post(name: .toggleSidebar, object: nil)
+                }
+                .keyboardShortcut("s", modifiers: [.command, .option])
             }
         }
     }

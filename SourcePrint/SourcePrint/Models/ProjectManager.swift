@@ -72,7 +72,7 @@ class ProjectManager: ObservableObject {
                 projects.append(project)
                 
                 // Add to recent projects (sorted by lastModified)
-                if recentProjects.count < 5 {
+                if recentProjects.count < 10 {
                     recentProjects.append(project)
                 }
             }
@@ -285,6 +285,34 @@ class ProjectManager: ObservableObject {
         try? FileManager.default.removeItem(at: url)
     }
     
+    func openRecentProject(_ project: Project) {
+        // Check if project file still exists
+        guard let fileURL = project.fileURL,
+              FileManager.default.fileExists(atPath: fileURL.path) else {
+            NSLog("❌ Recent project file no longer exists, removing from recent list")
+            removeFromRecentProjects(project)
+            return
+        }
+        
+        // Load and open the project
+        if let loadedProject = loadProject(from: fileURL) {
+            // Check if already in projects list
+            if !projects.contains(where: { $0.name == loadedProject.name }) {
+                projects.append(loadedProject)
+            }
+            openProject(loadedProject)
+        }
+    }
+    
+    private func removeFromRecentProjects(_ project: Project) {
+        recentProjects.removeAll { $0.name == project.name }
+    }
+    
+    func clearRecentProjects() {
+        recentProjects.removeAll()
+        NSLog("🗑️ Cleared recent projects menu")
+    }
+    
     private func updateRecentProjects(_ project: Project) {
         // Remove if already in recent
         recentProjects.removeAll { $0.name == project.name }
@@ -292,8 +320,8 @@ class ProjectManager: ObservableObject {
         // Add to front
         recentProjects.insert(project, at: 0)
         
-        // Keep only 5 most recent
-        if recentProjects.count > 5 {
+        // Keep only 10 most recent
+        if recentProjects.count > 10 {
             recentProjects.removeLast()
         }
     }
