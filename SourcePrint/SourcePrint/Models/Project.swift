@@ -33,6 +33,7 @@ class Project: ObservableObject, Codable, Identifiable {
     // MARK: - Project Settings
     @Published var outputDirectory: URL
     @Published var blankRushDirectory: URL
+    @Published var fileURL: URL?
 
     // MARK: - Computed Properties
     var hasLinkedMedia: Bool {
@@ -116,7 +117,7 @@ class Project: ObservableObject, Codable, Identifiable {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
         case blankRushStatus, segmentModificationDates, lastPrintDate, printHistory
-        case outputDirectory, blankRushDirectory
+        case outputDirectory, blankRushDirectory, fileURL
     }
 
     required init(from decoder: Decoder) throws {
@@ -140,6 +141,7 @@ class Project: ObservableObject, Codable, Identifiable {
 
         outputDirectory = try container.decode(URL.self, forKey: .outputDirectory)
         blankRushDirectory = try container.decode(URL.self, forKey: .blankRushDirectory)
+        fileURL = try container.decodeIfPresent(URL.self, forKey: .fileURL)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -160,6 +162,7 @@ class Project: ObservableObject, Codable, Identifiable {
 
         try container.encode(outputDirectory, forKey: .outputDirectory)
         try container.encode(blankRushDirectory, forKey: .blankRushDirectory)
+        try container.encodeIfPresent(fileURL, forKey: .fileURL)
     }
 
     // MARK: - Project Management

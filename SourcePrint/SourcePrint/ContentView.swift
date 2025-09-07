@@ -42,6 +42,9 @@ struct ContentView: View {
             NewProjectSheet()
                 .environmentObject(projectManager)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showNewProject)) { _ in
+            showingNewProject = true
+        }
     }
 }
 

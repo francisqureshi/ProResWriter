@@ -147,6 +147,10 @@ pix_fmts=uyvy422
 
 ### SourcePrint GUI Application
 - **Project Management**: .w2 JSON files with auto-save, sidebar navigation
+- **File Menu Integration**: Native macOS File menu with ⌘N, ⌘O, ⌘S, ⇧⌘S keyboard shortcuts
+- **Natural Filename Support**: Projects use readable names like "1629 - Levis.w2" (not "1629_-_Levis.w2")
+- **Filename-Project Sync**: Bidirectional sync between project names and filenames
+- **Location Preservation**: Save maintains original file locations (Desktop, external drives, etc.)
 - **Media Import**: 4 modes (single/multiple files/folders) with multithreaded analysis
 - **Real-Time Progress**: Frame-accurate encoding feedback with FPS display
 - **Professional Metadata**: Frame counts, timecode ranges, resolution, confidence indicators
