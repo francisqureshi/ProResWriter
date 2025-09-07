@@ -24,6 +24,12 @@ struct LinkedResultsColumnTableView: View {
     @State private var fpsWidth: CGFloat = 80
     @State private var statusWidth: CGFloat = 120
     
+    // Expanded state for each OCF parent
+    @State private var expandedOCFs: Set<String> = []
+    
+    // Selection state
+    @State private var selectedRowId: UUID? = nil
+    
     // Minimum column widths
     private let minClipNameWidth: CGFloat = 150
     private let minTypeWidth: CGFloat = 60
@@ -40,7 +46,7 @@ struct LinkedResultsColumnTableView: View {
         project.linkingResult
     }
     
-    // Flattened data for table display - only confidently linked results
+    // Flattened data for table display with collapsible structure
     private var tableData: [LinkingTableRow] {
         guard let linkingResult = linkingResult else { return [] }
         
@@ -62,15 +68,18 @@ struct LinkedResultsColumnTableView: View {
                     project: project
                 ))
                 
-                // Add linked segments
-                for segment in goodSegments {
-                    rows.append(LinkingTableRow(
-                        type: .linkedSegment,
-                        ocfParent: nil,
-                        linkedSegment: segment,
-                        unmatchedFile: nil,
-                        project: project
-                    ))
+                // Add linked segments only if this OCF is expanded
+                let ocfKey = parent.ocf.fileName
+                if expandedOCFs.contains(ocfKey) {
+                    for segment in goodSegments {
+                        rows.append(LinkingTableRow(
+                            type: .linkedSegment,
+                            ocfParent: nil,
+                            linkedSegment: segment,
+                            unmatchedFile: nil,
+                            project: project
+                        ))
+                    }
                 }
             }
         }
@@ -79,9 +88,20 @@ struct LinkedResultsColumnTableView: View {
     }
     
     var body: some View {
-        GeometryReader { geometry in
-            ScrollView([.horizontal, .vertical]) {
-                VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header section (always visible at top)
+            HStack {
+                Text("Linked Files")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+            
+            // Table content
+            GeometryReader { geometry in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: 0) {
                     // Headers - match MediaFileColumnTableView structure exactly
                     HStack(spacing: 0) {
                         // Clip Name Column
@@ -232,21 +252,67 @@ struct LinkedResultsColumnTableView: View {
                                 resolutionWidth: resolutionWidth,
                                 fpsWidth: fpsWidth,
                                 statusWidth: statusWidth,
-                                isEven: index % 2 == 0
+                                isEven: index % 2 == 0,
+                                expandedOCFs: $expandedOCFs,
+                                isSelected: selectedRowId == row.id
                             )
+                            .background(selectedRowId == row.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .contentShape(Rectangle())
+                            .focusable()
+                            .onTapGesture {
+                                selectedRowId = row.id
+                            }
+                            .onKeyPress(.rightArrow) {
+                                if selectedRowId == row.id {
+                                    handleRightArrowPress(for: row)
+                                    return .handled
+                                }
+                                return .ignored
+                            }
+                            .onKeyPress(.leftArrow) {
+                                if selectedRowId == row.id {
+                                    handleLeftArrowPress(for: row)  
+                                    return .handled
+                                }
+                                return .ignored
+                            }
                             
                             if index < tableData.count - 1 {
                                 Divider()
                             }
                         }
                     }
+                    }
+                    .frame(minWidth: geometry.size.width, maxWidth: .infinity, alignment: .leading)
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
     }
     
     private func totalColumnWidths() -> CGFloat {
         return clipNameWidth + typeWidth + confidenceWidth + startTCWidth + endTCWidth + durationWidth + framesWidth + resolutionWidth + fpsWidth + statusWidth
+    }
+    
+    // Keyboard navigation handlers
+    private func handleRightArrowPress(for row: LinkingTableRow) {
+        guard row.type == .ocfParent,
+              let ocfFileName = row.ocfParent?.ocf.fileName else { return }
+        
+        // Expand the OCF if it's collapsed
+        if !expandedOCFs.contains(ocfFileName) {
+            expandedOCFs.insert(ocfFileName)
+        }
+    }
+    
+    private func handleLeftArrowPress(for row: LinkingTableRow) {
+        guard row.type == .ocfParent,
+              let ocfFileName = row.ocfParent?.ocf.fileName else { return }
+        
+        // Collapse the OCF if it's expanded
+        if expandedOCFs.contains(ocfFileName) {
+            expandedOCFs.remove(ocfFileName)
+        }
     }
 }
 
@@ -277,14 +343,29 @@ struct LinkingTableRowView: View {
     let fpsWidth: CGFloat
     let statusWidth: CGFloat
     let isEven: Bool
+    @Binding var expandedOCFs: Set<String>
+    let isSelected: Bool
     
     var body: some View {
         HStack(spacing: 0) {
-            // Clip Name Column - inline structure matching MediaFileColumnRowView
+            // Clip Name Column with disclosure triangles
             HStack(spacing: 4) {
-                // Indentation for segments
-                if row.type == .linkedSegment {
-                    Color.clear.frame(width: 16)
+                // Disclosure triangle for OCF parents, indentation for segments
+                switch row.type {
+                case .ocfParent:
+                    Button(action: {
+                        toggleOCFExpansion()
+                    }) {
+                        Image(systemName: isOCFExpanded ? "chevron.down" : "chevron.right")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 10))
+                            .frame(width: 16, height: 16)
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    
+                case .linkedSegment:
+                    Color.clear.frame(width: 20) // Indentation for child segments
                 }
                 
                 // Icon
@@ -554,6 +635,22 @@ struct LinkingTableRowView: View {
                 return "VFX Shot"
             }
             return "Linked"
+        }
+    }
+    
+    // Helper computed properties for disclosure triangle
+    private var isOCFExpanded: Bool {
+        guard let ocfFileName = row.ocfParent?.ocf.fileName else { return false }
+        return expandedOCFs.contains(ocfFileName)
+    }
+    
+    private func toggleOCFExpansion() {
+        guard let ocfFileName = row.ocfParent?.ocf.fileName else { return }
+        
+        if expandedOCFs.contains(ocfFileName) {
+            expandedOCFs.remove(ocfFileName)
+        } else {
+            expandedOCFs.insert(ocfFileName)
         }
     }
 }
