@@ -61,61 +61,39 @@ struct MediaImportTab: View {
                 .padding()
             }
             
-            // Media Lists
+            // Media Tables
             HSplitView {
-                // OCF Files
-                VStack(alignment: .leading) {
-                    Text("OCF Files (\(project.ocfFiles.count))")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    
-                    List(project.ocfFiles, id: \.fileName, selection: $selectedOCFFiles) { file in
-                        MediaFileRowView(file: file, type: .ocf, onVFXToggle: { fileName, isVFX in
-                            project.toggleOCFVFXStatus(fileName, isVFX: isVFX)
-                            projectManager.saveProject(project)
-                        })
-                            .tag(file.fileName)
-                            .contextMenu {
-                                Button("Remove from Project", systemImage: "trash") {
-                                    removeOCFFiles([file.fileName])
-                                    // Clear selection to fix UI state
-                                    selectedOCFFiles.removeAll()
-                                }
-                                .foregroundColor(.red)
-                            }
+                // OCF Files Table
+                MediaFileColumnTableView(
+                    files: project.ocfFiles,
+                    type: .ocf,
+                    selectedFiles: $selectedOCFFiles,
+                    onVFXToggle: { fileName, isVFX in
+                        project.toggleOCFVFXStatus(fileName, isVFX: isVFX)
+                        projectManager.saveProject(project)
+                    },
+                    onRemoveFiles: { fileNames in
+                        removeOCFFiles(fileNames)
+                        selectedOCFFiles.removeAll()
                     }
-                    .onDeleteCommand {
-                        removeSelectedOCFFiles()
-                    }
-                }
-                .frame(minWidth: 300)
+                )
+                .frame(minWidth: 400)
                 
-                // Segments
-                VStack(alignment: .leading) {
-                    Text("Segments (\(project.segments.count))")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    
-                    List(project.segments, id: \.fileName, selection: $selectedSegments) { file in
-                        MediaFileRowView(file: file, type: .segment, onVFXToggle: { fileName, isVFX in
-                            project.toggleSegmentVFXStatus(fileName, isVFX: isVFX)
-                            projectManager.saveProject(project)
-                        })
-                            .tag(file.fileName)
-                            .contextMenu {
-                                Button("Remove from Project", systemImage: "trash") {
-                                    removeSegments([file.fileName])
-                                    // Clear selection to fix UI state
-                                    selectedSegments.removeAll()
-                                }
-                                .foregroundColor(.red)
-                            }
+                // Segments Table
+                MediaFileColumnTableView(
+                    files: project.segments,
+                    type: .segment,
+                    selectedFiles: $selectedSegments,
+                    onVFXToggle: { fileName, isVFX in
+                        project.toggleSegmentVFXStatus(fileName, isVFX: isVFX)
+                        projectManager.saveProject(project)
+                    },
+                    onRemoveFiles: { fileNames in
+                        removeSegments(fileNames)
+                        selectedSegments.removeAll()
                     }
-                    .onDeleteCommand {
-                        removeSelectedSegments()
-                    }
-                }
-                .frame(minWidth: 300)
+                )
+                .frame(minWidth: 400)
             }
         }
     }
