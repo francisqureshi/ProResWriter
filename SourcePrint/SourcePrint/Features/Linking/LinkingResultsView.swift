@@ -75,7 +75,7 @@ struct LinkingResultsView: View {
     @ViewBuilder
     private var linkingResultsContent: some View {
         HStack(spacing: 0) {
-            // Confidently Linked OCF Parents and Children
+            // Main Linked Results with Column Table
             VStack(alignment: .leading) {
                 HStack {
                     Text("Linked Files (\(totalConfidentSegments) segments)")
@@ -92,17 +92,10 @@ struct LinkingResultsView: View {
                             }
                         } label: {
                             HStack(spacing: 2) {
-                                // Text("\(totalUnmatchedItems)")
-                                //     .font(.caption2)
-                                //     .foregroundColor(.white)
                                 Image(systemName: "inset.filled.righthalf.rectangle")
                                     .font(.system(size: 14))
                                     .foregroundColor(.white)
                             }
-                            // .padding(.horizontal, 8)
-                            // .padding(.vertical, 3)
-                            // .background(Color.gray.opacity(0.7))
-                            // .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
                         .help("Show Unmatched Items (\(totalUnmatchedItems))")
@@ -110,26 +103,9 @@ struct LinkingResultsView: View {
                     }
                 }
 
-                List(selection: $selectedLinkedFiles) {
-                    ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
-                        Section {
-                            // Individual segments are selectable with tree indentation
-                            ForEach(
-                                Array(parent.children.enumerated()), id: \.element.segment.fileName
-                            ) { index, linkedSegment in
-                                let isLast = index == parent.children.count - 1
-                                TreeLinkedSegmentRowView(
-                                    linkedSegment: linkedSegment,
-                                    isLast: isLast
-                                )
-                                .tag(linkedSegment.segment.fileName)
-                            }
-                        } header: {
-                            OCFParentHeaderView(parent: parent, project: project)
-                                .tag(parent.ocf.fileName)
-                        }
-                    }
-                }
+                // Use column table for linked results only
+                LinkedResultsColumnTableView(project: project)
+                    .environmentObject(projectManager)
             }
             .frame(minWidth: 400)
 

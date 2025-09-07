@@ -377,9 +377,7 @@ struct MediaFileColumnRowView: View {
                 }
                 
                 Text(file.fileName)
-                    .font(.system(size: 13, weight: .medium, design: .default))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .font(.monoNumbers(size: 13))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 
