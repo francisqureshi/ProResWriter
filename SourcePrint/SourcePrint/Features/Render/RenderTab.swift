@@ -23,27 +23,42 @@ struct RenderTab: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Render Controls
+            // Render Queue Controls
             VStack {
                 HStack {
-                    Button("Start Print Process") {
-                        startPrintProcess()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!isReadyForRender || isRendering)
+                    Text("Render Queue")
+                        .font(.headline)
                     
                     Spacer()
                     
-                    VStack(alignment: .trailing) {
-                        Text(renderStatusText)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("Output: \(project.outputDirectory.path)")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                    HStack(spacing: 12) {
+                        Button("Clear Completed") {
+                            clearCompletedItems()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(project.renderQueue.isEmpty || !hasCompletedItems)
+                        
+                        Button("Process Queue") {
+                            startQueueProcessing()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(queuedItemsCount == 0 || isRendering)
                     }
+                }
+                
+                HStack {
+                    Text("\(queuedItemsCount) queued • \(completedItemsCount) completed • \(failedItemsCount) failed")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("Output: \(project.outputDirectory.path)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 
                 if isRendering {
@@ -83,43 +98,58 @@ struct RenderTab: View {
             }
             .padding()
             
-            // Render Results Display
-            if project.printHistory.isEmpty {
+            // Render Queue Display
+            if project.renderQueue.isEmpty {
                 VStack {
-                    Image(systemName: "play.rectangle")
+                    Image(systemName: "tray")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("No renders yet")
+                    Text("Render Queue Empty")
                         .font(.title2)
                         .foregroundColor(.secondary)
-                    Text("Complete linking and blank rush generation, then start the print process")
+                    Text("Add items to the render queue from the Linking tab")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // Print History Display
-                List(project.printHistory.reversed(), id: \.id) { record in
-                    HStack {
-                        Text(record.statusIcon)
-                        VStack(alignment: .leading) {
-                            Text("Print: \(DateFormatter.short.string(from: record.date))")
-                                .font(.headline)
-                            Text("\(record.segmentCount) segments • \(String(format: "%.1f", record.duration))s")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Button("Show Output Folder") {
-                            NSWorkspace.shared.open(project.outputDirectory)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                // Render Queue Items
+                List {
+                    ForEach(sortedRenderQueue, id: \.id) { item in
+                        RenderQueueItemView(item: item, project: project)
                     }
+                    .onDelete(perform: removeQueueItems)
                 }
             }
         }
+    }
+    
+    // MARK: - Render Queue Computed Properties
+    
+    var sortedRenderQueue: [RenderQueueItem] {
+        project.renderQueue.sorted { first, second in
+            if first.priority.sortOrder != second.priority.sortOrder {
+                return first.priority.sortOrder < second.priority.sortOrder
+            }
+            return first.addedDate < second.addedDate
+        }
+    }
+    
+    var queuedItemsCount: Int {
+        project.renderQueue.filter { $0.status == .queued }.count
+    }
+    
+    var completedItemsCount: Int {
+        project.renderQueue.filter { $0.status == .completed }.count
+    }
+    
+    var failedItemsCount: Int {
+        project.renderQueue.filter { $0.status == .failed }.count
+    }
+    
+    var hasCompletedItems: Bool {
+        project.renderQueue.contains { $0.status == .completed || $0.status == .failed }
     }
     
     var isReadyForRender: Bool {
@@ -133,50 +163,60 @@ struct RenderTab: View {
         return completedBlankRushes > 0
     }
     
-    var renderStatusText: String {
-        if !isReadyForRender {
-            return "Complete linking and blank rush generation first"
-        }
-        
-        let completedBlankRushes = project.blankRushStatus.values.compactMap { status in
-            if case .completed = status { return 1 } else { return nil }
-        }.count
-        
-        return "\(completedBlankRushes) blank rushes ready for print"
+    // MARK: - Render Queue Methods
+    
+    private func clearCompletedItems() {
+        project.renderQueue.removeAll { $0.status == .completed || $0.status == .failed }
+        projectManager.saveProject(project)
     }
     
-    private func startPrintProcess() {
+    private func removeQueueItems(at offsets: IndexSet) {
+        let itemsToRemove = offsets.map { sortedRenderQueue[$0] }
+        for item in itemsToRemove {
+            project.renderQueue.removeAll { $0.id == item.id }
+        }
+        projectManager.saveProject(project)
+    }
+    
+    private func startQueueProcessing() {
         guard let linkingResult = project.linkingResult else { return }
         
-        // Get completed blank rushes
-        let completedBlankRushes = project.blankRushStatus.compactMap { (fileName, status) -> (String, URL)? in
-            if case .completed(_, let url) = status {
-                return (fileName, url)
-            }
-            return nil
-        }
-        
-        guard !completedBlankRushes.isEmpty else { return }
+        // Get queued items that have completed blank rushes
+        let queuedItems = project.renderQueue.filter { $0.status == .queued }
+        guard !queuedItems.isEmpty else { return }
         
         isRendering = true
-        renderProgress = "Starting print process..."
-        totalFileCount = completedBlankRushes.count
+        renderProgress = "Processing render queue..."
+        totalFileCount = queuedItems.count
         currentFileIndex = 0
         
         Task {
-            let startTime = Date()
             var allPrintRecords: [PrintRecord] = []
             
-            // Process each OCF that has children and a completed blank rush
-            let validParents = linkingResult.parentsWithChildren
-            
-            for (index, ocfParent) in validParents.enumerated() {
-                guard let blankRushEntry = completedBlankRushes.first(where: { $0.0 == ocfParent.ocf.fileName }) else {
-                    NSLog("⚠️ No blank rush found for \(ocfParent.ocf.fileName)")
+            for (index, queueItem) in queuedItems.enumerated() {
+                // Mark item as rendering
+                if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                    project.renderQueue[queueIndex].status = .rendering
+                }
+                
+                // Find the OCF parent for this queue item
+                guard let ocfParent = linkingResult.parentsWithChildren.first(where: { $0.ocf.fileName == queueItem.ocfFileName }) else {
+                    NSLog("⚠️ No OCF parent found for \(queueItem.ocfFileName)")
+                    if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                        project.renderQueue[queueIndex].status = .failed
+                    }
                     continue
                 }
                 
-                let blankRushURL = blankRushEntry.1
+                // Get the blank rush URL
+                guard let blankRushStatus = project.blankRushStatus[queueItem.ocfFileName],
+                      case .completed(_, let blankRushURL) = blankRushStatus else {
+                    NSLog("⚠️ No completed blank rush found for \(queueItem.ocfFileName)")
+                    if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                        project.renderQueue[queueIndex].status = .failed
+                    }
+                    continue
+                }
                 
                 await MainActor.run {
                     currentFileIndex = index + 1
@@ -248,6 +288,9 @@ struct RenderTab: View {
                     
                     guard !ffmpegGradedSegments.isEmpty else {
                         NSLog("❌ No valid FFmpeg graded segments for \(ocfParent.ocf.fileName)")
+                        if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                            project.renderQueue[queueIndex].status = .failed
+                        }
                         continue
                     }
                     
@@ -283,6 +326,13 @@ struct RenderTab: View {
                             success: true
                         )
                         allPrintRecords.append(printRecord)
+                        
+                        // Mark queue item as completed and update print status
+                        if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                            project.renderQueue[queueIndex].status = .completed
+                        }
+                        project.printStatus[queueItem.ocfFileName] = .printed(date: Date(), outputURL: finalOutputURL)
+                        
                         NSLog("✅ Composition completed: \(finalOutputURL.lastPathComponent)")
                         
                     case .failure(let error):
@@ -294,6 +344,12 @@ struct RenderTab: View {
                             success: false
                         )
                         allPrintRecords.append(printRecord)
+                        
+                        // Mark queue item as failed
+                        if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                            project.renderQueue[queueIndex].status = .failed
+                        }
+                        
                         NSLog("❌ Composition failed: \(error)")
                     }
                     
@@ -307,6 +363,11 @@ struct RenderTab: View {
                         success: false
                     )
                     allPrintRecords.append(printRecord)
+                    
+                    // Mark queue item as failed
+                    if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
+                        project.renderQueue[queueIndex].status = .failed
+                    }
                 }
                 
                 // Brief pause between files
@@ -327,9 +388,77 @@ struct RenderTab: View {
                 totalFileCount = 0
                 
                 let successCount = allPrintRecords.filter { $0.success }.count
-                NSLog("✅ Print process completed: \(successCount)/\(allPrintRecords.count) compositions successful")
+                NSLog("✅ Render queue processing completed: \(successCount)/\(allPrintRecords.count) items successful")
             }
         }
+    }
+}
+
+// MARK: - Render Queue Item View
+
+struct RenderQueueItemView: View {
+    let item: RenderQueueItem
+    @ObservedObject var project: Project
+    
+    var body: some View {
+        HStack {
+            Image(systemName: item.status.icon)
+                .foregroundColor(item.status.color)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text((item.ocfFileName as NSString).deletingPathExtension)
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                    
+                    if item.priority != .normal {
+                        Text(item.priority.displayName.uppercased())
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(item.priority == .high ? Color.red.opacity(0.2) : Color.blue.opacity(0.2))
+                            .foregroundColor(item.priority == .high ? .red : .blue)
+                            .cornerRadius(3)
+                    }
+                }
+                
+                HStack {
+                    Text("Added: \(DateFormatter.short.string(from: item.addedDate))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(item.status.displayName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    if item.status == .rendering {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 12, height: 12)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Show print status if available
+            if let printStatus = project.printStatus[item.ocfFileName] {
+                Label(printStatus.displayName, systemImage: printStatus.icon)
+                    .font(.caption2)
+                    .foregroundColor(printStatus.color)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(printStatus.color.opacity(0.1))
+                    .cornerRadius(4)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 

@@ -118,6 +118,9 @@ struct LinkingResultsView: View {
                         } label: {
                             OCFParentHeaderView(parent: parent, project: project)
                         }
+                        .contextMenu {
+                            OCFParentContextMenu(parent: parent, project: project, projectManager: projectManager)
+                        }
                     }
                 }
             }
@@ -286,15 +289,36 @@ struct OCFParentHeaderView: View {
 
             Spacer()
 
-            // Blank Rush Status Indicator
-            if project.blankRushFileExists(for: parent.ocf.fileName) {
-                Label("Blank Rush", systemImage: "film.fill")
-                    .font(.caption2)
-                    .foregroundColor(.green)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(4)
+            HStack(spacing: 8) {
+                // Print Status Indicator
+                if let printStatus = project.printStatus[parent.ocf.fileName] {
+                    Label(printStatus.displayName, systemImage: printStatus.icon)
+                        .font(.caption2)
+                        .foregroundColor(printStatus.color)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(printStatus.color.opacity(0.1))
+                        .cornerRadius(4)
+                } else {
+                    Label("Not Printed", systemImage: "minus.circle")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
+                }
+
+                // Blank Rush Status Indicator
+                if project.blankRushFileExists(for: parent.ocf.fileName) {
+                    Label("Blank Rush", systemImage: "film.fill")
+                        .font(.caption2)
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(4)
+                }
             }
         }
         .padding(.vertical, 4)
@@ -624,6 +648,116 @@ struct LinkedSegmentRowView: View {
             }
 
             Spacer()
+        }
+    }
+}
+
+// MARK: - Context Menu
+
+struct OCFParentContextMenu: View {
+    let parent: OCFParent
+    @ObservedObject var project: Project
+    @ObservedObject var projectManager: ProjectManager
+    
+    private var isBlankRushReady: Bool {
+        project.blankRushFileExists(for: parent.ocf.fileName)
+    }
+    
+    private var isAlreadyInQueue: Bool {
+        project.renderQueue.contains { $0.ocfFileName == parent.ocf.fileName && $0.status != .completed }
+    }
+    
+    private var hasModifiedSegments: Bool {
+        // Check if any segments for this OCF have been modified since last print
+        guard let printStatus = project.printStatus[parent.ocf.fileName],
+              case .printed(let lastPrintDate, _) = printStatus else {
+            return false
+        }
+        
+        for child in parent.children {
+            let segmentFileName = child.segment.fileName
+            if let fileModDate = getFileModificationDate(for: child.segment.url),
+               fileModDate > lastPrintDate {
+                return true
+            }
+        }
+        return false
+    }
+    
+    var body: some View {
+        Group {
+            // Add to Render Queue options
+            Menu("Add to Render Queue") {
+                Button("Normal Priority") {
+                    addToRenderQueue(priority: .normal)
+                }
+                .disabled(!isBlankRushReady || isAlreadyInQueue)
+                
+                Button("High Priority") {
+                    addToRenderQueue(priority: .high)
+                }
+                .disabled(!isBlankRushReady || isAlreadyInQueue)
+            }
+            .disabled(!isBlankRushReady)
+            
+            Divider()
+            
+            // Print status actions
+            if let printStatus = project.printStatus[parent.ocf.fileName] {
+                switch printStatus {
+                case .printed:
+                    if hasModifiedSegments {
+                        Button("Mark for Re-print (Segments Modified)", systemImage: "exclamationmark.circle") {
+                            project.printStatus[parent.ocf.fileName] = .needsReprint(
+                                lastPrintDate: Date(),
+                                reason: .segmentModified
+                            )
+                            projectManager.saveProject(project)
+                        }
+                    } else {
+                        Button("Force Re-print", systemImage: "arrow.clockwise") {
+                            project.printStatus[parent.ocf.fileName] = .needsReprint(
+                                lastPrintDate: Date(),
+                                reason: .manualRequest
+                            )
+                            projectManager.saveProject(project)
+                        }
+                    }
+                    
+                case .needsReprint:
+                    Button("Clear Re-print Flag", systemImage: "checkmark.circle") {
+                        // Find the last successful print date
+                        if let lastSuccessfulPrint = project.printHistory
+                            .filter({ $0.success && $0.outputURL.lastPathComponent.contains((parent.ocf.fileName as NSString).deletingPathExtension) })
+                            .max(by: { $0.date < $1.date }) {
+                            project.printStatus[parent.ocf.fileName] = .printed(date: lastSuccessfulPrint.date, outputURL: lastSuccessfulPrint.outputURL)
+                        } else {
+                            project.printStatus.removeValue(forKey: parent.ocf.fileName)
+                        }
+                        projectManager.saveProject(project)
+                    }
+                    
+                case .notPrinted:
+                    EmptyView()
+                }
+            }
+        }
+    }
+    
+    private func addToRenderQueue(priority: RenderPriority) {
+        let queueItem = RenderQueueItem(ocfFileName: parent.ocf.fileName, priority: priority)
+        project.renderQueue.append(queueItem)
+        projectManager.saveProject(project)
+        
+        NSLog("➕ Added \(parent.ocf.fileName) to render queue with \(priority.displayName.lowercased()) priority")
+    }
+    
+    private func getFileModificationDate(for url: URL) -> Date? {
+        do {
+            let resourceValues = try url.resourceValues(forKeys: [.contentModificationDateKey])
+            return resourceValues.contentModificationDate
+        } catch {
+            return nil
         }
     }
 }

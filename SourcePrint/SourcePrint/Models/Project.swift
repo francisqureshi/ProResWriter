@@ -29,6 +29,10 @@ class Project: ObservableObject, Codable, Identifiable {
     @Published var segmentModificationDates: [String: Date] = [:]  // Segment filename → last modified date
     @Published var lastPrintDate: Date?
     @Published var printHistory: [PrintRecord] = []
+    
+    // MARK: - Render Queue System
+    @Published var renderQueue: [RenderQueueItem] = []
+    @Published var printStatus: [String: PrintStatus] = [:]  // OCF filename → print status
 
     // MARK: - Project Settings
     @Published var outputDirectory: URL
@@ -117,6 +121,7 @@ class Project: ObservableObject, Codable, Identifiable {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
         case blankRushStatus, segmentModificationDates, lastPrintDate, printHistory
+        case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
     }
 
@@ -137,7 +142,10 @@ class Project: ObservableObject, Codable, Identifiable {
             try container.decodeIfPresent([String: Date].self, forKey: .segmentModificationDates)
             ?? [:]
         lastPrintDate = try container.decodeIfPresent(Date.self, forKey: .lastPrintDate)
-        printHistory = try container.decode([PrintRecord].self, forKey: .printHistory)
+        printHistory = try container.decodeIfPresent([PrintRecord].self, forKey: .printHistory) ?? []
+        
+        renderQueue = try container.decodeIfPresent([RenderQueueItem].self, forKey: .renderQueue) ?? []
+        printStatus = try container.decodeIfPresent([String: PrintStatus].self, forKey: .printStatus) ?? [:]
 
         outputDirectory = try container.decode(URL.self, forKey: .outputDirectory)
         blankRushDirectory = try container.decode(URL.self, forKey: .blankRushDirectory)
@@ -159,6 +167,9 @@ class Project: ObservableObject, Codable, Identifiable {
         try container.encode(segmentModificationDates, forKey: .segmentModificationDates)
         try container.encodeIfPresent(lastPrintDate, forKey: .lastPrintDate)
         try container.encode(printHistory, forKey: .printHistory)
+        
+        try container.encode(renderQueue, forKey: .renderQueue)
+        try container.encode(printStatus, forKey: .printStatus)
 
         try container.encode(outputDirectory, forKey: .outputDirectory)
         try container.encode(blankRushDirectory, forKey: .blankRushDirectory)
@@ -228,6 +239,52 @@ class Project: ObservableObject, Codable, Identifiable {
         printHistory.append(record)
         lastPrintDate = record.date
         updateModified()
+    }
+    
+    /// Check for modified segments and automatically update print status to needsReprint
+    func checkForModifiedSegmentsAndUpdatePrintStatus() {
+        guard let linkingResult = linkingResult else { return }
+        
+        var statusChanged = false
+        
+        for parent in linkingResult.parentsWithChildren {
+            let ocfFileName = parent.ocf.fileName
+            
+            // Only check OCFs that have been printed
+            guard let currentPrintStatus = printStatus[ocfFileName],
+                  case .printed(let lastPrintDate, let outputURL) = currentPrintStatus else {
+                continue
+            }
+            
+            // Check if any segments for this OCF have been modified since last print
+            var hasModifiedSegments = false
+            for child in parent.children {
+                if let fileModDate = getFileModificationDate(for: child.segment.url),
+                   fileModDate > lastPrintDate {
+                    hasModifiedSegments = true
+                    break
+                }
+            }
+            
+            // If segments have been modified, mark for re-print
+            if hasModifiedSegments {
+                printStatus[ocfFileName] = .needsReprint(
+                    lastPrintDate: lastPrintDate,
+                    reason: .segmentModified
+                )
+                statusChanged = true
+                NSLog("🔄 Auto-flagged \(ocfFileName) for re-print: segments modified since \(DateFormatter.short.string(from: lastPrintDate))")
+            }
+        }
+        
+        if statusChanged {
+            updateModified()
+        }
+    }
+    
+    /// Refresh print status for all OCFs - useful to call when project is loaded or segments are updated
+    func refreshPrintStatus() {
+        checkForModifiedSegmentsAndUpdatePrintStatus()
     }
 
     /// Remove OCF files by filename
@@ -361,6 +418,127 @@ struct PrintRecord: Codable, Identifiable {
 
     var statusIcon: String {
         success ? "✅" : "❌"
+    }
+}
+
+// MARK: - Render Queue System
+
+struct RenderQueueItem: Codable, Identifiable {
+    let id: UUID
+    let ocfFileName: String
+    let addedDate: Date
+    let priority: RenderPriority
+    var status: RenderQueueStatus
+    
+    init(ocfFileName: String, priority: RenderPriority = .normal) {
+        self.id = UUID()
+        self.ocfFileName = ocfFileName
+        self.addedDate = Date()
+        self.priority = priority
+        self.status = .queued
+    }
+}
+
+enum RenderQueueStatus: String, Codable, CaseIterable {
+    case queued = "queued"
+    case rendering = "rendering"
+    case completed = "completed"
+    case failed = "failed"
+    
+    var displayName: String {
+        switch self {
+        case .queued: return "Queued"
+        case .rendering: return "Rendering"
+        case .completed: return "Completed"
+        case .failed: return "Failed"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .queued: return "clock"
+        case .rendering: return "gear"
+        case .completed: return "checkmark.circle.fill"
+        case .failed: return "xmark.circle.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .queued: return .orange
+        case .rendering: return .blue
+        case .completed: return .green
+        case .failed: return .red
+        }
+    }
+}
+
+enum RenderPriority: String, Codable, CaseIterable {
+    case low = "low"
+    case normal = "normal"
+    case high = "high"
+    
+    var displayName: String {
+        switch self {
+        case .low: return "Low"
+        case .normal: return "Normal" 
+        case .high: return "High"
+        }
+    }
+    
+    var sortOrder: Int {
+        switch self {
+        case .high: return 0
+        case .normal: return 1
+        case .low: return 2
+        }
+    }
+}
+
+enum PrintStatus: Codable {
+    case notPrinted
+    case printed(date: Date, outputURL: URL)
+    case needsReprint(lastPrintDate: Date, reason: ReprintReason)
+    
+    var displayName: String {
+        switch self {
+        case .notPrinted:
+            return "Not Printed"
+        case .printed(let date, _):
+            return "Printed \(DateFormatter.short.string(from: date))"
+        case .needsReprint(let lastPrintDate, let reason):
+            return "Needs Re-print (\(reason.displayName))"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .notPrinted: return "minus.circle"
+        case .printed: return "checkmark.circle.fill"
+        case .needsReprint: return "exclamationmark.circle.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .notPrinted: return .secondary
+        case .printed: return .green
+        case .needsReprint: return .orange
+        }
+    }
+}
+
+enum ReprintReason: String, Codable {
+    case segmentModified = "segment_modified"
+    case manualRequest = "manual_request"
+    case previousFailed = "previous_failed"
+    
+    var displayName: String {
+        switch self {
+        case .segmentModified: return "Segment Modified"
+        case .manualRequest: return "Manual Request"
+        case .previousFailed: return "Previous Failed"
+        }
     }
 }
 

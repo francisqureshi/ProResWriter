@@ -107,6 +107,9 @@ class ProjectManager: ObservableObject {
             // Scan for existing blank rushes after loading
             project.scanForExistingBlankRushes()
             
+            // Check for modified segments and update print status
+            project.refreshPrintStatus()
+            
             return project
         } catch {
             NSLog("❌ Failed to load project from \(url.lastPathComponent): \(error)")
@@ -347,6 +350,8 @@ class ProjectManager: ObservableObject {
         do {
             let files = try await importProcess.importGradedSegments(from: directory)
             project.addSegments(files)
+            // Refresh print status after adding segments
+            project.refreshPrintStatus()
             saveProject(project)
             return files
         } catch {
@@ -365,6 +370,8 @@ class ProjectManager: ObservableObject {
         let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
         
         project.updateLinkingResult(result)
+        // Refresh print status after linking (in case segment files changed)
+        project.refreshPrintStatus()
         saveProject(project)
         
         print("✅ Linking completed: \(result.summary)")
