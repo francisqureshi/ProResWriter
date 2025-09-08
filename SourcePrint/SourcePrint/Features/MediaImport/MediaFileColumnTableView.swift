@@ -56,8 +56,8 @@ struct MediaFileColumnTableView: View {
         
         var icon: String {
             switch self {
-            case .ocf: return "camera"
-            case .segment: return "scissors"
+            case .ocf: return "film.fill"
+            case .segment: return "film"
             }
         }
         

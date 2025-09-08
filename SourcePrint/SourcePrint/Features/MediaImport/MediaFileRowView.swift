@@ -5,41 +5,41 @@
 //  Created by Francis Qureshi on 31/08/2025.
 //
 
-import SwiftUI
 import ProResWriterCore
+import SwiftUI
 
 struct MediaFileRowView: View {
     let file: MediaFileInfo
     let type: MediaType
     let onVFXToggle: ((String, Bool) -> Void)?  // Callback to toggle VFX status (fileName, newValue)
-    
+
     enum MediaType {
         case ocf, segment
     }
-    
+
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
         file.isVFX
     }
-    
+
     var body: some View {
         HStack {
             // Main type icon
-            Image(systemName: type == .ocf ? "camera" : "scissors")
+            Image(systemName: type == .ocf ? "film.fill" : "film")
                 .foregroundColor(type == .ocf ? .blue : .orange)
                 .frame(width: 16)
-            
+
             // VFX indicator for segments
             if isVFXShot && type == .segment {
                 Image(systemName: "wand.and.stars")
                     .foregroundColor(.purple)
                     .frame(width: 16)
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.fileName)
                     .font(.system(.body, design: .monospaced))
-                
+
                 HStack {
                     if let frames = file.durationInFrames, let fps = file.frameRate {
                         Text("\(Double(frames) / Double(fps), specifier: "%.2f")s")
@@ -53,16 +53,16 @@ struct MediaFileRowView: View {
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
-                
+
                 if let startTC = file.sourceTimecode {
                     Text("TC: \(startTC)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             Spacer()
-            
+
             HStack(spacing: 4) {
                 // VFX badge for segments
                 if isVFXShot && type == .segment {
@@ -75,7 +75,7 @@ struct MediaFileRowView: View {
                         .foregroundColor(.purple)
                         .cornerRadius(4)
                 }
-                
+
                 Text("\(file.mediaType)")
                     .font(.caption)
                     .padding(.horizontal, 6)
@@ -90,8 +90,9 @@ struct MediaFileRowView: View {
                 Button {
                     onVFXToggle?(file.fileName, !isVFXShot)
                 } label: {
-                    Label(isVFXShot ? "Unmark as VFX Shot" : "Mark as VFX Shot", 
-                          systemImage: isVFXShot ? "wand.and.stars.slash" : "wand.and.stars")
+                    Label(
+                        isVFXShot ? "Unmark as VFX Shot" : "Mark as VFX Shot",
+                        systemImage: isVFXShot ? "wand.and.stars.slash" : "wand.and.stars")
                 }
             }
         }
@@ -116,12 +117,15 @@ struct MediaFileRowView: View {
         fieldOrder: "progressive",
         mediaType: .originalCameraFile
     )
-    
+
     VStack {
         MediaFileRowView(file: sampleFile, type: .ocf, onVFXToggle: nil)
-        MediaFileRowView(file: sampleFile, type: .segment, onVFXToggle: { fileName, isVFX in
-            print("Toggle VFX for \(fileName): \(isVFX)")
-        })
+        MediaFileRowView(
+            file: sampleFile, type: .segment,
+            onVFXToggle: { fileName, isVFX in
+                print("Toggle VFX for \(fileName): \(isVFX)")
+            })
     }
     .padding()
 }
+

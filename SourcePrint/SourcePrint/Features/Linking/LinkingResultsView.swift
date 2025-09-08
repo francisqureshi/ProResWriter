@@ -75,7 +75,7 @@ struct LinkingResultsView: View {
     @ViewBuilder
     private var linkingResultsContent: some View {
         HStack(spacing: 0) {
-            // Main Linked Results with Column Table
+            // Main Linked Results with List View
             VStack(alignment: .leading) {
                 HStack {
                     Text("Linked Files (\(totalConfidentSegments) segments)")
@@ -103,9 +103,23 @@ struct LinkingResultsView: View {
                     }
                 }
 
-                // Use column table for linked results only
-                LinkedResultsColumnTableView(project: project)
-                    .environmentObject(projectManager)
+                // Use List view for linked results
+                List(selection: $selectedLinkedFiles) {
+                    ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
+                        DisclosureGroup {
+                            ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                                TreeLinkedSegmentRowView(
+                                    linkedSegment: linkedSegment,
+                                    isLast: linkedSegment.segment.fileName
+                                        == parent.children.last?.segment.fileName
+                                )
+                                .tag(linkedSegment.segment.fileName)
+                            }
+                        } label: {
+                            OCFParentHeaderView(parent: parent, project: project)
+                        }
+                    }
+                }
             }
             .frame(minWidth: 400)
 
@@ -250,9 +264,6 @@ struct OCFParentHeaderView: View {
 
     var body: some View {
         HStack {
-            Image(systemName: "camera")
-                .foregroundColor(.blue)
-
             VStack(alignment: .leading, spacing: 2) {
                 Text(parent.ocf.fileName)
                     .font(.system(.body, design: .monospaced))
@@ -323,7 +334,7 @@ struct TreeLinkedSegmentRowView: View {
                 .foregroundColor(confidenceColor)
                 .frame(width: 16)
 
-            Image(systemName: "scissors")
+            Image(systemName: "film")
                 .foregroundColor(.orange)
                 .frame(width: 16)
 
@@ -338,7 +349,7 @@ struct TreeLinkedSegmentRowView: View {
                 HStack {
                     Text(linkedSegment.segment.fileName)
                         .font(.system(.body, design: .monospaced))
-                    
+
                     // VFX badge
                     if isVFXShot {
                         Text("VFX")
@@ -381,7 +392,7 @@ struct UnmatchedFileRowView: View {
 
     var body: some View {
         HStack {
-            Image(systemName: type == .ocf ? "camera" : "scissors")
+            Image(systemName: type == .ocf ? "film.fill" : "film")
                 .foregroundColor(type == .ocf ? .blue : .orange)
                 .frame(width: 16)
 
@@ -428,7 +439,7 @@ struct LowConfidenceSegmentRowView: View {
                 .foregroundColor(.red)
                 .frame(width: 16)
 
-            Image(systemName: "scissors")
+            Image(systemName: "film")
                 .foregroundColor(.orange)
                 .frame(width: 16)
 
@@ -443,7 +454,7 @@ struct LowConfidenceSegmentRowView: View {
                 HStack {
                     Text(linkedSegment.segment.fileName)
                         .font(.system(.body, design: .monospaced))
-                    
+
                     // VFX badge
                     if isVFXShot {
                         Text("VFX")
@@ -500,7 +511,7 @@ struct OCFParentRowView: View {
                 }
                 .buttonStyle(.plain)
 
-                Image(systemName: "camera")
+                Image(systemName: "film.fill")
                     .foregroundColor(.blue)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -570,7 +581,7 @@ struct LinkedSegmentRowView: View {
                 .foregroundColor(confidenceColor)
                 .frame(width: 16)
 
-            Image(systemName: "scissors")
+            Image(systemName: "film")
                 .foregroundColor(.orange)
                 .frame(width: 16)
 
@@ -585,7 +596,7 @@ struct LinkedSegmentRowView: View {
                 HStack {
                     Text(linkedSegment.segment.fileName)
                         .font(.system(.body, design: .monospaced))
-                    
+
                     // VFX badge
                     if isVFXShot {
                         Text("VFX")
