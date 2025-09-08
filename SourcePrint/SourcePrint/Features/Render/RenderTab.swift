@@ -20,6 +20,7 @@ struct RenderTab: View {
     @State private var currentClipName: String = ""
     @State private var currentFileIndex: Int = 0
     @State private var totalFileCount: Int = 0
+    @State private var shouldStopRendering = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -39,11 +40,17 @@ struct RenderTab: View {
                         .controlSize(.small)
                         .disabled(project.renderQueue.isEmpty || !hasCompletedItems)
                         
-                        Button("Process Queue") {
-                            startQueueProcessing()
+                        Button(isRendering ? "Stop" : "Process Queue") {
+                            if isRendering {
+                                stopQueueProcessing()
+                            } else {
+                                startQueueProcessing()
+                            }
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(queuedItemsCount == 0 || isRendering)
+                        .foregroundColor(isRendering ? .white : .primary)
+                        .background(isRendering ? Color.red : Color.accentColor, in: RoundedRectangle(cornerRadius: 6))
+                        .disabled(!isRendering && queuedItemsCount == 0)
                     }
                 }
                 
@@ -128,12 +135,7 @@ struct RenderTab: View {
     // MARK: - Render Queue Computed Properties
     
     var sortedRenderQueue: [RenderQueueItem] {
-        project.renderQueue.sorted { first, second in
-            if first.priority.sortOrder != second.priority.sortOrder {
-                return first.priority.sortOrder < second.priority.sortOrder
-            }
-            return first.addedDate < second.addedDate
-        }
+        project.renderQueue.sorted { $0.addedDate < $1.addedDate }
     }
     
     var queuedItemsCount: Int {
@@ -170,6 +172,12 @@ struct RenderTab: View {
         projectManager.saveProject(project)
     }
     
+    private func stopQueueProcessing() {
+        shouldStopRendering = true
+        renderProgress = "Stopping after current item..."
+        NSLog("🛑 User requested to stop queue processing")
+    }
+    
     private func removeQueueItems(at offsets: IndexSet) {
         let itemsToRemove = offsets.map { sortedRenderQueue[$0] }
         for item in itemsToRemove {
@@ -186,6 +194,7 @@ struct RenderTab: View {
         guard !queuedItems.isEmpty else { return }
         
         isRendering = true
+        shouldStopRendering = false  // Reset stop flag
         renderProgress = "Processing render queue..."
         totalFileCount = queuedItems.count
         currentFileIndex = 0
@@ -194,6 +203,12 @@ struct RenderTab: View {
             var allPrintRecords: [PrintRecord] = []
             
             for (index, queueItem) in queuedItems.enumerated() {
+                // Check if user requested to stop
+                if shouldStopRendering {
+                    NSLog("🛑 Stopping queue processing as requested by user")
+                    break
+                }
+                
                 // Mark item as rendering
                 if let queueIndex = project.renderQueue.firstIndex(where: { $0.id == queueItem.id }) {
                     project.renderQueue[queueIndex].status = .rendering
@@ -381,14 +396,21 @@ struct RenderTab: View {
                 }
                 projectManager.saveProject(project)
                 
+                let successCount = allPrintRecords.filter { $0.success }.count
+                let wasStopped = shouldStopRendering
+                
                 isRendering = false
+                shouldStopRendering = false
                 renderProgress = ""
                 currentClipName = ""
                 currentFileIndex = 0
                 totalFileCount = 0
                 
-                let successCount = allPrintRecords.filter { $0.success }.count
-                NSLog("✅ Render queue processing completed: \(successCount)/\(allPrintRecords.count) items successful")
+                if wasStopped {
+                    NSLog("🛑 Render queue processing stopped by user: \(successCount)/\(allPrintRecords.count) items completed before stopping")
+                } else {
+                    NSLog("✅ Render queue processing completed: \(successCount)/\(allPrintRecords.count) items successful")
+                }
             }
         }
     }
@@ -407,22 +429,9 @@ struct RenderQueueItemView: View {
                 .frame(width: 20)
             
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text((item.ocfFileName as NSString).deletingPathExtension)
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.medium)
-                    
-                    if item.priority != .normal {
-                        Text(item.priority.displayName.uppercased())
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(item.priority == .high ? Color.red.opacity(0.2) : Color.blue.opacity(0.2))
-                            .foregroundColor(item.priority == .high ? .red : .blue)
-                            .cornerRadius(3)
-                    }
-                }
+                Text((item.ocfFileName as NSString).deletingPathExtension)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
                 
                 HStack {
                     Text("Added: \(DateFormatter.short.string(from: item.addedDate))")

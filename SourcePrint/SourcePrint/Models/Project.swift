@@ -427,14 +427,12 @@ struct RenderQueueItem: Codable, Identifiable {
     let id: UUID
     let ocfFileName: String
     let addedDate: Date
-    let priority: RenderPriority
     var status: RenderQueueStatus
     
-    init(ocfFileName: String, priority: RenderPriority = .normal) {
+    init(ocfFileName: String) {
         self.id = UUID()
         self.ocfFileName = ocfFileName
         self.addedDate = Date()
-        self.priority = priority
         self.status = .queued
     }
 }
@@ -473,27 +471,6 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
     }
 }
 
-enum RenderPriority: String, Codable, CaseIterable {
-    case low = "low"
-    case normal = "normal"
-    case high = "high"
-    
-    var displayName: String {
-        switch self {
-        case .low: return "Low"
-        case .normal: return "Normal" 
-        case .high: return "High"
-        }
-    }
-    
-    var sortOrder: Int {
-        switch self {
-        case .high: return 0
-        case .normal: return 1
-        case .low: return 2
-        }
-    }
-}
 
 enum PrintStatus: Codable {
     case notPrinted

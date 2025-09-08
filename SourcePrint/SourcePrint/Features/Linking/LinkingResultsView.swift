@@ -49,6 +49,13 @@ struct LinkingResultsView: View {
         return linkingResult.unmatchedOCFs.count + linkingResult.unmatchedSegments.count
             + lowConfidenceSegments.count
     }
+    
+    // Helper to get selected OCF parents for context menu batch operations
+    private func getSelectedParents() -> [OCFParent] {
+        return confidentlyLinkedParents.filter { parent in
+            selectedLinkedFiles.contains(parent.ocf.fileName)
+        }
+    }
 
     var body: some View {
         Group {
@@ -118,8 +125,15 @@ struct LinkingResultsView: View {
                         } label: {
                             OCFParentHeaderView(parent: parent, project: project)
                         }
+                        .tag(parent.ocf.fileName)
                         .contextMenu {
-                            OCFParentContextMenu(parent: parent, project: project, projectManager: projectManager)
+                            OCFParentContextMenu(
+                                parent: parent, 
+                                project: project, 
+                                projectManager: projectManager,
+                                selectedParents: getSelectedParents(),
+                                allParents: confidentlyLinkedParents
+                            )
                         }
                     }
                 }
@@ -658,13 +672,39 @@ struct OCFParentContextMenu: View {
     let parent: OCFParent
     @ObservedObject var project: Project
     @ObservedObject var projectManager: ProjectManager
+    let selectedParents: [OCFParent]
+    let allParents: [OCFParent]
+    
+    // Determine which parents to operate on - selected parents if multiple are selected, otherwise just the clicked parent
+    private var operatingParents: [OCFParent] {
+        return selectedParents.count > 1 ? selectedParents : [parent]
+    }
     
     private var isBlankRushReady: Bool {
-        project.blankRushFileExists(for: parent.ocf.fileName)
+        if operatingParents.count == 1 {
+            return project.blankRushFileExists(for: parent.ocf.fileName)
+        } else {
+            // For multiple selection, check if ANY have blank rushes ready
+            return operatingParents.contains { project.blankRushFileExists(for: $0.ocf.fileName) }
+        }
     }
     
     private var isAlreadyInQueue: Bool {
-        project.renderQueue.contains { $0.ocfFileName == parent.ocf.fileName && $0.status != .completed }
+        if operatingParents.count == 1 {
+            return project.renderQueue.contains { $0.ocfFileName == parent.ocf.fileName && $0.status != .completed }
+        } else {
+            // For multiple selection, check if ALL are already in queue
+            return operatingParents.allSatisfy { parent in
+                project.renderQueue.contains { $0.ocfFileName == parent.ocf.fileName && $0.status != .completed }
+            }
+        }
+    }
+    
+    private var eligibleParentsForQueue: [OCFParent] {
+        return operatingParents.filter { parent in
+            project.blankRushFileExists(for: parent.ocf.fileName) &&
+            !project.renderQueue.contains { $0.ocfFileName == parent.ocf.fileName && $0.status != .completed }
+        }
     }
     
     private var hasModifiedSegments: Bool {
@@ -686,24 +726,24 @@ struct OCFParentContextMenu: View {
     
     var body: some View {
         Group {
-            // Add to Render Queue options
-            Menu("Add to Render Queue") {
-                Button("Normal Priority") {
-                    addToRenderQueue(priority: .normal)
-                }
-                .disabled(!isBlankRushReady || isAlreadyInQueue)
-                
-                Button("High Priority") {
-                    addToRenderQueue(priority: .high)
-                }
-                .disabled(!isBlankRushReady || isAlreadyInQueue)
+            // Add to Render Queue
+            Button(operatingParents.count > 1 ? "Add \(operatingParents.count) Items to Render Queue" : "Add to Render Queue") {
+                addToRenderQueue()
             }
-            .disabled(!isBlankRushReady)
+            .disabled(eligibleParentsForQueue.isEmpty)
             
-            Divider()
+            if eligibleParentsForQueue.count != operatingParents.count && operatingParents.count > 1 {
+                Text("\(eligibleParentsForQueue.count)/\(operatingParents.count) items eligible")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
             
-            // Print status actions
-            if let printStatus = project.printStatus[parent.ocf.fileName] {
+            // Only show print status actions for single item context menus
+            if operatingParents.count == 1 {
+                Divider()
+                
+                // Print status actions
+                if let printStatus = project.printStatus[parent.ocf.fileName] {
                 switch printStatus {
                 case .printed:
                     if hasModifiedSegments {
@@ -740,16 +780,28 @@ struct OCFParentContextMenu: View {
                 case .notPrinted:
                     EmptyView()
                 }
+                }
             }
         }
     }
     
-    private func addToRenderQueue(priority: RenderPriority) {
-        let queueItem = RenderQueueItem(ocfFileName: parent.ocf.fileName, priority: priority)
-        project.renderQueue.append(queueItem)
+    private func addToRenderQueue() {
+        let parentsToAdd = eligibleParentsForQueue
+        var addedCount = 0
+        
+        for parent in parentsToAdd {
+            let queueItem = RenderQueueItem(ocfFileName: parent.ocf.fileName)
+            project.renderQueue.append(queueItem)
+            addedCount += 1
+        }
+        
         projectManager.saveProject(project)
         
-        NSLog("➕ Added \(parent.ocf.fileName) to render queue with \(priority.displayName.lowercased()) priority")
+        if addedCount == 1 {
+            NSLog("➕ Added \(parentsToAdd.first!.ocf.fileName) to render queue")
+        } else {
+            NSLog("➕ Added \(addedCount) items to render queue")
+        }
     }
     
     private func getFileModificationDate(for url: URL) -> Date? {
