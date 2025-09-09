@@ -90,6 +90,7 @@ struct LinkingResultsView: View {
                     HStack {
                         Text("Linked Files (\(totalConfidentSegments) segments)")
                             .font(.headline)
+                            .monospacedDigit()
 
                         Spacer()
 
@@ -192,6 +193,7 @@ struct LinkingResultsView: View {
                             HStack(spacing: 12) {
                                 Text("(\(totalUnmatchedItems))")
                                     .font(.headline)
+                                    .monospacedDigit()
                                     .foregroundColor(.secondary)
                             }
 
@@ -238,6 +240,7 @@ struct LinkingResultsView: View {
                                     Text(
                                         "Unmatched OCF Files (\(linkingResult.unmatchedOCFs.count))"
                                     )
+                                    .monospacedDigit()
 
                                     Spacer()
 
@@ -335,18 +338,21 @@ struct OCFParentHeaderView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(parent.ocf.fileName)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body)
                     .fontWeight(.medium)
 
                 HStack {
                     Text("\(parent.childCount) linked segments")
+                        .monospacedDigit()
                     Text("•")
                     if let fps = parent.ocf.frameRate {
                         Text("\(fps, specifier: "%.3f") fps")
+                            .monospacedDigit()
                     }
                     if let startTC = parent.ocf.sourceTimecode {
                         Text("•")
                         Text("TC: \(startTC)")
+                            .monospacedDigit()
                     }
                 }
                 .font(.caption)
@@ -446,7 +452,7 @@ struct TreeLinkedSegmentRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(linkedSegment.segment.fileName)
-                        .font(.system(.body, design: .monospaced))
+                        .font(.body)
 
                     // VFX badge
                     if isVFXShot {
@@ -468,6 +474,7 @@ struct TreeLinkedSegmentRowView: View {
                     if let startTC = linkedSegment.segment.sourceTimecode {
                         Text("•")
                         Text("TC: \(startTC)")
+                            .monospacedDigit()
                     }
                 }
                 .font(.caption)
@@ -496,15 +503,17 @@ struct UnmatchedFileRowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.fileName)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body)
 
                 HStack {
                     if let fps = file.frameRate {
                         Text("\(fps, specifier: "%.3f") fps")
+                            .monospacedDigit()
                     }
                     if let startTC = file.sourceTimecode {
                         Text("•")
                         Text("TC: \(startTC)")
+                            .monospacedDigit()
                     }
                 }
                 .font(.caption)
@@ -551,7 +560,7 @@ struct LowConfidenceSegmentRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(linkedSegment.segment.fileName)
-                        .font(.system(.body, design: .monospaced))
+                        .font(.body)
 
                     // VFX badge
                     if isVFXShot {
@@ -573,6 +582,7 @@ struct LowConfidenceSegmentRowView: View {
                     if let startTC = linkedSegment.segment.sourceTimecode {
                         Text("•")
                         Text("TC: \(startTC)")
+                            .monospacedDigit()
                     }
                 }
                 .font(.caption)
@@ -614,18 +624,21 @@ struct OCFParentRowView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(parent.ocf.fileName)
-                        .font(.system(.body, design: .monospaced))
+                        .font(.body)
                         .fontWeight(.medium)
 
                     HStack {
                         Text("\(parent.childCount) linked segments")
+                            .monospacedDigit()
                         Text("•")
                         if let fps = parent.ocf.frameRate {
                             Text("\(fps, specifier: "%.3f") fps")
+                                .monospacedDigit()
                         }
                         if let startTC = parent.ocf.sourceTimecode {
                             Text("•")
                             Text("TC: \(startTC)")
+                                .monospacedDigit()
                         }
                     }
                     .font(.caption)
@@ -693,7 +706,7 @@ struct LinkedSegmentRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(linkedSegment.segment.fileName)
-                        .font(.system(.body, design: .monospaced))
+                        .font(.body)
 
                     // VFX badge
                     if isVFXShot {
@@ -715,6 +728,7 @@ struct LinkedSegmentRowView: View {
                     if let startTC = linkedSegment.segment.sourceTimecode {
                         Text("•")
                         Text("TC: \(startTC)")
+                            .monospacedDigit()
                     }
                 }
                 .font(.caption)
