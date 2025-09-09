@@ -20,36 +20,6 @@ struct MediaImportTab: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Import Actions
-            HStack(spacing: 40) {
-                VStack {
-                    Text("Original Camera Files")
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                    
-                    Button("Import OCF Files...") {
-                        importingOCF = true
-                        showImportPicker()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isAnalyzing)
-                }
-                
-                VStack {
-                    Text("Graded/Edited Footage")
-                        .font(.headline)
-                        .foregroundColor(.orange)
-                    
-                    Button("Import Segments...") {
-                        importingOCF = false
-                        showImportPicker()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isAnalyzing)
-                }
-            }
-            .padding()
-            
             if isAnalyzing {
                 VStack {
                     ProgressView()
@@ -75,7 +45,12 @@ struct MediaImportTab: View {
                     onRemoveFiles: { fileNames in
                         removeOCFFiles(fileNames)
                         selectedOCFFiles.removeAll()
-                    }
+                    },
+                    onImportAction: {
+                        importingOCF = true
+                        showImportPicker()
+                    },
+                    isAnalyzing: isAnalyzing
                 )
                 .frame(minWidth: 400)
                 
@@ -91,7 +66,12 @@ struct MediaImportTab: View {
                     onRemoveFiles: { fileNames in
                         removeSegments(fileNames)
                         selectedSegments.removeAll()
-                    }
+                    },
+                    onImportAction: {
+                        importingOCF = false
+                        showImportPicker()
+                    },
+                    isAnalyzing: isAnalyzing
                 )
                 .frame(minWidth: 400)
             }

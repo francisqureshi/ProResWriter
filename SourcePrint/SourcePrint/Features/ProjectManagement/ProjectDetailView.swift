@@ -39,11 +39,14 @@ struct ProjectDetailView: View {
                     }
             } else {
                 Text("Render functionality requires macOS 15 or later")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .foregroundColor(.secondary)
                     .tabItem {
                         Label("Render", systemImage: "play.rectangle")
                     }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationBarBackButtonHidden(true)
     }
 }

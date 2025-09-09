@@ -463,10 +463,10 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
     
     var color: Color {
         switch self {
-        case .queued: return .orange
-        case .rendering: return .blue
-        case .completed: return .green
-        case .failed: return .red
+        case .queued: return AppTheme.queued
+        case .rendering: return AppTheme.rendering
+        case .completed: return AppTheme.completed
+        case .failed: return AppTheme.failed
         }
     }
 }
@@ -498,9 +498,9 @@ enum PrintStatus: Codable {
     
     var color: Color {
         switch self {
-        case .notPrinted: return .secondary
-        case .printed: return .green
-        case .needsReprint: return .orange
+        case .notPrinted: return AppTheme.notPrinted
+        case .printed: return AppTheme.printed
+        case .needsReprint: return AppTheme.needsReprint
         }
     }
 }

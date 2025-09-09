@@ -426,11 +426,11 @@ struct LinkingTableRowView: View {
                 switch row.type {
                 case .ocfParent:
                     Image(systemName: "film.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppTheme.ocfColor)
                         .frame(width: 16)
                 case .linkedSegment:
                     Image(systemName: "film")
-                        .foregroundColor(.orange)
+                        .foregroundColor(AppTheme.segmentColor)
                         .frame(width: 16)
                 }
 
@@ -461,7 +461,7 @@ struct LinkingTableRowView: View {
                         .frame(width: 12)
                 case .medium:
                     Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(AppTheme.segmentColor)
                         .frame(width: 12)
                 case .low:
                     Image(systemName: "questionmark.circle.fill")
@@ -590,9 +590,9 @@ struct LinkingTableRowView: View {
 
     private var confidenceColor: Color {
         switch row.linkedSegment?.linkConfidence {
-        case .high: return .green
-        case .medium: return .orange
-        case .low: return .red
+        case .high: return AppTheme.success
+        case .medium: return AppTheme.warning
+        case .low: return AppTheme.error
         default: return .secondary
         }
     }

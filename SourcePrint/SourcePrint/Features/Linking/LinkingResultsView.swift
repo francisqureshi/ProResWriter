@@ -11,6 +11,8 @@ import SwiftUI
 struct LinkingResultsView: View {
     @ObservedObject var project: Project
     @EnvironmentObject var projectManager: ProjectManager
+    var onPerformLinking: (() -> Void)? = nil
+    var onGenerateBlankRushes: (() -> Void)? = nil
 
     // Use the project's current linking result instead of a cached copy
     private var linkingResult: LinkingResult? {
@@ -84,31 +86,62 @@ struct LinkingResultsView: View {
         HStack(spacing: 0) {
             // Main Linked Results with List View
             VStack(alignment: .leading) {
-                HStack {
-                    Text("Linked Files (\(totalConfidentSegments) segments)")
-                        .font(.headline)
-                        .padding(.horizontal)
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Linked Files (\(totalConfidentSegments) segments)")
+                            .font(.headline)
 
-                    Spacer()
+                        Spacer()
 
-                    // Show toggle button here when drawer is hidden
-                    if !showUnmatchedDrawer {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showUnmatchedDrawer.toggle()
+                        // Action buttons
+                        HStack(spacing: 12) {
+                            if let performLinking = onPerformLinking {
+                                Button("Run Auto-Linking") {
+                                    performLinking()
+                                }
+                                .buttonStyle(CompressorButtonStyle(prominent: true))
+                                .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
                             }
-                        } label: {
-                            HStack(spacing: 2) {
-                                Image(systemName: "inset.filled.righthalf.rectangle")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.white)
+                            
+                            if let generateBlankRushes = onGenerateBlankRushes {
+                                Button("Generate Blank Rushes") {
+                                    generateBlankRushes()
+                                }
+                                .buttonStyle(CompressorButtonStyle())
+                                .disabled(!project.readyForBlankRush)
                             }
                         }
-                        .buttonStyle(.plain)
-                        .help("Show Unmatched Items (\(totalUnmatchedItems))")
-                        .padding(.trailing)
+
+                        // Show toggle button here when drawer is hidden
+                        if !showUnmatchedDrawer {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showUnmatchedDrawer.toggle()
+                                }
+                            } label: {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "inset.filled.righthalf.rectangle")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help("Show Unmatched Items (\(totalUnmatchedItems))")
+                            .padding(.trailing)
+                        }
+                    }
+                    
+                    // Status line with linking result summary
+                    if let result = project.linkingResult {
+                        HStack {
+                            Text(result.summary)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
                     }
                 }
+                .padding()
 
                 // Use List view for linked results
                 List(selection: $selectedLinkedFiles) {
@@ -148,31 +181,50 @@ struct LinkingResultsView: View {
                     .frame(width: 1)
 
                 VStack(alignment: .leading) {
-                    HStack {
-                        Text("Unmatched Items")
-                            .font(.headline)
-                            .padding(.horizontal)
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Unmatched Items")
+                                .font(.headline)
 
-                        Spacer()
-
-                        // Xcode-style drawer toggle button
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showUnmatchedDrawer.toggle()
+                            Spacer()
+                            
+                            // Balance with some actions or info
+                            HStack(spacing: 12) {
+                                Text("(\(totalUnmatchedItems))")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
                             }
-                        } label: {
-                            Image(
-                                systemName: showUnmatchedDrawer
-                                    ? "inset.filled.righthalf.rectangle"
-                                    : "inset.filled.righthalf.rectangle"
-                            )
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
+
+                            // Xcode-style drawer toggle button
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showUnmatchedDrawer.toggle()
+                                }
+                            } label: {
+                                Image(
+                                    systemName: showUnmatchedDrawer
+                                        ? "inset.filled.righthalf.rectangle"
+                                        : "inset.filled.righthalf.rectangle"
+                                )
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(showUnmatchedDrawer ? "Hide Unmatched Items" : "Show Unmatched Items")
+                            .padding(.trailing)
                         }
-                        .buttonStyle(.plain)
-                        .help(showUnmatchedDrawer ? "Hide Unmatched Items" : "Show Unmatched Items")
-                        .padding(.trailing)
+                        
+                        // Status line for unmatched items
+                        if totalUnmatchedItems > 0 {
+                            HStack {
+                                Text("Review these items before proceeding")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                        }
                     }
+                    .padding()
 
                     List(selection: $selectedUnmatchedFiles) {
                         if let linkingResult = linkingResult, !linkingResult.unmatchedOCFs.isEmpty {
@@ -358,9 +410,9 @@ struct TreeLinkedSegmentRowView: View {
 
     var confidenceColor: Color {
         switch linkedSegment.linkConfidence {
-        case .high: return .green
-        case .medium: return .orange
-        case .low: return .red
+        case .high: return AppTheme.success
+        case .medium: return AppTheme.warning
+        case .low: return AppTheme.error
         case .none: return .gray
         }
     }
@@ -381,7 +433,7 @@ struct TreeLinkedSegmentRowView: View {
                 .frame(width: 16)
 
             Image(systemName: "film")
-                .foregroundColor(.orange)
+                .foregroundColor(AppTheme.segmentColor)
                 .frame(width: 16)
 
             // VFX indicator
@@ -439,7 +491,7 @@ struct UnmatchedFileRowView: View {
     var body: some View {
         HStack {
             Image(systemName: type == .ocf ? "film.fill" : "film")
-                .foregroundColor(type == .ocf ? .blue : .orange)
+                .foregroundColor(type == .ocf ? AppTheme.ocfColor : AppTheme.segmentColor)
                 .frame(width: 16)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -486,7 +538,7 @@ struct LowConfidenceSegmentRowView: View {
                 .frame(width: 16)
 
             Image(systemName: "film")
-                .foregroundColor(.orange)
+                .foregroundColor(AppTheme.segmentColor)
                 .frame(width: 16)
 
             // VFX indicator
@@ -558,7 +610,7 @@ struct OCFParentRowView: View {
                 .buttonStyle(.plain)
 
                 Image(systemName: "film.fill")
-                    .foregroundColor(.blue)
+                    .foregroundColor(AppTheme.ocfColor)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(parent.ocf.fileName)
@@ -605,9 +657,9 @@ struct LinkedSegmentRowView: View {
 
     var confidenceColor: Color {
         switch linkedSegment.linkConfidence {
-        case .high: return .green
-        case .medium: return .orange
-        case .low: return .red
+        case .high: return AppTheme.success
+        case .medium: return AppTheme.warning
+        case .low: return AppTheme.error
         case .none: return .gray
         }
     }
@@ -628,7 +680,7 @@ struct LinkedSegmentRowView: View {
                 .frame(width: 16)
 
             Image(systemName: "film")
-                .foregroundColor(.orange)
+                .foregroundColor(AppTheme.segmentColor)
                 .frame(width: 16)
 
             // VFX indicator

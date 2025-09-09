@@ -11,7 +11,6 @@ import ProResWriterCore
 struct ContentView: View {
     @EnvironmentObject var projectManager: ProjectManager
     @State private var showingNewProject = false
-    @AppStorage("sidebarVisible") private var sidebarVisible: Bool = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
     
     var body: some View {
@@ -49,14 +48,6 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleSidebar)) { _ in
             columnVisibility = (columnVisibility == .all) ? .detailOnly : .all
-        }
-        .onAppear {
-            // Set initial sidebar visibility from stored preference
-            columnVisibility = sidebarVisible ? .all : .detailOnly
-        }
-        .onChange(of: columnVisibility) { oldValue, newValue in
-            // Save sidebar visibility preference when user toggles it
-            sidebarVisible = (newValue == .all)
         }
     }
 }

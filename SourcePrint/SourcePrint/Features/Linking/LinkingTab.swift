@@ -22,80 +22,62 @@ struct LinkingTab: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Linking Controls
-            VStack {
-                HStack {
-                    Button("Run Auto-Linking") {
-                        performLinking()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty || isLinking)
-                    
-                    Button("Generate Blank Rushes") {
-                        generateBlankRushes()
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!project.readyForBlankRush || isLinking)
-                    
-                    if let result = project.linkingResult {
-                        Text("\(result.summary)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.leading)
-                    }
-                }
-                
-                if isLinking {
-                    VStack(spacing: 8) {
-                        ProgressView(
-                            value: progressValue, 
-                            total: progressTotal,
-                            label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text(linkingProgress)
+            // Progress display when linking
+            if isLinking {
+                VStack(spacing: 8) {
+                    ProgressView(
+                        value: progressValue, 
+                        total: progressTotal,
+                        label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(linkingProgress)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    if totalFileCount > 0 {
+                                        Text("\(currentFileIndex)/\(totalFileCount)")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
+                                            .monospacedDigit()
+                                    }
+                                }
+                                if !currentClipName.isEmpty {
+                                    HStack {
+                                        Text("📎 \(currentClipName)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
                                         Spacer()
-                                        if totalFileCount > 0 {
-                                            Text("\(currentFileIndex)/\(totalFileCount)")
-                                                .font(.caption)
+                                        if currentFPS > 0 {
+                                            Text("\(String(format: "%.1f", currentFPS)) fps")
+                                                .font(.caption2)
                                                 .foregroundColor(.secondary)
                                                 .monospacedDigit()
                                         }
                                     }
-                                    if !currentClipName.isEmpty {
-                                        HStack {
-                                            Text("📎 \(currentClipName)")
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(1)
-                                            Spacer()
-                                            if currentFPS > 0 {
-                                                Text("\(String(format: "%.1f", currentFPS)) fps")
-                                                    .font(.caption2)
-                                                    .foregroundColor(.secondary)
-                                                    .monospacedDigit()
-                                            }
-                                        }
-                                    }
                                 }
-                            },
-                            currentValueLabel: {
-                                Text("\(Int((progressValue / progressTotal) * 100))%")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
                             }
-                        )
-                        .progressViewStyle(.linear)
-                        .animation(.easeInOut(duration: 0.2), value: progressValue)
-                    }
+                        },
+                        currentValueLabel: {
+                            Text("\(Int((progressValue / progressTotal) * 100))%")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    )
+                    .progressViewStyle(.linear)
+                    .animation(.easeInOut(duration: 0.2), value: progressValue)
                 }
+                .padding()
             }
-            .padding()
             
             // Linking Results Display
-            LinkingResultsView(project: project)
+            LinkingResultsView(
+                project: project, 
+                onPerformLinking: performLinking,
+                onGenerateBlankRushes: generateBlankRushes
+            )
+            .environmentObject(projectManager)
         }
     }
     

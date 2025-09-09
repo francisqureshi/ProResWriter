@@ -26,7 +26,7 @@ struct MediaFileRowView: View {
         HStack {
             // Main type icon
             Image(systemName: type == .ocf ? "film.fill" : "film")
-                .foregroundColor(type == .ocf ? .blue : .orange)
+                .foregroundColor(type == .ocf ? AppTheme.ocfColor : AppTheme.segmentColor)
                 .frame(width: 16)
 
             // VFX indicator for segments

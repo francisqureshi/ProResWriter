@@ -37,8 +37,8 @@ struct MediaFileTableView: View {
 
         var color: Color {
             switch self {
-            case .ocf: return .blue
-            case .segment: return .orange
+            case .ocf: return AppTheme.ocfColor
+            case .segment: return AppTheme.segmentColor
             }
         }
     }

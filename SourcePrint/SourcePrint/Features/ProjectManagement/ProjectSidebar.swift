@@ -21,6 +21,9 @@ struct ProjectSidebar: View {
                 }
             }
         }
+        .listStyle(SidebarListStyle())
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.backgroundSecondary)
         .navigationTitle("Projects")
         .onChange(of: selection) { oldValue, newValue in
             if let selectedId = newValue,
@@ -56,7 +59,7 @@ struct ProjectRowView: View {
                 if project.hasLinkedMedia {
                     Label("\(project.linkingResult?.totalLinkedSegments ?? 0)", systemImage: "link")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppTheme.accent)
                 }
             }
         }

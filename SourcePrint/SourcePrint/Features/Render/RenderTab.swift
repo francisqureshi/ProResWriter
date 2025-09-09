@@ -36,8 +36,7 @@ struct RenderTab: View {
                         Button("Clear Completed") {
                             clearCompletedItems()
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        .buttonStyle(CompressorButtonStyle())
                         .disabled(project.renderQueue.isEmpty || !hasCompletedItems)
                         
                         Button(isRendering ? "Stop" : "Process Queue") {
@@ -47,9 +46,12 @@ struct RenderTab: View {
                                 startQueueProcessing()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .foregroundColor(isRendering ? .white : .primary)
-                        .background(isRendering ? Color.red : Color.accentColor, in: RoundedRectangle(cornerRadius: 6))
+                        .buttonStyle(CompressorButtonStyle(prominent: true))
+                        .foregroundColor(.white)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(isRendering ? AppTheme.error : AppTheme.accent)
+                        )
                         .disabled(!isRendering && queuedItemsCount == 0)
                     }
                 }
@@ -458,13 +460,7 @@ struct RenderQueueItemView: View {
             
             // Show print status if available
             if let printStatus = project.printStatus[item.ocfFileName] {
-                Label(printStatus.displayName, systemImage: printStatus.icon)
-                    .font(.caption2)
-                    .foregroundColor(printStatus.color)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(printStatus.color.opacity(0.1))
-                    .cornerRadius(4)
+                StatusLabel(printStatus.displayName, color: printStatus.color, icon: printStatus.icon)
             }
         }
         .padding(.vertical, 2)

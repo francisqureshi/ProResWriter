@@ -157,6 +157,10 @@ pix_fmts=uyvy422
 - **Status Indicators**: 🟢🟡⚫️🔴 for workflow state tracking
 - **Reactive UI**: `@ObservedObject` for cross-tab synchronization (MediaImportTab updates when LinkingTab removes files)
 - **Context Menu UX**: Left-click ellipsis menus with `.menuOrder(.fixed)` for window-bounded dropdowns
+- **Render Queue System**: Professional NLE-style queue management with intelligent print status tracking
+- **Apple Compressor Theming**: Purple accent with dark grey backgrounds, centralized color management
+- **Header-Integrated Import**: Import buttons embedded in media table headers for cleaner UI
+- **Custom Tab Bar**: Compressor-style larger tabs with purple theme instead of macOS accent colors
 
 ## Key Technical Achievements
 

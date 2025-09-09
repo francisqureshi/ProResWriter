@@ -14,6 +14,8 @@ struct MediaFileColumnTableView: View {
     let selectedFiles: Binding<Set<String>>
     let onVFXToggle: ((String, Bool) -> Void)?
     let onRemoveFiles: ([String]) -> Void
+    let onImportAction: (() -> Void)?
+    let isAnalyzing: Bool
     
     @State private var selection = Set<String>()
     
@@ -63,8 +65,8 @@ struct MediaFileColumnTableView: View {
         
         var color: Color {
             switch self {
-            case .ocf: return .blue
-            case .segment: return .orange
+            case .ocf: return AppTheme.ocfColor
+            case .segment: return AppTheme.segmentColor
             }
         }
     }
@@ -97,10 +99,19 @@ struct MediaFileColumnTableView: View {
                 .foregroundColor(type.color)
             Text("\(type.displayName) (\(files.count))")
                 .font(.headline)
+            
             Spacer()
+            
+            if let importAction = onImportAction {
+                Button("Import \(type == .ocf ? "OCF Files" : "Segments")...") {
+                    importAction()
+                }
+                .buttonStyle(CompressorButtonStyle(prominent: true))
+                .disabled(isAnalyzing)
+            }
         }
         .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(AppTheme.backgroundSecondary)
     }
     
     private var columnHeadersView: some View {
@@ -536,7 +547,11 @@ struct MediaFileColumnRowView: View {
         },
         onRemoveFiles: { fileNames in
             print("Remove files: \(fileNames)")
-        }
+        },
+        onImportAction: {
+            print("Import action triggered")
+        },
+        isAnalyzing: false
     )
     .frame(height: 400)
 }

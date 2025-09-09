@@ -21,6 +21,9 @@ struct SourcePrintApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(projectManager)
+                .preferredColorScheme(.dark)
+                .background(Color.appBackground)
+                .tint(Color.appAccent)
         }
         .commands {
             CommandGroup(replacing: .newItem) {
