@@ -332,6 +332,14 @@ struct OCFParentHeaderView: View {
                         .padding(.vertical, 2)
                         .background(Color.green.opacity(0.1))
                         .cornerRadius(4)
+                } else {
+                    Label("No Blank Rush", systemImage: "film")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
                 }
             }
         }
