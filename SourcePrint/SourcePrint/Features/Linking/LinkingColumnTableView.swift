@@ -483,6 +483,7 @@ struct LinkingTableRowView: View {
             // Start TC Column
             Text(startTCText)
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: startTCWidth, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -490,6 +491,7 @@ struct LinkingTableRowView: View {
             // End TC Column
             Text(endTCText)
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: endTCWidth, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -497,6 +499,7 @@ struct LinkingTableRowView: View {
             // Duration Column
             Text(durationText)
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: durationWidth, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -504,6 +507,7 @@ struct LinkingTableRowView: View {
             // Frames Column
             Text(framesText)
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: framesWidth, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -511,6 +515,7 @@ struct LinkingTableRowView: View {
             // Resolution Column
             Text(resolutionText)
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: resolutionWidth, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -518,6 +523,7 @@ struct LinkingTableRowView: View {
             // FPS Column
             Text(fpsText)
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: fpsWidth, alignment: .leading)
                 .padding(.horizontal, 4)

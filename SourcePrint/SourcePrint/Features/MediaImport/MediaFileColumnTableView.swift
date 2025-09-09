@@ -411,6 +411,7 @@ struct MediaFileColumnRowView: View {
             // Start TC Column
             Text(file.sourceTimecode ?? "—")
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .lineLimit(1)
                 .foregroundColor(file.sourceTimecode != nil ? .primary : .secondary)
                 .frame(width: columnWidths.startTC, alignment: .leading)
@@ -419,6 +420,7 @@ struct MediaFileColumnRowView: View {
             // End TC Column
             Text(file.endTimecode ?? "—")
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .lineLimit(1)
                 .foregroundColor(file.endTimecode != nil ? .primary : .secondary)
                 .frame(width: columnWidths.endTC, alignment: .leading)
@@ -429,6 +431,7 @@ struct MediaFileColumnRowView: View {
                 if let frames = file.durationInFrames, let fps = file.frameRate {
                     Text("\(Double(frames) / Double(fps), specifier: "%.2f")s")
                         .font(.monoNumbers(size: 12))
+                        .monospacedDigit()
                         .lineLimit(1)
                 } else {
                     Text("—")
@@ -441,6 +444,7 @@ struct MediaFileColumnRowView: View {
             // Frames Column
             Text(String(format: "%d", file.durationInFrames ?? 0))
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .lineLimit(1)
                 .frame(width: columnWidths.frames, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -461,10 +465,12 @@ struct MediaFileColumnRowView: View {
                 if let resolution = file.displayResolution {
                     Text(String(format: "%dx%d", Int(resolution.width), Int(resolution.height)))
                         .font(.monoNumbers(size: 12))
+                        .monospacedDigit()
                         .lineLimit(1)
                 } else if let resolution = file.resolution {
                     Text(String(format: "%dx%d", Int(resolution.width), Int(resolution.height)))
                         .font(.monoNumbers(size: 12))
+                        .monospacedDigit()
                         .lineLimit(1)
                 } else {
                     Text("—")
@@ -477,6 +483,7 @@ struct MediaFileColumnRowView: View {
             // FPS Column
             Text("\(file.frameRate ?? 0, specifier: "%.3f")")
                 .font(.monoNumbers(size: 12))
+                .monospacedDigit()
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(width: columnWidths.fps, alignment: .leading)
