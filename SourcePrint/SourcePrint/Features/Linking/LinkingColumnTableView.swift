@@ -436,7 +436,7 @@ struct LinkingTableRowView: View {
 
                 // Clip name
                 Text(clipNameText)
-                    .font(.monoNumbers(size: 12))
+                    .font(.system(size: 12))
                     .lineLimit(1)
                     .truncationMode(.middle)
 
@@ -482,7 +482,7 @@ struct LinkingTableRowView: View {
 
             // Start TC Column
             Text(startTCText)
-                .font(.monoNumbers(size: 12))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: startTCWidth, alignment: .leading)
@@ -490,7 +490,7 @@ struct LinkingTableRowView: View {
 
             // End TC Column
             Text(endTCText)
-                .font(.monoNumbers(size: 12))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: endTCWidth, alignment: .leading)
@@ -498,7 +498,7 @@ struct LinkingTableRowView: View {
 
             // Duration Column
             Text(durationText)
-                .font(.monoNumbers(size: 12))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: durationWidth, alignment: .leading)
@@ -506,7 +506,7 @@ struct LinkingTableRowView: View {
 
             // Frames Column
             Text(framesText)
-                .font(.monoNumbers(size: 12))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: framesWidth, alignment: .leading)
@@ -514,7 +514,7 @@ struct LinkingTableRowView: View {
 
             // Resolution Column
             Text(resolutionText)
-                .font(.monoNumbers(size: 12))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: resolutionWidth, alignment: .leading)
@@ -522,7 +522,7 @@ struct LinkingTableRowView: View {
 
             // FPS Column
             Text(fpsText)
-                .font(.monoNumbers(size: 12))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(.secondary)
                 .frame(width: fpsWidth, alignment: .leading)

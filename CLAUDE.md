@@ -337,3 +337,26 @@ compositor.composeVideo(with: ffmpegSettings)
 - **🛑 User Control**: Immediate stop capability with graceful current-item completion
 - **🔄 Smart Re-printing**: Automatic detection of changed segments requiring re-print
 - **📊 Status Tracking**: Complete history and status visibility across all project clips
+
+## 🎯 Typography System Migration (2025-09-09)
+
+### Complete SF Pro Font Migration ✅
+- **Migration**: Full transition from GT Pressura Mono to native macOS SF Pro typography
+- **Monospaced Digits**: All numeric data uses `.monospacedDigit()` for layout stability
+- **File Cleanup**: Removed `Font+MonoNumbers.swift` extension and `gt-pressura-mono-light.ttf` font file
+- **UI Consistency**: Header-integrated buttons, status lines, and Apple Compressor-inspired theming
+- **Sidebar Persistence**: Fixed sidebar visibility state management with proper initialization
+
+### Technical Implementation
+- **Font System**: SF Pro with `.monospacedDigit()` for stable numeric displays (timecodes, frame counts, frame rates)
+- **Button Integration**: Action buttons moved to linked files header for cleaner workflow organization
+- **Visual Balance**: Unmatched items drawer balanced with count displays and status information
+- **Toolbar Height Fix**: Welcome screen TabView wrapper ensures consistent toolbar height across views
+- **Project Cleanup**: Removed unused font files, Extensions/Fonts directory, and legacy font loading logic
+
+### Production Benefits
+- **🍎 Native macOS Look**: Complete SF Pro integration matches system design language
+- **⚡ Stable Layouts**: Monospaced digits prevent UI jumping when numbers change
+- **🗂️ Smaller Bundle**: No custom font embedding reduces app size
+- **🎨 Professional Polish**: Consistent typography throughout all tables and views
+- **🔧 Reduced Complexity**: Eliminated custom font loading and fallback systems
