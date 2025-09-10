@@ -63,16 +63,67 @@ struct LinkingResultsView: View {
         Group {
             if linkingResult == nil {
                 VStack {
-                    Image(systemName: "link.circle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No linking results available")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Text("Files were removed. Run auto-linking again to see updated results.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                    // Action buttons even when no results
+                    HStack {
+                        Text("Linking")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 12) {
+                            if let performLinking = onPerformLinking {
+                                Button("Run Auto-Linking") {
+                                    performLinking()
+                                }
+                                .buttonStyle(CompressorButtonStyle(prominent: true))
+                                .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
+                            }
+                            
+                            if let generateBlankRushes = onGenerateBlankRushes {
+                                Button("Generate Blank Rushes") {
+                                    generateBlankRushes()
+                                }
+                                .buttonStyle(CompressorButtonStyle())
+                                .disabled(true) // Always disabled when no linking results
+                            }
+                        }
+                    }
+                    .padding()
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 12) {
+                        Image(systemName: "link.circle")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No linking results yet")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        
+                        if project.ocfFiles.isEmpty && project.segments.isEmpty {
+                            Text("Import OCF files and segments to begin linking")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        } else if project.ocfFiles.isEmpty {
+                            Text("Import OCF files to link with segments")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        } else if project.segments.isEmpty {
+                            Text("Import segments to link with OCF files")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            Text("Click 'Run Auto-Linking' to match segments with OCF files")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    
+                    Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

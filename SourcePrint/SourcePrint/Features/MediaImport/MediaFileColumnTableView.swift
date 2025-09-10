@@ -119,7 +119,7 @@ struct MediaFileColumnTableView: View {
             // Clip Name Column
             HStack(spacing: 0) {
                 Text("Clip Name")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: clipNameWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -132,7 +132,7 @@ struct MediaFileColumnTableView: View {
             // Start TC Column
             HStack(spacing: 0) {
                 Text("Start TC")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: startTCWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -145,7 +145,7 @@ struct MediaFileColumnTableView: View {
             // End TC Column
             HStack(spacing: 0) {
                 Text("End TC")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: endTCWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -158,7 +158,7 @@ struct MediaFileColumnTableView: View {
             // Duration Column
             HStack(spacing: 0) {
                 Text("Duration")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: durationWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -171,7 +171,7 @@ struct MediaFileColumnTableView: View {
             // Frames Column
             HStack(spacing: 0) {
                 Text("Frames")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: framesWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -184,7 +184,7 @@ struct MediaFileColumnTableView: View {
             // Type Column
             HStack(spacing: 0) {
                 Text("Type")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: typeWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -197,7 +197,7 @@ struct MediaFileColumnTableView: View {
             // Resolution Column
             HStack(spacing: 0) {
                 Text("Resolution")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: resolutionWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -210,7 +210,7 @@ struct MediaFileColumnTableView: View {
             // FPS Column
             HStack(spacing: 0) {
                 Text("FPS")
-                    .font(.system(size: 11, weight: .medium, design: .default))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                     .frame(width: fpsWidth, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -388,7 +388,7 @@ struct MediaFileColumnRowView: View {
                 }
                 
                 Text(file.fileName)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 
