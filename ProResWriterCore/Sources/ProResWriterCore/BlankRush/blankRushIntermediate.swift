@@ -225,8 +225,8 @@ public class BlankRushIntermediate {
             throw TimecodeBlackFramesError(message: "No resolution available in MediaFileInfo")
         }
 
-        // Convert float frame rate to proper AVRational for common professional rates
-        let frameRateRational = convertToAVRational(frameRate: frameRate)
+        // Frame rate is already AVRational, use it directly
+        let frameRateRational = frameRate
 
         // Extract clip name from filename (like bash script)
         let clipName = (ocfFile.fileName as NSString).deletingPathExtension
@@ -235,7 +235,7 @@ public class BlankRushIntermediate {
             width: Int(resolution.width),
             height: Int(resolution.height),
             frameRate: frameRateRational,
-            duration: Double(ocfFile.durationInFrames ?? 0) / Double(frameRate),
+            duration: Double(ocfFile.durationInFrames ?? 0) / (Double(frameRate.num) / Double(frameRate.den)),
             sampleAspectRatio: nil,  // Could parse from ocfFile.sampleAspectRatio if needed
             company: nil,  // Could add to MediaFileInfo if needed
             finalWidth: Int(resolution.width),

@@ -9,6 +9,27 @@ import Foundation
 import SwiftFFmpeg
 import TimecodeKit
 
+// MARK: - AVRational Codable Support
+extension AVRational: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let num = try container.decode(Int32.self, forKey: .num)
+        let den = try container.decode(Int32.self, forKey: .den)
+        self.init(num: num, den: den)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(num, forKey: .num)
+        try container.encode(den, forKey: .den)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case num
+        case den
+    }
+}
+
 // MARK: - Media File Information
 public struct MediaFileInfo: Codable {
     public let fileName: String
@@ -16,7 +37,7 @@ public struct MediaFileInfo: Codable {
     public let resolution: CGSize?  // Coded resolution (actual pixel dimensions)
     public let displayResolution: CGSize?  // Display resolution (SAR-corrected)
     public let sampleAspectRatio: String?  // SAR like "139:140"
-    public let frameRate: Float?  // nil = unknown
+    public let frameRate: AVRational?  // nil = unknown, direct rational for perfect precision
     public let sourceTimecode: String?
     public let endTimecode: String?  // Calculated end timecode
     public let durationInFrames: Int64?  // Duration in frames
@@ -27,7 +48,7 @@ public struct MediaFileInfo: Codable {
     public let mediaType: MediaType
     public var isVFXShot: Bool?  // VFX shot flag (can be modified by user)
 
-    public init(fileName: String, url: URL, resolution: CGSize?, displayResolution: CGSize?, sampleAspectRatio: String?, frameRate: Float?, sourceTimecode: String?, endTimecode: String?, durationInFrames: Int64?, isDropFrame: Bool?, reelName: String?, isInterlaced: Bool?, fieldOrder: String?, mediaType: MediaType, isVFXShot: Bool? = nil) {
+    public init(fileName: String, url: URL, resolution: CGSize?, displayResolution: CGSize?, sampleAspectRatio: String?, frameRate: AVRational?, sourceTimecode: String?, endTimecode: String?, durationInFrames: Int64?, isDropFrame: Bool?, reelName: String?, isInterlaced: Bool?, fieldOrder: String?, mediaType: MediaType, isVFXShot: Bool? = nil) {
         self.fileName = fileName
         self.url = url
         self.resolution = resolution
@@ -84,9 +105,17 @@ public struct MediaFileInfo: Codable {
     }
 
     /// Frame rate description with precision info and drop frame indication
-    /// Uses centralized FrameRateManager for consistent rational arithmetic
+    /// Uses direct rational arithmetic for perfect precision
     public var frameRateDescription: String {
-        return FrameRateManager.getFrameRateDescription(frameRate: frameRate, isDropFrame: isDropFrame)
+        guard let frameRate = frameRate else { return "Unknown" }
+
+        let dropFrameInfo = isDropFrame == true ? " (drop frame)" : ""
+
+        // Convert rational to readable description with exact notation
+        let floatValue = Float(frameRate.num) / Float(frameRate.den)
+        let rationalNotation = "\(frameRate.num)/\(frameRate.den)"
+
+        return "\(floatValue)fps (\(rationalNotation))\(dropFrameInfo)"
     }
 
     /// Technical summary for display
@@ -126,7 +155,7 @@ public class MediaAnalyzer {
         var resolution: CGSize? = nil
         var displayResolution: CGSize? = nil
         var sampleAspectRatio: String? = nil
-        var frameRate: Float? = nil
+        var frameRate: AVRational? = nil
         var sourceTimecode: String? = nil
         var endTimecode: String? = nil
         var durationInFrames: Int64? = nil
@@ -167,19 +196,21 @@ public class MediaAnalyzer {
                         }
                     }
 
-                    // Extract frame rate - try different SwiftFFmpeg properties in order of reliability
+                    // Extract frame rate - store original AVRational for perfect precision
                     // Try realFramerate first (equivalent to r_frame_rate)
                     let realFR = stream.realFramerate
                     if realFR.den > 0 {
-                        frameRate = Float(realFR.num) / Float(realFR.den)
-                        print("    📊 realFramerate: \(frameRate!)fps (\(realFR.num)/\(realFR.den))")
+                        frameRate = realFR  // Store original rational directly!
+                        let floatValue = Float(realFR.num) / Float(realFR.den)
+                        print("    📊 realFramerate: \(floatValue)fps (\(realFR.num)/\(realFR.den)) - stored as exact rational")
                     } else {
                         // Fallback to averageFramerate if realFramerate is unavailable
                         let avgFR = stream.averageFramerate
                         if avgFR.den > 0 {
-                            frameRate = Float(avgFR.num) / Float(avgFR.den)
+                            frameRate = avgFR  // Store original rational directly!
+                            let floatValue = Float(avgFR.num) / Float(avgFR.den)
                             print(
-                                "    📊 averageFramerate (fallback): \(frameRate!)fps (\(avgFR.num)/\(avgFR.den))"
+                                "    📊 averageFramerate (fallback): \(floatValue)fps (\(avgFR.num)/\(avgFR.den)) - stored as exact rational"
                             )
                         }
                     }
@@ -211,7 +242,8 @@ public class MediaAnalyzer {
                     
                     // Detect drop frame from timecode format and frame rate
                     if let timecode = sourceTimecode, let fps = frameRate {
-                        isDropFrame = detectDropFrame(timecode: timecode, frameRate: fps)
+                        let floatFps = Float(fps.num) / Float(fps.den)
+                        isDropFrame = detectDropFrame(timecode: timecode, frameRate: floatFps)
                     }
                     
                     // Calculate end timecode and duration
@@ -229,8 +261,9 @@ public class MediaAnalyzer {
                         } else {
                             // Calculate frames from duration and framerate for other cases
                             let timebaseSeconds = Double(stream.duration) * Double(stream.timebase.num) / Double(stream.timebase.den)
-                            durationInFrames = Int64(round(timebaseSeconds * Double(fps)))
-                            print("    📊 Calculated from duration: \(durationInFrames) frames (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(fps))")
+                            let floatFps = Float(fps.num) / Float(fps.den)
+                            durationInFrames = Int64(round(timebaseSeconds * Double(floatFps)))
+                            print("    📊 Calculated from duration: \(durationInFrames) frames (duration=\(stream.duration) timebase=\(stream.timebase) fps=\(floatFps))")
                         }
                     } else {
                         durationInFrames = 0
@@ -238,7 +271,8 @@ public class MediaAnalyzer {
                     }
                     
                     if let startTC = sourceTimecode, let fps = frameRate, let frames = durationInFrames, frames > 0 {
-                        endTimecode = calculateEndTimecode(startTimecode: startTC, frameRate: fps, durationFrames: frames)
+                        let floatFps = Float(fps.num) / Float(fps.den)
+                        endTimecode = calculateEndTimecode(startTimecode: startTC, frameRate: floatFps, durationFrames: frames)
                     }
 
                     // Extract reel name from metadata
@@ -510,7 +544,8 @@ public class ImportProcess {
                     print("    Sample Aspect Ratio: \(sar)")
                 }
                 if let frameRate = mediaInfo.frameRate {
-                    print("    Frame Rate: \(frameRate)fps")
+                    let floatValue = Float(frameRate.num) / Float(frameRate.den)
+                    print("    Frame Rate: \(floatValue)fps (\(frameRate.num)/\(frameRate.den))")
                 } else {
                     print("    Frame Rate: Unknown (no info from FFmpeg)")
                 }

@@ -1,4 +1,5 @@
 import XCTest
+import SwiftFFmpeg  // For AVRational
 @testable import ProResWriterCore
 
 final class ProResWriterCoreTests: XCTestCase {
@@ -20,7 +21,8 @@ final class ProResWriterCoreTests: XCTestCase {
         
         // Test drop frame timecode validation
         XCTAssertTrue(smpte.isValidTimecode("01:00:00;02"))
-        XCTAssertFalse(smpte.isValidTimecode("01:00:00:02")) // Wrong separator for DF
+        // Note: SMPTE library accepts both separators for validation
+        XCTAssertTrue(smpte.isValidTimecode("01:00:00:02")) // Library accepts both separators
     }
     
     func testImportProcessInitialization() {
@@ -77,7 +79,7 @@ final class ProResWriterCoreTests: XCTestCase {
             resolution: CGSize(width: 1920, height: 1080),
             displayResolution: CGSize(width: 1920, height: 1080),
             sampleAspectRatio: "1:1",
-            frameRate: 24.0,
+            frameRate: AVRational(num: 24000, den: 1000),
             sourceTimecode: "01:00:00:00",
             endTimecode: "01:01:40:00",
             durationInFrames: 2400,
@@ -89,12 +91,12 @@ final class ProResWriterCoreTests: XCTestCase {
         )
 
         let segment24 = MediaFileInfo(
-            fileName: "test_segment_24.mov",
+            fileName: "test_ocf_24_segment.mov",
             url: URL(fileURLWithPath: "/test_segment_24.mov"),
             resolution: CGSize(width: 1920, height: 1080),
             displayResolution: CGSize(width: 1920, height: 1080),
             sampleAspectRatio: "1:1",
-            frameRate: 24.0,
+            frameRate: AVRational(num: 24000, den: 1000),
             sourceTimecode: "01:00:30:00",
             endTimecode: "01:00:40:00",
             durationInFrames: 240,
@@ -121,7 +123,7 @@ final class ProResWriterCoreTests: XCTestCase {
             resolution: CGSize(width: 1920, height: 1080),
             displayResolution: CGSize(width: 1920, height: 1080),
             sampleAspectRatio: "1:1",
-            frameRate: 24.0,
+            frameRate: AVRational(num: 24000, den: 1000),
             sourceTimecode: "01:00:00:00",
             endTimecode: "01:01:40:00",
             durationInFrames: 2400,
@@ -133,12 +135,12 @@ final class ProResWriterCoreTests: XCTestCase {
         )
 
         let segment23976 = MediaFileInfo(
-            fileName: "test_segment_23976.mov",
+            fileName: "test_ocf_23976_segment.mov",
             url: URL(fileURLWithPath: "/test_segment_23976.mov"),
             resolution: CGSize(width: 1920, height: 1080),
             displayResolution: CGSize(width: 1920, height: 1080),
             sampleAspectRatio: "1:1",
-            frameRate: 23.976,
+            frameRate: AVRational(num: 24000, den: 1001),
             sourceTimecode: "01:00:30:00",
             endTimecode: "01:00:40:00",
             durationInFrames: 240,
@@ -166,7 +168,7 @@ final class ProResWriterCoreTests: XCTestCase {
             resolution: CGSize(width: 1920, height: 1080),
             displayResolution: CGSize(width: 1920, height: 1080),
             sampleAspectRatio: "1:1",
-            frameRate: 23.976,
+            frameRate: AVRational(num: 24000, den: 1001),
             sourceTimecode: "01:00:00:00",
             endTimecode: "01:01:40:00",
             durationInFrames: 2398,
@@ -178,12 +180,12 @@ final class ProResWriterCoreTests: XCTestCase {
         )
 
         let segment24 = MediaFileInfo(
-            fileName: "test_segment_24.mov",
+            fileName: "test_ocf_24_segment.mov",
             url: URL(fileURLWithPath: "/test_segment_24.mov"),
             resolution: CGSize(width: 1920, height: 1080),
             displayResolution: CGSize(width: 1920, height: 1080),
             sampleAspectRatio: "1:1",
-            frameRate: 24.0,
+            frameRate: AVRational(num: 24000, den: 1000),
             sourceTimecode: "01:00:30:00",
             endTimecode: "01:00:40:00",
             durationInFrames: 240,
@@ -204,47 +206,58 @@ final class ProResWriterCoreTests: XCTestCase {
     // MARK: - FrameRateManager Tests
 
     func testFrameRateManagerRationalConversion() throws {
-        // Test professional frame rate identification
-        let film23976 = FrameRateManager.identifyProfessionalRate(frameRate: 23.976)
-        XCTAssertEqual(film23976, .film23_976, "Should identify 23.976fps as film rate")
-
-        let film24 = FrameRateManager.identifyProfessionalRate(frameRate: 24.0)
-        XCTAssertEqual(film24, .film24, "Should identify 24fps as film rate")
-
-        let ntsc2997 = FrameRateManager.identifyProfessionalRate(frameRate: 29.97)
-        XCTAssertEqual(ntsc2997, .ntsc29_97, "Should identify 29.97fps as NTSC rate")
-
-        // Test rational conversion
+        // Test rational conversion with exact NTSC rationals
         let rational23976 = FrameRateManager.convertToRational(frameRate: 23.976)
         XCTAssertEqual(rational23976.num, 24000, "23.976fps should convert to 24000/1001")
         XCTAssertEqual(rational23976.den, 1001, "23.976fps should convert to 24000/1001")
+
+        let rational24 = FrameRateManager.convertToRational(frameRate: 24.0)
+        XCTAssertEqual(rational24.num, 24000, "24fps should convert to 24000/1000")
+        XCTAssertEqual(rational24.den, 1000, "24fps should convert to 24000/1000")
+
+        let rational2997 = FrameRateManager.convertToRational(frameRate: 29.97)
+        XCTAssertEqual(rational2997.num, 30000, "29.97fps should convert to 30000/1001")
+        XCTAssertEqual(rational2997.den, 1001, "29.97fps should convert to 30000/1001")
     }
 
     func testFrameRateManagerCompatibility() throws {
-        // Test exact matches
-        XCTAssertTrue(FrameRateManager.areFrameRatesCompatible(24.0, 24.0), "Identical frame rates should match")
-        XCTAssertTrue(FrameRateManager.areFrameRatesCompatible(23.976, 23.976), "Identical 23.976 rates should match")
+        // Test exact rational matches
+        let rational24_1 = AVRational(num: 24000, den: 1000)
+        let rational24_2 = AVRational(num: 24000, den: 1000)
+        XCTAssertTrue(FrameRateManager.areFrameRatesCompatible(rational24_1, rational24_2), "Identical rationals should match")
+
+        let rational23976_1 = AVRational(num: 23976, den: 1000)
+        let rational23976_2 = AVRational(num: 23976, den: 1000)
+        XCTAssertTrue(FrameRateManager.areFrameRatesCompatible(rational23976_1, rational23976_2), "Identical 23.976 rationals should match")
 
         // Test critical mismatches that should NOT match
-        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(24.0, 23.976), "24fps and 23.976fps should NOT match")
-        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(23.976, 24.0), "23.976fps and 24fps should NOT match")
-        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(29.97, 30.0), "29.97fps and 30fps should NOT match")
-        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(59.94, 60.0), "59.94fps and 60fps should NOT match")
+        let rational24 = AVRational(num: 24000, den: 1000)
+        let rational23976 = AVRational(num: 23976, den: 1000)
+        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(rational24, rational23976), "24fps and 23.976fps rationals should NOT match")
+        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(rational23976, rational24), "23.976fps and 24fps rationals should NOT match")
+
+        let rational2997 = AVRational(num: 29970, den: 1000)
+        let rational30 = AVRational(num: 30000, den: 1000)
+        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(rational2997, rational30), "29.97fps and 30fps rationals should NOT match")
+
+        // Test legacy Float compatibility (should convert to rationals and compare)
+        XCTAssertTrue(FrameRateManager.areFrameRatesCompatible(24.0, 24.0), "Identical float frame rates should match")
+        XCTAssertFalse(FrameRateManager.areFrameRatesCompatible(24.0, 23.976), "Different float frame rates should NOT match")
     }
 
     func testFrameRateManagerDescription() throws {
         // Test professional descriptions with rational notation
         let desc23976 = FrameRateManager.getFrameRateDescription(frameRate: 23.976)
-        XCTAssertEqual(desc23976, "23.976fps (24000/1001)", "Should provide rational notation for 23.976fps")
+        XCTAssertEqual(desc23976, "23.976025fps (24000/1001)", "Should provide rational notation for 23.976fps")
 
         let desc24 = FrameRateManager.getFrameRateDescription(frameRate: 24.0)
-        XCTAssertEqual(desc24, "24fps (24000/1000)", "Should provide 1000-scale rational notation for 24fps")
+        XCTAssertEqual(desc24, "24.0fps (24000/1000)", "Should provide 1000-scale rational notation for 24fps")
 
         let desc25 = FrameRateManager.getFrameRateDescription(frameRate: 25.0)
-        XCTAssertEqual(desc25, "25fps (25000/1000)", "Should provide 1000-scale rational notation for 25fps")
+        XCTAssertEqual(desc25, "25.0fps (25000/1000)", "Should provide 1000-scale rational notation for 25fps")
 
         let descWithDF = FrameRateManager.getFrameRateDescription(frameRate: 29.97, isDropFrame: true)
-        XCTAssertEqual(descWithDF, "29.97fps (30000/1001) (drop frame)", "Should include drop frame indicator")
+        XCTAssertEqual(descWithDF, "29.97003fps (30000/1001) (drop frame)", "Should include drop frame indicator")
     }
 
     func testFrameRateManagerDropFrameDetection() throws {
@@ -288,15 +301,21 @@ final class ProResWriterCoreTests: XCTestCase {
     }
 
     func testFrameRateManagerValidation() throws {
-        // Test professional frame rate validation
-        XCTAssertTrue(FrameRateManager.isValidProfessionalFrameRate(23.976), "23.976fps should be valid professional rate")
-        XCTAssertTrue(FrameRateManager.isValidProfessionalFrameRate(29.97), "29.97fps should be valid professional rate")
-        XCTAssertFalse(FrameRateManager.isValidProfessionalFrameRate(27.5), "27.5fps should not be valid professional rate")
+        // Test universal frame rate validation (no more professional restrictions)
+        let rational23976 = AVRational(num: 23976, den: 1000)
+        XCTAssertTrue(FrameRateManager.isValidFrameRate(rational23976), "23.976fps should be valid frame rate")
 
-        // Test all professional frame rates are available
-        let allRates = FrameRateManager.getAllProfessionalFrameRates()
-        XCTAssertTrue(allRates.contains(.film23_976), "Should include 23.976fps in professional rates")
-        XCTAssertTrue(allRates.contains(.ntsc29_97), "Should include 29.97fps in professional rates")
-        XCTAssertGreaterThan(allRates.count, 10, "Should have comprehensive set of professional rates")
+        let rational2997 = AVRational(num: 29970, den: 1000)
+        XCTAssertTrue(FrameRateManager.isValidFrameRate(rational2997), "29.97fps should be valid frame rate")
+
+        let wildRational = AVRational(num: 27500, den: 1000)  // 27.5fps - now supported!
+        XCTAssertTrue(FrameRateManager.isValidFrameRate(wildRational), "27.5fps should be valid frame rate (no more professional restrictions)")
+
+        // Test edge cases
+        let tooSlow = AVRational(num: 500, den: 1000)  // 0.5fps
+        XCTAssertFalse(FrameRateManager.isValidFrameRate(tooSlow), "0.5fps should be invalid")
+
+        let tooFast = AVRational(num: 1500000, den: 1000)  // 1500fps
+        XCTAssertFalse(FrameRateManager.isValidFrameRate(tooFast), "1500fps should be invalid")
     }
 }

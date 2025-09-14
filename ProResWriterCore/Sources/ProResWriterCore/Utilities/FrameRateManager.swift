@@ -11,214 +11,144 @@ import SwiftFFmpeg
 
 /// Professional frame rate management using rational arithmetic (numerator/denominator)
 /// Ensures broadcast-standard precision for all frame rate operations
+/// Direct rational support - no enum restrictions, handles any frame rate
 public final class FrameRateManager {
-
-    // MARK: - Professional Frame Rate Categories
-
-    /// Professional frame rates defined as exact rational numbers
-    public enum ProfessionalFrameRate: CaseIterable {
-        // Film/Cinema Standards (24000/1001 family)
-        case film23_976    // 23.976fps = 24000/1001
-        case film24        // 24fps = 24/1
-        case film47_952    // 47.952fps = 48000/1001
-        case film48        // 48fps = 48/1
-        case film95_904    // 95.904fps = 96000/1001
-        case film96        // 96fps = 96/1
-
-        // PAL/European Standards
-        case pal25         // 25fps = 25/1
-        case pal50         // 50fps = 50/1
-        case pal100        // 100fps = 100/1
-
-        // NTSC Standards (30000/1001 family)
-        case ntsc29_97     // 29.97fps = 30000/1001
-        case ntsc59_94     // 59.94fps = 60000/1001
-        case ntsc119_88    // 119.88fps = 120000/1001
-
-        // Integer Standards
-        case integer30     // 30fps = 30/1
-        case integer60     // 60fps = 60/1
-        case integer90     // 90fps = 90/1
-        case integer120    // 120fps = 120/1
-
-        // Special/Legacy
-        case film24_98     // 24.98fps ≈ 25000/1001
-
-        /// Get the exact rational representation
-        public var rational: AVRational {
-            switch self {
-            // Film/Cinema (24000/1001 family uses exact rational, others use 1000-scale)
-            case .film23_976: return AVRational(num: 24000, den: 1001)  // Exact rational for NTSC
-            case .film24: return AVRational(num: 24000, den: 1000)      // 1000-scale for precision
-            case .film47_952: return AVRational(num: 48000, den: 1001)  // Exact rational for NTSC
-            case .film48: return AVRational(num: 48000, den: 1000)      // 1000-scale for precision
-            case .film95_904: return AVRational(num: 96000, den: 1001)  // Exact rational for NTSC
-            case .film96: return AVRational(num: 96000, den: 1000)      // 1000-scale for precision
-
-            // PAL/European (1000-scale for precision)
-            case .pal25: return AVRational(num: 25000, den: 1000)       // 1000-scale for precision
-            case .pal50: return AVRational(num: 50000, den: 1000)       // 1000-scale for precision
-            case .pal100: return AVRational(num: 100000, den: 1000)     // 1000-scale for precision
-
-            // NTSC (30000/1001 family - exact rational)
-            case .ntsc29_97: return AVRational(num: 30000, den: 1001)   // Exact rational for NTSC
-            case .ntsc59_94: return AVRational(num: 60000, den: 1001)   // Exact rational for NTSC
-            case .ntsc119_88: return AVRational(num: 120000, den: 1001) // Exact rational for NTSC
-
-            // Integer (1000-scale for precision)
-            case .integer30: return AVRational(num: 30000, den: 1000)   // 1000-scale for precision
-            case .integer60: return AVRational(num: 60000, den: 1000)   // 1000-scale for precision
-            case .integer90: return AVRational(num: 90000, den: 1000)   // 1000-scale for precision
-            case .integer120: return AVRational(num: 120000, den: 1000) // 1000-scale for precision
-
-            // Special
-            case .film24_98: return AVRational(num: 25000, den: 1001)   // Exact rational for NTSC-variant
-            }
-        }
-
-        /// Get the exact float value for display/compatibility
-        public var floatValue: Float {
-            return Float(rational.num) / Float(rational.den)
-        }
-
-        /// Professional description with rational notation
-        public var description: String {
-            switch self {
-            case .film23_976: return "23.976fps (24000/1001)"
-            case .film24: return "24fps (24000/1000)"
-            case .film47_952: return "47.952fps (48000/1001)"
-            case .film48: return "48fps (48000/1000)"
-            case .film95_904: return "95.904fps (96000/1001)"
-            case .film96: return "96fps (96000/1000)"
-            case .pal25: return "25fps (25000/1000)"
-            case .pal50: return "50fps (50000/1000)"
-            case .pal100: return "100fps (100000/1000)"
-            case .ntsc29_97: return "29.97fps (30000/1001)"
-            case .ntsc59_94: return "59.94fps (60000/1001)"
-            case .ntsc119_88: return "119.88fps (120000/1001)"
-            case .integer30: return "30fps (30000/1000)"
-            case .integer60: return "60fps (60000/1000)"
-            case .integer90: return "90fps (90000/1000)"
-            case .integer120: return "120fps (120000/1000)"
-            case .film24_98: return "24.98fps (25000/1001)"
-            }
-        }
-
-        /// Common drop frame rates for validation
-        public var isCommonDropFrameRate: Bool {
-            switch self {
-            case .ntsc29_97, .ntsc59_94, .ntsc119_88:
-                return true
-            default:
-                return false
-            }
-        }
-    }
 
     // MARK: - Core Methods
 
-    /// Convert float frame rate to professional rational representation
-    /// Uses broadcast-standard tolerance for recognition
+    /// Convert float frame rate to rational representation
+    /// Uses exact NTSC rationals for common rates, 1000-scale for others
     public static func convertToRational(frameRate: Float) -> AVRational {
-        // Try to match against known professional frame rates
-        for professionalRate in ProfessionalFrameRate.allCases {
-            if abs(frameRate - professionalRate.floatValue) < 0.001 {
-                return professionalRate.rational
-            }
+        // Check for common NTSC rates that need exact rationals
+        if abs(frameRate - 23.976) < 0.001 {
+            return AVRational(num: 24000, den: 1001)  // Exact NTSC
+        } else if abs(frameRate - 29.97) < 0.001 {
+            return AVRational(num: 30000, den: 1001)  // Exact NTSC
+        } else if abs(frameRate - 59.94) < 0.001 {
+            return AVRational(num: 60000, den: 1001)  // Exact NTSC
+        } else if abs(frameRate - 47.952) < 0.001 {
+            return AVRational(num: 48000, den: 1001)  // Exact NTSC
+        } else if abs(frameRate - 95.904) < 0.001 {
+            return AVRational(num: 96000, den: 1001)  // Exact NTSC
+        } else if abs(frameRate - 119.88) < 0.001 {
+            return AVRational(num: 120000, den: 1001)  // Exact NTSC
+        } else {
+            // Use 1000-scale for all other frame rates
+            return AVRational(num: Int32(frameRate * 1000), den: 1000)
         }
-
-        // Fallback: Create rational with reasonable precision
-        return AVRational(num: Int32(frameRate * 1000), den: 1000)
     }
 
-    /// Identify professional frame rate from float value
-    /// Returns nil if not a recognized professional standard
-    public static func identifyProfessionalRate(frameRate: Float) -> ProfessionalFrameRate? {
-        for professionalRate in ProfessionalFrameRate.allCases {
-            if abs(frameRate - professionalRate.floatValue) < 0.001 {
-                return professionalRate
-            }
-        }
-        return nil
+    /// Check if frame rate is a known drop frame rate
+    /// Based on common professional standards
+    public static func isDropFrameRate(frameRate: AVRational) -> Bool {
+        let floatValue = Float(frameRate.num) / Float(frameRate.den)
+        // Common drop frame rates (NTSC family)
+        return abs(floatValue - 29.97) < 0.001 ||
+               abs(floatValue - 59.94) < 0.001 ||
+               abs(floatValue - 119.88) < 0.001
     }
 
     /// Check if two frame rates are compatible using rational arithmetic
     /// This is the authoritative method for frame rate matching across the system
-    public static func areFrameRatesCompatible(_ rate1: Float, _ rate2: Float) -> Bool {
-        guard let prof1 = identifyProfessionalRate(frameRate: rate1),
-              let prof2 = identifyProfessionalRate(frameRate: rate2) else {
-            // If either rate is not professional standard, use tight float tolerance
-            return abs(rate1 - rate2) < 0.001
-        }
+    public static func areFrameRatesCompatible(_ rate1: AVRational, _ rate2: AVRational) -> Bool {
+        // Compare the actual values, not just the raw numerator/denominator
+        // This allows 24/1 to match 24000/1000
+        let value1 = Float(rate1.num) / Float(rate1.den)
+        let value2 = Float(rate2.num) / Float(rate2.den)
+        return abs(value1 - value2) < 0.001
+    }
 
-        // Professional rates must match exactly by category
-        return prof1 == prof2
+    /// Check if two float frame rates are compatible (legacy support)
+    /// Converts to rational for precise comparison
+    public static func areFrameRatesCompatible(_ rate1: Float, _ rate2: Float) -> Bool {
+        let rational1 = convertToRational(frameRate: rate1)
+        let rational2 = convertToRational(frameRate: rate2)
+        return areFrameRatesCompatible(rational1, rational2)
     }
 
     /// Generate professional frame rate description with rational notation
+    public static func getFrameRateDescription(frameRate: AVRational?, isDropFrame: Bool? = nil) -> String {
+        guard let frameRate = frameRate else { return "Unknown" }
+
+        let floatValue = Float(frameRate.num) / Float(frameRate.den)
+        let dropFrameInfo = isDropFrame == true ? " (drop frame)" : ""
+
+        return "\(floatValue)fps (\(frameRate.num)/\(frameRate.den))\(dropFrameInfo)"
+    }
+
+    /// Generate frame rate description from float (legacy support)
     public static func getFrameRateDescription(frameRate: Float?, isDropFrame: Bool? = nil) -> String {
         guard let frameRate = frameRate else { return "Unknown" }
 
-        let dropFrameInfo = isDropFrame == true ? " (drop frame)" : ""
-
-        if let professionalRate = identifyProfessionalRate(frameRate: frameRate) {
-            return professionalRate.description + dropFrameInfo
-        }
-
-        // Fallback for non-standard rates
-        return "\(frameRate)fps\(dropFrameInfo)"
+        let rational = convertToRational(frameRate: frameRate)
+        return getFrameRateDescription(frameRate: rational, isDropFrame: isDropFrame)
     }
 
     // MARK: - TimecodeKit Integration
 
-    /// Convert frame rate to TimecodeKit FrameRate enum
+    /// Convert rational frame rate to TimecodeKit FrameRate enum
     /// Used for professional timecode calculations
-    public static func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
+    public static func getTimecodeFrameRate(for frameRate: AVRational) -> TimecodeFrameRate {
+        let floatValue = Float(frameRate.num) / Float(frameRate.den)
+
+        // Match common professional frame rates with tolerance
+        if abs(floatValue - 23.976) < 0.001 { return .fps23_976 }
+        if abs(floatValue - 24.0) < 0.001 { return .fps24 }
+        if abs(floatValue - 25.0) < 0.001 { return .fps25 }
+        if abs(floatValue - 29.97) < 0.001 { return .fps29_97 }
+        if abs(floatValue - 30.0) < 0.001 { return .fps30 }
+        if abs(floatValue - 47.952) < 0.001 { return .fps47_952 }
+        if abs(floatValue - 48.0) < 0.001 { return .fps48 }
+        if abs(floatValue - 50.0) < 0.001 { return .fps50 }
+        if abs(floatValue - 59.94) < 0.001 { return .fps59_94 }
+        if abs(floatValue - 60.0) < 0.001 { return .fps60 }
+        if abs(floatValue - 90.0) < 0.001 { return .fps90 }
+        if abs(floatValue - 95.904) < 0.001 { return .fps95_904 }
+        if abs(floatValue - 96.0) < 0.001 { return .fps96 }
+        if abs(floatValue - 100.0) < 0.001 { return .fps100 }
+        if abs(floatValue - 119.88) < 0.001 { return .fps119_88 }
+        if abs(floatValue - 120.0) < 0.001 { return .fps120 }
+
+        // Default fallback - use closest standard rate
+        return .fps25  // Safe PAL default
+    }
+
+    /// Convert integer frame rate to TimecodeKit (legacy support)
+    internal static func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
+        // Map common integer shortcuts to their actual NTSC rates
         switch frameRate {
-        // Film rates (x/1001)
-        case 23: return .fps23_976
-        case 24: return .fps24
-        case 47: return .fps47_952
-        case 48: return .fps48
-        case 95: return .fps95_904
-        case 96: return .fps96
-
-        // PAL rates
-        case 25: return .fps25
-        case 50: return .fps50
-        case 100: return .fps100
-
-        // NTSC rates (x/1001)
-        case 29: return .fps29_97
-        case 59: return .fps59_94
-        case 119: return .fps119_88
-
-        // Integer rates
-        case 30: return .fps30
-        case 60: return .fps60
-        case 90: return .fps90
-        case 120: return .fps120
-
-        default: return .fps25  // Safe PAL default
+        case 23: return getTimecodeFrameRate(for: AVRational(num: 24000, den: 1001))  // 23.976
+        case 29: return getTimecodeFrameRate(for: AVRational(num: 30000, den: 1001))  // 29.97
+        case 47: return getTimecodeFrameRate(for: AVRational(num: 48000, den: 1001))  // 47.952
+        case 59: return getTimecodeFrameRate(for: AVRational(num: 60000, den: 1001))  // 59.94
+        case 95: return getTimecodeFrameRate(for: AVRational(num: 96000, den: 1001))  // 95.904
+        case 119: return getTimecodeFrameRate(for: AVRational(num: 120000, den: 1001)) // 119.88
+        default:
+            let rational = AVRational(num: frameRate * 1000, den: 1000)
+            return getTimecodeFrameRate(for: rational)
         }
     }
 
-    /// Get CMTime timescale for frame rate using rational arithmetic
+    /// Get CMTime timescale for rational frame rate
     /// Ensures proper timebase precision for Core Media operations
-    public static func getTimescale(for frameRate: Int32) -> CMTimeScale {
-        let fps = Double(frameRate)
+    public static func getTimescale(for frameRate: AVRational) -> CMTimeScale {
+        // Use numerator as timescale for precise rational representation
+        return CMTimeScale(frameRate.num)
+    }
 
-        // Map integer frame rates to their proper rational rates for NTSC family
+    /// Get CMTime timescale for integer frame rate (legacy support)
+    internal static func getTimescale(for frameRate: Int32) -> CMTimeScale {
+        // Map common integer shortcuts to their actual NTSC rates
         switch frameRate {
-        case 23: return 24000   // 23.976fps = 24000/1001
-        case 29: return 30000   // 29.97fps = 30000/1001
-        case 47: return 48000   // 47.952fps = 48000/1001
-        case 59: return 60000   // 59.94fps = 60000/1001
-        case 95: return 96000   // 95.904fps = 96000/1001
-        case 119: return 120000 // 119.88fps = 120000/1001
+        case 23: return getTimescale(for: AVRational(num: 24000, den: 1001))  // 23.976
+        case 29: return getTimescale(for: AVRational(num: 30000, den: 1001))  // 29.97
+        case 47: return getTimescale(for: AVRational(num: 48000, den: 1001))  // 47.952
+        case 59: return getTimescale(for: AVRational(num: 60000, den: 1001))  // 59.94
+        case 95: return getTimescale(for: AVRational(num: 96000, den: 1001))  // 95.904
+        case 119: return getTimescale(for: AVRational(num: 120000, den: 1001)) // 119.88
         default:
-            // For exact integer rates, use simple scaling
-            return CMTimeScale(fps * 1000)
+            let rational = AVRational(num: frameRate * 1000, den: 1000)
+            return getTimescale(for: rational)
         }
     }
 
@@ -226,15 +156,13 @@ public final class FrameRateManager {
 
     /// Detect drop frame based on timecode separator and frame rate
     /// Professional broadcast standard validation
-    public static func detectDropFrame(timecode: String, frameRate: Float) -> Bool {
+    public static func detectDropFrame(timecode: String, frameRate: AVRational) -> Bool {
         let hasDropFrameSeparator = timecode.contains(";")
-        let isDropFrameRate = ProfessionalFrameRate.allCases
-            .filter(\.isCommonDropFrameRate)
-            .contains { abs(frameRate - $0.floatValue) < 0.001 }
+        let isKnownDropFrameRate = isDropFrameRate(frameRate: frameRate)
 
-        if hasDropFrameSeparator && isDropFrameRate {
+        if hasDropFrameSeparator && isKnownDropFrameRate {
             return true  // Correct drop frame format
-        } else if !hasDropFrameSeparator && !isDropFrameRate {
+        } else if !hasDropFrameSeparator && !isKnownDropFrameRate {
             return false  // Correct non-drop frame format
         } else {
             // Inconsistent - warn and default based on separator
@@ -242,16 +170,19 @@ public final class FrameRateManager {
         }
     }
 
-    // MARK: - Validation
-
-    /// Validate that a frame rate is suitable for professional workflows
-    public static func isValidProfessionalFrameRate(_ frameRate: Float) -> Bool {
-        return identifyProfessionalRate(frameRate: frameRate) != nil
+    /// Detect drop frame from float frame rate (legacy support)
+    public static func detectDropFrame(timecode: String, frameRate: Float) -> Bool {
+        let rational = convertToRational(frameRate: frameRate)
+        return detectDropFrame(timecode: timecode, frameRate: rational)
     }
 
-    /// Get all supported professional frame rates for validation/UI
-    public static func getAllProfessionalFrameRates() -> [ProfessionalFrameRate] {
-        return ProfessionalFrameRate.allCases
+    // MARK: - Validation and Utilities
+
+    /// Validate that a frame rate is reasonable for workflows
+    /// Any frame rate above 1fps and below 1000fps is considered valid
+    public static func isValidFrameRate(_ frameRate: AVRational) -> Bool {
+        let floatValue = Float(frameRate.num) / Float(frameRate.den)
+        return floatValue > 1.0 && floatValue < 1000.0
     }
 }
 
@@ -274,11 +205,9 @@ import TimecodeKit
 // MARK: - Compatibility Extensions
 extension FrameRateManager {
 
-    /// Convert from legacy float-based frame rates to new rational system
-    /// Maintains compatibility while migrating to rational arithmetic
-    public static func migrateFromFloat(_ frameRate: Float) -> (rational: AVRational, professional: ProfessionalFrameRate?) {
-        let professional = identifyProfessionalRate(frameRate: frameRate)
-        let rational = professional?.rational ?? convertToRational(frameRate: frameRate)
-        return (rational: rational, professional: professional)
+    /// Convert from legacy float-based frame rates to rational system
+    /// Direct rational conversion without enum intermediates
+    public static func migrateFromFloat(_ frameRate: Float) -> AVRational {
+        return convertToRational(frameRate: frameRate)
     }
 }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftFFmpeg  // For AVRational
 
 // MARK: - Parent-Child Linking Data Structures
 
@@ -302,14 +303,15 @@ public class SegmentOCFLinker {
         return false
     }
     
-    private func isSegmentInOCFRange(segmentStartTimecode: String, segmentEndTimecode: String, ocfStartTimecode: String, ocfEndTimecode: String, frameRate: Float, segmentDropFrame: Bool? = nil, ocfDropFrame: Bool? = nil) -> Bool {
+    private func isSegmentInOCFRange(segmentStartTimecode: String, segmentEndTimecode: String, ocfStartTimecode: String, ocfEndTimecode: String, frameRate: AVRational, segmentDropFrame: Bool? = nil, ocfDropFrame: Bool? = nil) -> Bool {
         // Use SMPTE library for professional timecode handling
         // Prefer the detected drop frame information, fall back to separator detection
         let isDropFrame = segmentDropFrame ?? ocfDropFrame ?? 
                          (segmentStartTimecode.contains(";") || segmentEndTimecode.contains(";") || 
                           ocfStartTimecode.contains(";") || ocfEndTimecode.contains(";"))
         
-        let smpte = SMPTE(fps: Double(frameRate), dropFrame: isDropFrame)
+        let frameRateFloat = Float(frameRate.num) / Float(frameRate.den)
+        let smpte = SMPTE(fps: Double(frameRateFloat), dropFrame: isDropFrame)
         
         do {
             // Convert all timecodes to frame numbers using SMPTE library
