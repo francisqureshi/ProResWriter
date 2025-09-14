@@ -360,3 +360,49 @@ compositor.composeVideo(with: ffmpegSettings)
 - **🗂️ Smaller Bundle**: No custom font embedding reduces app size
 - **🎨 Professional Polish**: Consistent typography throughout all tables and views
 - **🔧 Reduced Complexity**: Eliminated custom font loading and fallback systems
+
+## 🎯 Stricter Linking Rules Implementation (2025-09-14)
+
+### Complete Validation-Based Matching System ✅
+- **Migration**: Replaced scoring system with strict pass/fail validation pipeline
+- **Resolution Matching**: EXACT match required (no tolerance) - instant disqualification for mismatch
+- **FPS Matching**: Must match within 0.1 tolerance - instant disqualification for mismatch
+- **Consumer Camera Detection**: Special handling for 00:00:00:00 timecode with extra verification
+- **VFX Shot Support**: Filename exemption only for professional cameras with valid timecode
+
+### Non-Negotiable Disqualifiers (Instant Rejection)
+- **Resolution mismatch**: Width and height must match EXACTLY (e.g., 4480x3096 = 4480x3096)
+- **FPS mismatch**: Frame rates must match within 0.1 tolerance
+- **Missing metadata**: No resolution or FPS data = no match
+
+### Consumer Camera Rules (00:00:00:00 TC) - STRICTEST
+- **Detection**: OCF start timecode = 00:00:00:00
+- **Requirements**:
+  1. Resolution & FPS must match (already required)
+  2. OCF filename MUST be in segment name (mandatory, even for VFX)
+  3. Reel name match if available (additional verification)
+  4. Segment duration can't exceed OCF duration
+- **Confidence**: Always LOW (warning flag for manual verification)
+- **Tags**: Adds "consumer_camera" in match description
+
+### Professional Camera Rules
+- **Timecode Required**: Must have valid timecode within OCF range
+- **Filename Match**: Required unless segment is marked as VFX shot
+- **VFX Exemption**: Only for professional cameras with valid timecode
+- **Confidence Levels**:
+  - HIGH: Full match (resolution + FPS + timecode + filename)
+  - MEDIUM: VFX shot with valid timecode (no filename required)
+  - LOW: Consumer camera matches (extra verification required)
+
+### Technical Implementation
+- **Validation Flow**: Resolution → FPS → Camera Type → Specific Rules
+- **Method**: `validateStrictMatch()` replaces `calculateMatchScore()`
+- **Consumer Detection**: `isConsumerCameraOCF()` checks for 00:00:00:00 timecode
+- **Clear Descriptions**: Match tags like "consumer_camera", "vfx_exemption" help users understand matches
+
+### Production Benefits
+- **🎯 Fewer False Positives**: Only technically valid matches proceed
+- **🔒 Consumer Camera Safety**: Extra strict verification prevents mismatches
+- **🎬 VFX Workflow Support**: Exemptions only for professional cameras
+- **📊 Clear Confidence Levels**: Users know which matches need verification
+- **✅ Professional Reliability**: Matches you can trust for production workflows

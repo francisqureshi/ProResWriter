@@ -137,178 +137,169 @@ public class SegmentOCFLinker {
     }
     
     private func findBestMatch(for segment: MediaFileInfo, in ocfs: [MediaFileInfo]) -> (MediaFileInfo, LinkConfidence, String)? {
-        var bestMatch: (MediaFileInfo, LinkConfidence, String)? = nil
-        var bestScore = 0
+        var validMatches: [(MediaFileInfo, LinkConfidence, String)] = []
         
-        // Find the OCF with the highest matching score
+        // Try to match with each OCF using strict validation
         for ocf in ocfs {
-            let score = calculateMatchScore(segment: segment, ocf: ocf)
-            
-            if score.total > bestScore {
-                bestScore = score.total
-                
-                // Determine confidence based on score and meaningful matches
-                let confidence: LinkConfidence
-                let hasFilenameMatch = score.description.contains("filename_contains") || score.description.contains("filename_partial")
-                let hasTimecodeMatch = score.description.contains("timecode_range")
-                let hasResolutionMatch = score.description.contains("resolution")
-                let hasReelMatch = score.description.contains("reel")
-                let hasFpsOnlyMatch = score.description == "fps"  // Only FPS, nothing else
-                
-                if score.total >= 4 && hasFilenameMatch {
-                    confidence = .high  // OCF name in segment + tech specs
-                } else if score.total >= 2 && (hasFilenameMatch || hasTimecodeMatch || hasReelMatch) {
-                    confidence = .medium  // Good match with meaningful criteria
-                } else if score.total >= 2 && hasResolutionMatch && !hasFpsOnlyMatch {
-                    confidence = .low     // Resolution + something other than just FPS
-                } else if hasFpsOnlyMatch {
-                    confidence = .none    // FPS-only matches are meaningless
-                } else if score.total >= 1 && !hasFpsOnlyMatch {
-                    confidence = .low     // Other partial matches (not just FPS)
-                } else {
-                    confidence = .none
-                }
-                
-                bestMatch = (ocf, confidence, score.description)
+            if let matchResult = validateStrictMatch(segment: segment, ocf: ocf) {
+                validMatches.append(matchResult)
             }
         }
         
-        // If no scoring match, try filename-based fallback
-        if bestScore == 0, let baseFileName = extractBaseFileName(from: segment.fileName) {
-            for ocf in ocfs {
-                if ocf.fileName.lowercased().contains(baseFileName.lowercased()) {
-                    return (ocf, .low, "filename_contains")
-                }
-            }
-        }
-        
-        // Only return matches with confidence .low or higher
-        if let match = bestMatch, match.1 != .none {
-            return match
+        // Return the best match if we have any
+        // Prefer high confidence, then medium, then low
+        if let highConfMatch = validMatches.first(where: { $0.1 == .high }) {
+            return highConfMatch
+        } else if let medConfMatch = validMatches.first(where: { $0.1 == .medium }) {
+            return medConfMatch
+        } else if let lowConfMatch = validMatches.first(where: { $0.1 == .low }) {
+            return lowConfMatch
         }
         
         return nil
     }
     
-    private func calculateMatchScore(segment: MediaFileInfo, ocf: MediaFileInfo) -> (total: Int, description: String) {
-        var score = 0
-        var matches: [String] = []
+    private func validateStrictMatch(segment: MediaFileInfo, ocf: MediaFileInfo) -> (MediaFileInfo, LinkConfidence, String)? {
+        var matchCriteria: [String] = []
         
-        // 1. Filename matching - OCF name should be contained in segment name
+        // STEP 1: Hard Requirements - Resolution & FPS must match
+        // Check resolution (using effective display resolution)
+        guard let segmentRes = segment.effectiveDisplayResolution,
+              let ocfRes = ocf.effectiveDisplayResolution else {
+            return nil // No resolution info = no match
+        }
+        
+        // Resolution must match EXACTLY
+        if segmentRes.width != ocfRes.width || segmentRes.height != ocfRes.height {
+            // Resolution mismatch = instant disqualification
+            return nil
+        }
+        matchCriteria.append("resolution")
+        
+        // Check FPS
+        guard let segmentFR = segment.frameRate, 
+              let ocfFR = ocf.frameRate else {
+            return nil // No frame rate info = no match
+        }
+        
+        if abs(segmentFR - ocfFR) > 0.1 {
+            // FPS mismatch = instant disqualification
+            return nil
+        }
+        matchCriteria.append("fps")
+        
+        // STEP 2: Detect if this is a consumer camera
+        let isConsumerCamera = isConsumerCameraOCF(ocf)
+        
+        // STEP 3: Check filename matching
         let ocfBaseName = (ocf.fileName as NSString).deletingPathExtension
         let segmentFileName = segment.fileName.lowercased()
         let ocfFileName = ocfBaseName.lowercased()
+        let hasFilenameMatch = segmentFileName.contains(ocfFileName)
         
-        if segmentFileName.contains(ocfFileName) {
-            score += 3  // High weight - OCF name found in segment name
-            matches.append("filename_contains")
-        } else if let segmentBase = extractBaseFileName(from: segment.fileName) {
-            // Fallback: try base name comparison
-            if ocfFileName.contains(segmentBase.lowercased()) {
-                score += 1  // Lower weight for partial match
-                matches.append("filename_partial")
-            }
+        if hasFilenameMatch {
+            matchCriteria.append("filename_contains")
         }
         
-        // 2. Resolution match (using effective display resolution)
-        if let segmentRes = segment.effectiveDisplayResolution,
-           let ocfRes = ocf.effectiveDisplayResolution {
-            let widthDiff = abs(segmentRes.width - ocfRes.width)
-            let heightDiff = abs(segmentRes.height - ocfRes.height)
+        // STEP 4: Apply different rules based on camera type
+        if isConsumerCamera {
+            // Consumer camera (00:00:00:00) - STRICTEST verification
             
-            if widthDiff <= 5 && heightDiff <= 5 { // Exact match
-                score += 1
-                matches.append("resolution")
+            // Must have filename match (even for VFX shots)
+            if !hasFilenameMatch {
+                return nil
             }
-        }
-        
-        // 3. FPS match
-        if let segmentFR = segment.frameRate, let ocfFR = ocf.frameRate {
-            if abs(segmentFR - ocfFR) <= 0.1 {
-                score += 1
-                matches.append("fps")
-            }
-        }
-        
-        // 4. Source Timecode range match - entire segment should fall within OCF range
-        if let segmentStartTC = segment.sourceTimecode,
-           let segmentEndTC = segment.endTimecode,
-           let ocfStartTC = ocf.sourceTimecode,
-           let ocfEndTC = ocf.endTimecode,
-           let segmentFR = segment.frameRate,
-           let ocfFR = ocf.frameRate,
-           abs(segmentFR - ocfFR) <= 0.1 { // Only compare if frame rates match
             
-            if isSegmentInOCFRange(segmentStartTimecode: segmentStartTC,
-                                 segmentEndTimecode: segmentEndTC,
-                                 ocfStartTimecode: ocfStartTC, 
-                                 ocfEndTimecode: ocfEndTC, 
-                                 frameRate: segmentFR,
-                                 segmentDropFrame: segment.isDropFrame,
-                                 ocfDropFrame: ocf.isDropFrame) {
-                score += 1
-                matches.append("timecode_range")
+            // Additional validation: Check reel name if available
+            if let segmentReel = segment.reelName, 
+               let ocfReel = ocf.reelName,
+               segmentReel.lowercased() == ocfReel.lowercased() {
+                matchCriteria.append("reel")
             }
-        }
-        
-        // 5. Reel Name match
-        if let segmentReel = segment.reelName, let ocfReel = ocf.reelName {
-            if segmentReel.lowercased() == ocfReel.lowercased() {
-                score += 1
-                matches.append("reel")
+            
+            // Additional validation: Segment can't be longer than OCF
+            if let segmentDuration = segment.durationInFrames,
+               let ocfDuration = ocf.durationInFrames,
+               segmentDuration > ocfDuration {
+                // Segment longer than OCF = not possible
+                return nil
             }
+            
+            // Consumer camera matches always get LOW confidence as a warning
+            matchCriteria.append("consumer_camera")
+            let description = matchCriteria.joined(separator: "+")
+            return (ocf, .low, description)
+            
+        } else {
+            // Professional camera - check timecode
+            
+            // Validate timecode range
+            if let segmentStartTC = segment.sourceTimecode,
+               let segmentEndTC = segment.endTimecode,
+               let ocfStartTC = ocf.sourceTimecode,
+               let ocfEndTC = ocf.endTimecode {
+                
+                let inRange = isSegmentInOCFRange(
+                    segmentStartTimecode: segmentStartTC,
+                    segmentEndTimecode: segmentEndTC,
+                    ocfStartTimecode: ocfStartTC,
+                    ocfEndTimecode: ocfEndTC,
+                    frameRate: segmentFR,
+                    segmentDropFrame: segment.isDropFrame,
+                    ocfDropFrame: ocf.isDropFrame
+                )
+                
+                if !inRange {
+                    // Timecode not in range = no match for professional cameras
+                    return nil
+                }
+                matchCriteria.append("timecode_range")
+            } else {
+                // No timecode for professional camera = no match
+                return nil
+            }
+            
+            // Check if this is a VFX shot
+            let isVFXShot = segment.isVFX == true
+            
+            // For professional cameras: require filename match unless VFX
+            if !isVFXShot && !hasFilenameMatch {
+                return nil
+            }
+            
+            if isVFXShot && !hasFilenameMatch {
+                matchCriteria.append("vfx_exemption")
+            }
+            
+            // Check reel name for additional confidence
+            if let segmentReel = segment.reelName,
+               let ocfReel = ocf.reelName,
+               segmentReel.lowercased() == ocfReel.lowercased() {
+                matchCriteria.append("reel")
+            }
+            
+            // Determine confidence for professional camera
+            let confidence: LinkConfidence
+            if hasFilenameMatch && matchCriteria.contains("timecode_range") {
+                confidence = .high // Has everything
+            } else if matchCriteria.contains("timecode_range") && isVFXShot {
+                confidence = .medium // VFX with valid timecode
+            } else {
+                confidence = .low // Shouldn't happen with our strict rules
+            }
+            
+            let description = matchCriteria.joined(separator: "+")
+            return (ocf, confidence, description)
         }
-        
-        let description = matches.isEmpty ? "no_match" : matches.joined(separator: "+")
-        return (score, description)
     }
     
-    private func extractBaseFileName(from fileName: String) -> String? {
-        let nameWithoutExtension = (fileName as NSString).deletingPathExtension
-        
-        // Common segment patterns to remove
-        let patterns = [
-            "_s\\d+$",           // _s001, _s002, etc.
-            "_S\\d+$",           // _S001, _S002, etc.
-            " S\\d+$",           // S001, S002, etc.
-            "_seg\\d+$",         // _seg001, _seg002
-            "_segment\\d+$",     // _segment001
-            "\\s+S\\d+\\s*$"     // " S10 " at end
-        ]
-        
-        var baseName = nameWithoutExtension
-        for pattern in patterns {
-            baseName = baseName.replacingOccurrences(
-                of: pattern,
-                with: "",
-                options: .regularExpression
-            ).trimmingCharacters(in: .whitespaces)
+    private func isConsumerCameraOCF(_ ocf: MediaFileInfo) -> Bool {
+        // Check if start timecode is 00:00:00:00 or 00:00:00;00
+        if let startTC = ocf.sourceTimecode {
+            let cleanTC = startTC.replacingOccurrences(of: ";", with: ":")
+            return cleanTC == "00:00:00:00"
         }
-        
-        return baseName.isEmpty ? nil : baseName
-    }
-    
-    private func technicalSpecsMatch(segment: MediaFileInfo, ocf: MediaFileInfo) -> Bool {
-        // Frame rate match (within tolerance)
-        if let segmentFR = segment.frameRate, let ocfFR = ocf.frameRate {
-            if abs(segmentFR - ocfFR) > 0.1 {
-                return false
-            }
-        }
-        
-        // Resolution match (use effective resolution for sensor cropping)
-        if let segmentRes = segment.effectiveDisplayResolution,
-           let ocfRes = ocf.effectiveDisplayResolution {
-            let widthDiff = abs(segmentRes.width - ocfRes.width)
-            let heightDiff = abs(segmentRes.height - ocfRes.height)
-            
-            // Allow some tolerance for resolution differences
-            if widthDiff > 10 || heightDiff > 10 {
-                return false
-            }
-        }
-        
-        return true
+        return false
     }
     
     private func isSegmentInOCFRange(segmentStartTimecode: String, segmentEndTimecode: String, ocfStartTimecode: String, ocfEndTimecode: String, frameRate: Float, segmentDropFrame: Bool? = nil, ocfDropFrame: Bool? = nil) -> Bool {
