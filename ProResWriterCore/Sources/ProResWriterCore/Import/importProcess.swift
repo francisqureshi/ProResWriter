@@ -118,6 +118,26 @@ public struct MediaFileInfo: Codable {
         return "\(floatValue)fps (\(rationalNotation))\(dropFrameInfo)"
     }
 
+    /// Frame rate as Float for UI calculations and display
+    public var frameRateFloat: Float? {
+        guard let frameRate = frameRate else { return nil }
+        return Float(frameRate.num) / Float(frameRate.den)
+    }
+
+    /// Frame rate as Double for SMPTE and precise calculations
+    public var frameRateDouble: Double? {
+        guard let frameRate = frameRate else { return nil }
+        return Double(frameRate.num) / Double(frameRate.den)
+    }
+
+    /// Duration in seconds for display
+    public var durationInSeconds: Double? {
+        guard let frames = durationInFrames,
+              let fps = frameRateDouble,
+              fps > 0 else { return nil }
+        return Double(frames) / fps
+    }
+
     /// Technical summary for display
     public var technicalSummary: String {
         var summary: [String] = []
