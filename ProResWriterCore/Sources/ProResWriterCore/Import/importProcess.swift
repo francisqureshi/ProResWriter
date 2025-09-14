@@ -84,65 +84,9 @@ public struct MediaFileInfo: Codable {
     }
 
     /// Frame rate description with precision info and drop frame indication
-    /// Supports all TimecodeKit professional frame rates
+    /// Uses centralized FrameRateManager for consistent rational arithmetic
     public var frameRateDescription: String {
-        guard let frameRate = frameRate else { return "Unknown" }
-        
-        let dropFrameInfo = isDropFrame == true ? " (drop frame)" : ""
-
-        // Film / ATSC / HD frame rates
-        if abs(frameRate - 23.976) < 0.001 {
-            return "23.976fps (24000/1001)\(dropFrameInfo)"
-        } else if frameRate == 24.0 {
-            return "24fps\(dropFrameInfo)"
-        } else if abs(frameRate - 24.98) < 0.001 {
-            return "24.98fps\(dropFrameInfo)"
-        } else if abs(frameRate - 47.952) < 0.001 {
-            return "47.952fps (48000/1001)\(dropFrameInfo)"
-        } else if frameRate == 48.0 {
-            return "48fps\(dropFrameInfo)"
-        } else if abs(frameRate - 95.904) < 0.001 {
-            return "95.904fps (96000/1001)\(dropFrameInfo)"
-        } else if frameRate == 96.0 {
-            return "96fps\(dropFrameInfo)"
-        }
-        
-        // PAL / SECAM / DVB / ATSC frame rates
-        else if frameRate == 25.0 {
-            return "25fps\(dropFrameInfo)"
-        } else if frameRate == 50.0 {
-            return "50fps\(dropFrameInfo)"
-        } else if frameRate == 100.0 {
-            return "100fps\(dropFrameInfo)"
-        }
-        
-        // NTSC / ATSC / PAL-M frame rates
-        else if abs(frameRate - 29.97) < 0.001 {
-            return "29.97fps (30000/1001)\(dropFrameInfo)"
-        } else if abs(frameRate - 59.94) < 0.001 {
-            return "59.94fps (60000/1001)\(dropFrameInfo)"
-        } else if abs(frameRate - 119.88) < 0.001 {
-            return "119.88fps (120000/1001)\(dropFrameInfo)"
-        }
-        
-        // NTSC Non-Standard frame rates
-        else if frameRate == 30.0 {
-            return "30fps\(dropFrameInfo)"
-        } else if frameRate == 60.0 {
-            return "60fps\(dropFrameInfo)"
-        } else if frameRate == 120.0 {
-            return "120fps\(dropFrameInfo)"
-        }
-        
-        // ATSC / HD frame rates
-        else if frameRate == 90.0 {
-            return "90fps\(dropFrameInfo)"
-        }
-        
-        // Fallback for unknown rates
-        else {
-            return "\(frameRate)fps\(dropFrameInfo)"
-        }
+        return FrameRateManager.getFrameRateDescription(frameRate: frameRate, isDropFrame: isDropFrame)
     }
 
     /// Technical summary for display
@@ -352,30 +296,8 @@ public class MediaAnalyzer {
     }
     
     private func detectDropFrame(timecode: String, frameRate: Float) -> Bool {
-        // Drop frame detection based on timecode format and frame rate
-        let hasDropFrameSeparator = timecode.contains(";")
-        
-        // Common drop frame rates
-        let commonDropFrameRates: [Float] = [29.97, 59.94]
-        let isDropFrameRate = commonDropFrameRates.contains { abs(frameRate - $0) < 0.01 }
-        
-        if hasDropFrameSeparator {
-            if isDropFrameRate {
-                print("    🎬 Drop frame detected: ';' separator with \(frameRate)fps")
-                return true
-            } else {
-                print("    ⚠️ Drop frame separator ';' found but frame rate \(frameRate)fps is unusual for drop frame")
-                return true  // Trust the separator
-            }
-        } else {
-            if isDropFrameRate {
-                print("    ⚠️ Drop frame rate \(frameRate)fps detected but using non-drop frame separator ':'")
-                return false  // Trust the separator format
-            } else {
-                print("    🎬 Non-drop frame detected: ':' separator with \(frameRate)fps")
-                return false
-            }
-        }
+        // Use centralized FrameRateManager for professional drop frame detection
+        return FrameRateManager.detectDropFrame(timecode: timecode, frameRate: frameRate)
     }
 
     private func extractTimecode(from formatContext: AVFormatContext) -> String? {

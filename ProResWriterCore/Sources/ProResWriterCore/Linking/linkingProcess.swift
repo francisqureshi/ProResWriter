@@ -182,8 +182,8 @@ public class SegmentOCFLinker {
             return nil // No frame rate info = no match
         }
         
-        if abs(segmentFR - ocfFR) > 0.1 {
-            // FPS mismatch = instant disqualification
+        if !FrameRateManager.areFrameRatesCompatible(segmentFR, ocfFR) {
+            // FPS mismatch = instant disqualification (using centralized rational arithmetic)
             return nil
         }
         matchCriteria.append("fps")
@@ -341,4 +341,5 @@ public class SegmentOCFLinker {
             return false
         }
     }
+    
 }

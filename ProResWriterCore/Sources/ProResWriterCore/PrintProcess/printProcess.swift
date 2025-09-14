@@ -514,86 +514,13 @@ public class ProResVideoCompositor: NSObject {
     }
 
     internal func getTimecodeFrameRate(for frameRate: Int32) -> TimecodeFrameRate {
-        // Note: We're passing in Int32 but need to handle decimal frame rates differently
-        // For now, we'll handle the integer approximations and rely on TimecodeKit's precision
-
-        switch frameRate {
-        // Film / ATSC / HD Column - All supported by TimecodeKit
-        case 23: return .fps23_976  // 23.976
-        case 24: return .fps24  // 24 (we'll handle 24.98 separately if needed)
-        case 47: return .fps47_952  // 47.952
-        case 48: return .fps48  // 48
-        case 95: return .fps95_904  // 95.904
-        case 96: return .fps96  // 96
-
-        // PAL / SECAM / DVB / ATSC Column - All supported by TimecodeKit
-        case 25: return .fps25  // 25
-        case 50: return .fps50  // 50
-        case 100: return .fps100  // 100
-
-        // NTSC / ATSC / PAL-M Column - All supported by TimecodeKit
-        case 29: return .fps29_97  // 29.97 (both DF and non-DF)
-        case 59: return .fps59_94  // 59.94 (both DF and non-DF)
-        case 119: return .fps119_88  // 119.88 (both DF and non-DF)
-
-        // NTSC Non-Standard / ATSC / HD Columns - All supported by TimecodeKit
-        case 30: return .fps30  // 30 (both DF and non-DF)
-        case 60: return .fps60  // 60 (both DF and non-DF)
-        case 90: return .fps90  // 90
-        case 120: return .fps120  // 120 (both DF and non-DF)
-
-        // Fallback for unknown rates
-        default: return .fps25  // Default to PAL 25fps
-        }
+        // Use centralized FrameRateManager for consistent TimecodeKit conversion
+        return FrameRateManager.getTimecodeFrameRate(for: frameRate)
     }
 
     private func getTimescale(for frameRate: Int32) -> CMTimeScale {
-        let fps = Double(frameRate)
-
-        // NTSC rates (x/1001) - use exact denominators for perfect precision
-        if abs(fps - 23.976) < 0.001 {
-            return 24000  // 23.976fps = 24000/1001
-        } else if abs(fps - 24.98) < 0.001 {
-            return 25000  // 24.98fps ≈ 25000/1001
-        } else if abs(fps - 29.97) < 0.001 {
-            return 30000  // 29.97fps = 30000/1001
-        } else if abs(fps - 47.952) < 0.001 {
-            return 48000  // 47.952fps = 48000/1001
-        } else if abs(fps - 59.94) < 0.001 {
-            return 60000  // 59.94fps = 60000/1001
-        } else if abs(fps - 95.904) < 0.001 {
-            return 96000  // 95.904fps = 96000/1001
-        } else if abs(fps - 119.88) < 0.001 {
-            return 120000  // 119.88fps = 120000/1001
-        }
-
-        // Exact integer rates - use high precision timescales
-        else if abs(fps - 24.0) < 0.001 {
-            return 24000  // 24fps exactly
-        } else if abs(fps - 25.0) < 0.001 {
-            return 25000  // 25fps PAL
-        } else if abs(fps - 30.0) < 0.001 {
-            return 30000  // 30fps exactly
-        } else if abs(fps - 48.0) < 0.001 {
-            return 48000  // 48fps exactly
-        } else if abs(fps - 50.0) < 0.001 {
-            return 50000  // 50fps PAL
-        } else if abs(fps - 60.0) < 0.001 {
-            return 60000  // 60fps exactly
-        } else if abs(fps - 90.0) < 0.001 {
-            return 90000  // 90fps exactly
-        } else if abs(fps - 96.0) < 0.001 {
-            return 96000  // 96fps exactly
-        } else if abs(fps - 100.0) < 0.001 {
-            return 100000  // 100fps PAL ultra high
-        } else if abs(fps - 120.0) < 0.001 {
-            return 120000  // 120fps exactly
-        }
-
-        // Fallback for unknown rates
-        else {
-            return 600  // Apple's standard fallback
-        }
+        // Use centralized FrameRateManager for consistent timescale calculation
+        return FrameRateManager.getTimescale(for: frameRate)
     }
 
     private func manualTimecodeToCMTime(

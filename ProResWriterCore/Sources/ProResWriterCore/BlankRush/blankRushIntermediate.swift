@@ -295,22 +295,8 @@ public class BlankRushIntermediate {
 
     /// Convert frame rate float to AVRational for professional rates
     private func convertToAVRational(frameRate: Float) -> AVRational {
-        if abs(frameRate - 23.976025) < 0.001 {
-            return AVRational(num: 24000, den: 1001)
-        } else if abs(frameRate - 29.97) < 0.001 {
-            return AVRational(num: 30000, den: 1001)
-        } else if abs(frameRate - 59.94006) < 0.001 {
-            return AVRational(num: 60000, den: 1001)
-        } else if abs(frameRate - 24.0) < 0.001 {
-            return AVRational(num: 24, den: 1)
-        } else if abs(frameRate - 25.0) < 0.001 {
-            return AVRational(num: 25, den: 1)
-        } else if abs(frameRate - 30.0) < 0.001 {
-            return AVRational(num: 30, den: 1)
-        } else {
-            // Fallback for unusual frame rates
-            return AVRational(num: Int32(frameRate * 1000), den: 1000)
-        }
+        // Use centralized FrameRateManager for consistent rational conversion
+        return FrameRateManager.convertToRational(frameRate: frameRate)
     }
 
     /// Extract properties from source file without decoding video content
@@ -804,36 +790,11 @@ public class BlankRushIntermediate {
         return (filterGraph, buffersinkCtx)
     }
 
-    /// Detect drop frame from timecode format and frame rate (similar to importProcess.swift)
+    /// Detect drop frame from timecode format and frame rate using centralized logic
     private func detectDropFrameFromTimecode(timecode: String, frameRate: AVRational) -> Bool {
-        let hasDropFrameSeparator = timecode.contains(";")
         let frameRateFloat = Float(frameRate.num) / Float(frameRate.den)
-
-        // Common drop frame rates
-        let commonDropFrameRates: [Float] = [29.97, 59.94]
-        let isDropFrameRate = commonDropFrameRates.contains { abs(frameRateFloat - $0) < 0.01 }
-
-        if hasDropFrameSeparator {
-            if isDropFrameRate {
-                print("  🎬 Drop frame detected: ';' separator with \(frameRateFloat)fps")
-                return true
-            } else {
-                print(
-                    "  ⚠️ Drop frame separator ';' found but frame rate \(frameRateFloat)fps is unusual for drop frame"
-                )
-                return true  // Trust the separator
-            }
-        } else {
-            if isDropFrameRate {
-                print(
-                    "  ⚠️ Drop frame rate \(frameRateFloat)fps detected but using non-drop frame separator ':'"
-                )
-                return false  // Trust the separator format
-            } else {
-                print("  🎬 Non-drop frame detected: ':' separator with \(frameRateFloat)fps")
-                return false
-            }
-        }
+        // Use centralized FrameRateManager for consistent drop frame detection
+        return FrameRateManager.detectDropFrame(timecode: timecode, frameRate: frameRateFloat)
     }
 
     /// Create directory if it doesn't exist
