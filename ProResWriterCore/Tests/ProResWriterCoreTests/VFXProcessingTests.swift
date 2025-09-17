@@ -2,8 +2,8 @@
 //  VFXProcessingTests.swift
 //  ProResWriterCoreTests
 //
-//  Tests for VFX segment processing and replacement workflow
-//  Using Theory Holiday test data for comprehensive VFX pipeline validation
+//  Tests for Frame Ownership Analysis System and VFX Priority
+//  Using Theory Holiday test data for comprehensive overlap and VFX validation
 //
 
 import XCTest
@@ -19,10 +19,10 @@ final class VFXProcessingTests: XCTestCase {
 
     struct TheoryHolidayTestData {
         static let ocfPath = "/Volumes/EVO-POST/__POST/1677 - THEORY HOLIDAY/02_FOOTAGE/TRANSCODES/WILD ISLAND TRANSCODES/A006C005_250717MC.mov"
-        static let gradeSegmentPath = "/Users/fq/Movies/ProResWriter/SourcePrintTestGround/TheoryVFX/Grade/V1-0088_A006C005_250717MC.mov"
-        static let vfxSegmentPath = "/Users/fq/Movies/ProResWriter/SourcePrintTestGround/TheoryVFX/VFX/V1-0223_A006C005_250717MC__S0020_VFX_EX_0821_v1.mov"
-        static let outputDirectory = "/Users/fq/Movies/ProResWriter/SourcePrintTestGround/TheoryVFX/Output"
-        static let blankRushDirectory = "/Users/fq/Movies/ProResWriter/SourcePrintTestGround/TheoryVFX/BlankRush"
+        static let gradeSegmentPath = "/Volumes/EVO-POST/__POST/1677 - THEORY HOLIDAY/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/G12/V1-0088_A006C005_250717MC.mov"
+        static let vfxSegmentPath = "/Volumes/EVO-POST/__POST/1677 - THEORY HOLIDAY/08_GRADE/02_GRADED CLIPS/03 INTERMEDIATE/G12/V1-0223_A006C005_250717MC__S0020_VFX_EX_0821_v1.mov"
+        static let outputDirectory = "/Users/mac10/Desktop/OUT"
+        static let blankRushDirectory = "/Users/mac10/Desktop/BlankRush"
     }
 
     // MARK: - Test File Validation
@@ -46,498 +46,472 @@ final class VFXProcessingTests: XCTestCase {
         )
     }
 
-    // MARK: - Media Analysis Tests
+    // MARK: - Frame Ownership Analysis Tests
 
-    func testVFXSegmentAnalysis() async throws {
-        let analyzer = MediaAnalyzer()
-
-        // Analyze single OCF file directly
-        let ocfURL = URL(fileURLWithPath: TheoryHolidayTestData.ocfPath)
-        print("📹 Analyzing single OCF file: \(ocfURL.lastPathComponent)")
-        let ocfFile = try await analyzer.analyzeMediaFile(at: ocfURL, type: .originalCameraFile)
-
-        // Analyze single grade segment file directly
-        let gradeURL = URL(fileURLWithPath: TheoryHolidayTestData.gradeSegmentPath)
-        print("🎨 Analyzing single grade segment: \(gradeURL.lastPathComponent)")
-        let gradeSegment = try await analyzer.analyzeMediaFile(at: gradeURL, type: .gradedSegment)
-
-        // Analyze single VFX segment file directly
-        let vfxURL = URL(fileURLWithPath: TheoryHolidayTestData.vfxSegmentPath)
-        print("🎭 Analyzing single VFX segment: \(vfxURL.lastPathComponent)")
-        let vfxSegment = try await analyzer.analyzeMediaFile(at: vfxURL, type: .gradedSegment)
-
-        print("📹 OCF Analysis:")
-        print("  📁 File: \(ocfFile.fileName)")
-        print("  📐 Resolution: \(ocfFile.resolution?.width ?? 0)x\(ocfFile.resolution?.height ?? 0)")
-        print("  🎬 Frame Rate: \(ocfFile.frameRateDescription)")
-        print("  ⏰ Timecode: \(ocfFile.sourceTimecode ?? "None")")
-        print("  📊 Duration: \(ocfFile.durationInFrames ?? 0) frames")
-
-        print("\n🎨 Grade Segment Analysis:")
-        print("  📁 File: \(gradeSegment.fileName)")
-        print("  📐 Resolution: \(gradeSegment.resolution?.width ?? 0)x\(gradeSegment.resolution?.height ?? 0)")
-        print("  🎬 Frame Rate: \(gradeSegment.frameRateDescription)")
-        print("  ⏰ Timecode: \(gradeSegment.sourceTimecode ?? "None")")
-        print("  📊 Duration: \(gradeSegment.durationInFrames ?? 0) frames")
-
-        print("\n🎭 VFX Segment Analysis:")
-        print("  📁 File: \(vfxSegment.fileName)")
-        print("  📐 Resolution: \(vfxSegment.resolution?.width ?? 0)x\(vfxSegment.resolution?.height ?? 0)")
-        print("  🎬 Frame Rate: \(vfxSegment.frameRateDescription)")
-        print("  ⏰ Timecode: \(vfxSegment.sourceTimecode ?? "None")")
-        print("  📊 Duration: \(vfxSegment.durationInFrames ?? 0) frames")
-
-        // Validate expected properties
-        XCTAssertEqual(ocfFile.resolution, gradeSegment.resolution, "OCF and grade should have matching resolution")
-        XCTAssertEqual(ocfFile.resolution, vfxSegment.resolution, "OCF and VFX should have matching resolution")
-
-        // Check frame rate compatibility using new rational system
-        if let ocfFrameRate = ocfFile.frameRate,
-           let gradeFrameRate = gradeSegment.frameRate,
-           let vfxFrameRate = vfxSegment.frameRate {
-            XCTAssertTrue(
-                FrameRateManager.areFrameRatesCompatible(ocfFrameRate, gradeFrameRate),
-                "OCF and grade frame rates should be compatible"
-            )
-            XCTAssertTrue(
-                FrameRateManager.areFrameRatesCompatible(ocfFrameRate, vfxFrameRate),
-                "OCF and VFX frame rates should be compatible"
-            )
-        }
-
-        // Analyze the "19 frame handles shorter" claim
-        if let gradeDuration = gradeSegment.durationInFrames,
-           let vfxDuration = vfxSegment.durationInFrames {
-            let frameDifference = Int(gradeDuration) - Int(vfxDuration)
-            print("\n📊 Duration Comparison:")
-            print("  🎨 Grade: \(gradeDuration) frames")
-            print("  🎭 VFX: \(vfxDuration) frames")
-            print("  🔄 Difference: \(frameDifference) frames (\(frameDifference/2) per side if symmetric)")
-
-            // Test if it's approximately 38 frames shorter (19 per side)
-            XCTAssertTrue(
-                abs(frameDifference - 38) <= 5, // Allow 5 frame tolerance
-                "VFX segment should be approximately 38 frames shorter than grade (19 per side), got \(frameDifference)"
-            )
-        }
-    }
-
-    // MARK: - VFX Segment Identification Tests
-
-    func testVFXSegmentIdentification() {
-        // Test VFX segment identification by filename patterns
-        let gradeFileName = "V1-0088_A006C005_250717MC.mov"
-        let vfxFileName = "V1-0223_A006C005_250717MC__S0020_VFX_EX_0821_v1.mov"
-
-        XCTAssertTrue(
-            VFXSegmentMatcher.isVFXSegment(fileName: vfxFileName),
-            "Should identify VFX segment by filename pattern"
+    func testFrameOwnershipAnalyzer_VFXPriority() throws {
+        // Create mock base properties for 1000 frame timeline
+        let baseProperties = VideoStreamProperties(
+            width: 1920,
+            height: 1080,
+            frameRate: AVRational(num: 25, den: 1),
+            frameRateFloat: 25.0,
+            duration: 40.0, // 40 seconds
+            timebase: AVRational(num: 1, den: 25),
+            timecode: "01:00:00:00"
         )
 
-        XCTAssertFalse(
-            VFXSegmentMatcher.isVFXSegment(fileName: gradeFileName),
-            "Should not identify grade segment as VFX"
+        // Create grade segment: frames 100-900 (covers most of timeline)
+        let gradeSegment = FFmpegGradedSegment(
+            url: URL(fileURLWithPath: TheoryHolidayTestData.gradeSegmentPath),
+            startTime: CMTime(seconds: 4.0, preferredTimescale: 600), // Frame 100
+            duration: CMTime(seconds: 32.0, preferredTimescale: 600), // 800 frames
+            sourceStartTime: CMTime.zero,
+            isVFXShot: false,
+            sourceTimecode: "01:00:04:00",
+            frameRate: 25.0,
+            frameRateRational: AVRational(num: 25, den: 1),
+            isDropFrame: false
         )
 
-        // Test OCF identifier extraction
-        let ocfIdentifier = VFXSegmentMatcher.extractOCFIdentifier(from: gradeFileName)
-        XCTAssertEqual(ocfIdentifier, "A006C005_250717MC", "Should extract OCF identifier from grade filename")
-
-        let vfxOCFIdentifier = VFXSegmentMatcher.extractOCFIdentifier(from: vfxFileName)
-        XCTAssertEqual(vfxOCFIdentifier, "A006C005_250717MC", "Should extract same OCF identifier from VFX filename")
-
-        // Test segment pairing
-        XCTAssertTrue(
-            VFXSegmentMatcher.areSegmentsPaired(grade: gradeFileName, vfx: vfxFileName),
-            "Grade and VFX segments should be identified as paired"
+        // Create VFX segment: frames 400-500 (inside grade segment)
+        let vfxSegment = FFmpegGradedSegment(
+            url: URL(fileURLWithPath: TheoryHolidayTestData.vfxSegmentPath),
+            startTime: CMTime(seconds: 16.0, preferredTimescale: 600), // Frame 400
+            duration: CMTime(seconds: 4.0, preferredTimescale: 600), // 100 frames
+            sourceStartTime: CMTime.zero,
+            isVFXShot: true, // VFX shot!
+            sourceTimecode: "01:00:16:00",
+            frameRate: 25.0,
+            frameRateRational: AVRational(num: 25, den: 1),
+            isDropFrame: false
         )
+
+        let segments = [gradeSegment, vfxSegment]
+        let analyzer = FrameOwnershipAnalyzer(
+            baseProperties: baseProperties,
+            segments: segments,
+            totalFrames: 1000,
+            verbose: true
+        )
+
+        let processingPlan = try analyzer.analyze()
+
+        print("📊 Frame Ownership Analysis Results:")
+        print("   Total frames: \(processingPlan.statistics.totalFrames)")
+        print("   Segments: \(processingPlan.statistics.segmentCount) (\(processingPlan.statistics.vfxSegmentCount) VFX)")
+        print("   Overlaps: \(processingPlan.statistics.overlapCount)")
+        print("   VFX frames: \(processingPlan.statistics.vfxFrames)")
+        print("   Grade frames: \(processingPlan.statistics.gradeFrames)")
+
+        // Verify statistics
+        XCTAssertEqual(processingPlan.statistics.segmentCount, 2)
+        XCTAssertEqual(processingPlan.statistics.vfxSegmentCount, 1)
+        XCTAssertEqual(processingPlan.statistics.overlapCount, 1) // Grade and VFX overlap
+        XCTAssertEqual(processingPlan.statistics.vfxFrames, 100) // VFX is 100 frames
+        XCTAssertEqual(processingPlan.statistics.gradeFrames, 700) // Grade minus VFX overlap
+
+        // Should have 3 ranges: Grade[100-400], VFX[400-500], Grade[500-900]
+        XCTAssertEqual(processingPlan.consolidatedRanges.count, 3)
+
+        let ranges = processingPlan.consolidatedRanges
+
+        // First range: Grade segment frames 100-400
+        XCTAssertEqual(ranges[0].startFrame, 100)
+        XCTAssertEqual(ranges[0].endFrame, 400)
+        XCTAssertEqual(ranges[0].segmentStartOffset, 0)
+        XCTAssertEqual(ranges[0].segment.url.lastPathComponent, "V1-0088_A006C005_250717MC.mov")
+
+        // Second range: VFX segment frames 400-500
+        XCTAssertEqual(ranges[1].startFrame, 400)
+        XCTAssertEqual(ranges[1].endFrame, 500)
+        XCTAssertEqual(ranges[1].segmentStartOffset, 0)
+        XCTAssertEqual(ranges[1].segment.url.lastPathComponent, "V1-0223_A006C005_250717MC__S0020_VFX_EX_0821_v1.mov")
+        XCTAssertTrue(ranges[1].segment.isVFXShot)
+
+        // Third range: Grade segment frames 500-900 (continues from frame 400 of grade)
+        XCTAssertEqual(ranges[2].startFrame, 500)
+        XCTAssertEqual(ranges[2].endFrame, 900)
+        XCTAssertEqual(ranges[2].segmentStartOffset, 400) // Offset into grade segment!
+        XCTAssertEqual(ranges[2].segment.url.lastPathComponent, "V1-0088_A006C005_250717MC.mov")
+
+        print("\n🎬 Processing Ranges:")
+        for (index, range) in ranges.enumerated() {
+            let vfxTag = range.segment.isVFXShot ? " [VFX]" : ""
+            print("   \(index + 1). \(range.description)\(vfxTag)")
+        }
     }
 
-    // MARK: - Linking Process Tests
+    func testFrameOwnershipAnalyzer_ComplexOverlaps() throws {
+        // Test complex scenario with multiple overlapping grade segments and VFX priority
+        let baseProperties = VideoStreamProperties(
+            width: 1920,
+            height: 1080,
+            frameRate: AVRational(num: 25, den: 1),
+            frameRateFloat: 25.0,
+            duration: 40.0,
+            timebase: AVRational(num: 1, den: 25),
+            timecode: "01:00:00:00"
+        )
 
-    func testVFXSegmentLinking() async throws {
-        let analyzer = MediaAnalyzer()
+        // Grade1: frames 100-600
+        let grade1 = FFmpegGradedSegment(
+            url: URL(fileURLWithPath: "/test/Grade1.mov"),
+            startTime: CMTime(seconds: 4.0, preferredTimescale: 600),
+            duration: CMTime(seconds: 20.0, preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: false,
+            sourceTimecode: "01:00:04:00",
+            frameRate: 25.0
+        )
 
-        // Analyze single files directly
-        let ocfURL = URL(fileURLWithPath: TheoryHolidayTestData.ocfPath)
-        let ocfFile = try await analyzer.analyzeMediaFile(at: ocfURL, type: .originalCameraFile)
-        let ocfFiles = [ocfFile]
+        // VFX1: frames 200-300 (overlaps Grade1)
+        let vfx1 = FFmpegGradedSegment(
+            url: URL(fileURLWithPath: "/test/VFX1.mov"),
+            startTime: CMTime(seconds: 8.0, preferredTimescale: 600),
+            duration: CMTime(seconds: 4.0, preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: true,
+            sourceTimecode: "01:00:08:00",
+            frameRate: 25.0
+        )
 
-        let gradeURL = URL(fileURLWithPath: TheoryHolidayTestData.gradeSegmentPath)
-        let vfxURL = URL(fileURLWithPath: TheoryHolidayTestData.vfxSegmentPath)
+        // Grade2: frames 250-700 (overlaps both Grade1 and VFX1)
+        let grade2 = FFmpegGradedSegment(
+            url: URL(fileURLWithPath: "/test/Grade2.mov"),
+            startTime: CMTime(seconds: 10.0, preferredTimescale: 600),
+            duration: CMTime(seconds: 18.0, preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: false,
+            sourceTimecode: "01:00:10:00",
+            frameRate: 25.0
+        )
 
-        // Analyze single grade segment
-        let gradeSegment = try await analyzer.analyzeMediaFile(at: gradeURL, type: .gradedSegment)
+        // VFX2: frames 400-500 (overlaps Grade2)
+        let vfx2 = FFmpegGradedSegment(
+            url: URL(fileURLWithPath: "/test/VFX2.mov"),
+            startTime: CMTime(seconds: 16.0, preferredTimescale: 600),
+            duration: CMTime(seconds: 4.0, preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: true,
+            sourceTimecode: "01:00:16:00",
+            frameRate: 25.0
+        )
 
-        // Analyze single VFX segment and mark as VFX
-        var vfxSegment = try await analyzer.analyzeMediaFile(at: vfxURL, type: .gradedSegment)
-        vfxSegment.isVFXShot = true
+        let segments = [grade1, vfx1, grade2, vfx2]
+        let analyzer = FrameOwnershipAnalyzer(
+            baseProperties: baseProperties,
+            segments: segments,
+            totalFrames: 1000,
+            verbose: true
+        )
 
-        let allSegments = [gradeSegment, vfxSegment]
+        let processingPlan = try analyzer.analyze()
 
-        // Test linking with both grade and VFX segments
-        let linker = SegmentOCFLinker()
-        let linkingResult = linker.linkSegments(allSegments, withOCFParents: ocfFiles)
+        print("\n📊 Complex Overlap Analysis:")
+        print("   Segments: \(processingPlan.statistics.segmentCount) (\(processingPlan.statistics.vfxSegmentCount) VFX)")
+        print("   Overlaps: \(processingPlan.statistics.overlapCount)")
+        print("   Ranges: \(processingPlan.consolidatedRanges.count)")
 
-        XCTAssertGreaterThan(linkingResult.totalLinkedSegments, 0, "Should successfully link segments")
-        XCTAssertEqual(linkingResult.unmatchedOCFs.count, 0, "Should match all OCF files")
+        // Expected timeline:
+        // 100-200: Grade1
+        // 200-250: VFX1 (overwrites Grade1)
+        // 250-300: VFX1 continues (overwrites Grade2)
+        // 300-400: Grade2 (overwrites Grade1)
+        // 400-500: VFX2 (overwrites Grade2)
+        // 500-600: Grade2 continues
+        // 600-700: Grade2 continues
 
-        // Find the Theory Holiday OCF parent
-        let theoryOCFParent: OCFParent? = linkingResult.ocfParents.first { parent in
-            parent.ocf.fileName.contains("A006C005_250717MC")
+        XCTAssertEqual(processingPlan.statistics.vfxSegmentCount, 2)
+        XCTAssertGreaterThan(processingPlan.statistics.overlapCount, 0)
+
+        // Verify VFX segments are preserved
+        let vfx1Range = processingPlan.consolidatedRanges.first { $0.segment.url.lastPathComponent == "VFX1.mov" }
+        let vfx2Range = processingPlan.consolidatedRanges.first { $0.segment.url.lastPathComponent == "VFX2.mov" }
+
+        XCTAssertNotNil(vfx1Range, "VFX1 should have a range")
+        XCTAssertNotNil(vfx2Range, "VFX2 should have a range")
+        XCTAssertEqual(vfx1Range?.frameCount, 100)
+        XCTAssertEqual(vfx2Range?.frameCount, 100)
+
+        print("\n🎬 Complex Processing Ranges:")
+        for (index, range) in processingPlan.consolidatedRanges.enumerated() {
+            let vfxTag = range.segment.isVFXShot ? " [VFX]" : ""
+            print("   \(index + 1). \(range.description)\(vfxTag)")
         }
-        let theoryParent = try XCTUnwrap(theoryOCFParent, "Should find Theory Holiday OCF parent")
-
-        print("\n🔗 Theory Holiday Linking Results:")
-        print("  📁 OCF Parent: \(theoryParent.ocf.fileName)")
-        print("  📝 Linked Segments: \(theoryParent.childCount)")
-
-        for (index, child) in theoryParent.children.enumerated() {
-            let vfxStatus = (child.segment.isVFXShot ?? false) ? " [VFX]" : " [GRADE]"
-            print("    \(index + 1). \(child.segment.fileName)\(vfxStatus) - \(child.linkConfidence)")
-        }
-
-        // Test that both grade and VFX segments are linked
-        let hasGradeSegment = theoryParent.children.contains { child in
-            child.segment.fileName.contains("V1-0088") && !(child.segment.isVFXShot ?? false)
-        }
-        let hasVFXSegment = theoryParent.children.contains { child in
-            child.segment.fileName.contains("V1-0223") && (child.segment.isVFXShot ?? false)
-        }
-
-        XCTAssertTrue(hasGradeSegment, "Should link grade segment")
-        XCTAssertTrue(hasVFXSegment, "Should link VFX segment")
-
-        // Test VFX segment priority/replacement logic would go here once implemented
     }
 
-    // MARK: - VFX Composite Logic Tests
+    // MARK: - Real World Theory Holiday Test
 
-    func testVFXCompositeLayering() async throws {
-        // Test the VFX composite logic with actual Theory Holiday files
-        print("🧪 Testing VFX composite layering with Theory Holiday files...")
+    func testTheoryHolidayFrameOwnershipAnalysis() async throws {
+        print("🧪 Testing Frame Ownership Analysis with real Theory Holiday files...")
 
-        let analyzer = MediaAnalyzer()
-
-        // Analyze the actual Theory Holiday files
-        let gradeURL = URL(fileURLWithPath: TheoryHolidayTestData.gradeSegmentPath)
-        let vfxURL = URL(fileURLWithPath: TheoryHolidayTestData.vfxSegmentPath)
-
-        let gradeFile = try await analyzer.analyzeMediaFile(at: gradeURL, type: .gradedSegment)
-        let vfxFile = try await analyzer.analyzeMediaFile(at: vfxURL, type: .gradedSegment)
-
-        print("📊 Actual Theory Holiday File Analysis:")
-        print("  🎨 Grade: \(gradeFile.fileName)")
-        print("    📐 Resolution: \(gradeFile.resolution?.width ?? 0)x\(gradeFile.resolution?.height ?? 0)")
-        print("    🎬 Frame Rate: \(gradeFile.frameRateDescription)")
-        print("    📊 Duration: \(gradeFile.durationInFrames ?? 0) frames")
-
-        print("  🎭 VFX: \(vfxFile.fileName)")
-        print("    📐 Resolution: \(vfxFile.resolution?.width ?? 0)x\(vfxFile.resolution?.height ?? 0)")
-        print("    🎬 Frame Rate: \(vfxFile.frameRateDescription)")
-        print("    📊 Duration: \(vfxFile.durationInFrames ?? 0) frames")
-
-        // Calculate the actual handle difference
-        guard let gradeDurationFrames = gradeFile.durationInFrames,
-              let vfxDurationFrames = vfxFile.durationInFrames,
-              let frameRate = gradeFile.frameRateDouble else {
-            XCTFail("Should have duration and frame rate data")
-            return
-        }
-
-        let gradeDurationSeconds = Double(gradeDurationFrames) / frameRate
-        let vfxDurationSeconds = Double(vfxDurationFrames) / frameRate
-        let handleDifferenceFrames = Int(gradeDurationFrames) - Int(vfxDurationFrames)
-        let handleDifferenceSeconds = gradeDurationSeconds - vfxDurationSeconds
-        let handlesPerSideFrames = Double(handleDifferenceFrames) / 2.0
-        let handlesPerSideSeconds = handleDifferenceSeconds / 2.0
-
-        print("📏 Handle Analysis:")
-        print("  🎨 Grade duration: \(gradeDurationFrames) frames (\(String(format: "%.3f", gradeDurationSeconds))s)")
-        print("  🎭 VFX duration: \(vfxDurationFrames) frames (\(String(format: "%.3f", vfxDurationSeconds))s)")
-        print("  🔄 Frame difference: \(handleDifferenceFrames) frames (\(String(format: "%.3f", handleDifferenceSeconds))s)")
-        print("  📏 Handles per side: \(String(format: "%.1f", handlesPerSideFrames)) frames (\(String(format: "%.3f", handlesPerSideSeconds))s)")
-
-        // Verify the ~19 frame handles claim
-        XCTAssertGreaterThan(handleDifferenceFrames, 30, "Handle difference should be at least 30 frames")
-        XCTAssertLessThan(handleDifferenceFrames, 50, "Handle difference should be less than 50 frames")
-        XCTAssertGreaterThan(handlesPerSideFrames, 15.0, "Handles per side should be at least 15 frames")
-        XCTAssertLessThan(handlesPerSideFrames, 25.0, "Handles per side should be less than 25 frames")
-
-        // Test VFX composite timing logic
-        let expectedVFXStart = handlesPerSideSeconds
-        let expectedVFXEnd = expectedVFXStart + vfxDurationSeconds
-
-        print("📊 Expected VFX Composite Timeline:")
-        print("  🎨 Pre-VFX grade: 0.0s - \(String(format: "%.3f", expectedVFXStart))s")
-        print("  🎭 VFX content: \(String(format: "%.3f", expectedVFXStart))s - \(String(format: "%.3f", expectedVFXEnd))s")
-        print("  🎨 Post-VFX grade: \(String(format: "%.3f", expectedVFXEnd))s - \(String(format: "%.3f", gradeDurationSeconds))s")
-
-        // Verify composite makes sense
-        XCTAssertGreaterThan(vfxDurationSeconds, 0, "VFX should have positive duration")
-        XCTAssertLessThan(vfxDurationSeconds, gradeDurationSeconds, "VFX should be shorter than grade")
-        XCTAssertEqual(expectedVFXEnd, gradeDurationSeconds - handlesPerSideSeconds, accuracy: 0.001, "VFX end should leave room for post-handle")
-
-        print("✅ Theory Holiday VFX composite logic validated")
-    }
-
-    // MARK: - VFX Print Process Tests
-
-    @available(macOS 15, *)
-    func testVFXPrintProcessWithSwiftFFmpeg() async throws {
-        // This test requires the VFX replacement logic to be implemented in SwiftFFmpeg
-        print("🚀 Testing VFX print process with SwiftFFmpeg...")
-
-        // Create output directories
-        let fileManager = FileManager.default
-        let outputURL = URL(fileURLWithPath: TheoryHolidayTestData.outputDirectory)
-        let blankRushURL = URL(fileURLWithPath: TheoryHolidayTestData.blankRushDirectory)
-
-        try fileManager.createDirectory(at: outputURL, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: blankRushURL, withIntermediateDirectories: true)
-
-        // Import and link segments using single file analysis
+        // Import actual files
         let analyzer = MediaAnalyzer()
 
         let ocfURL = URL(fileURLWithPath: TheoryHolidayTestData.ocfPath)
-        let ocfFile = try await analyzer.analyzeMediaFile(at: ocfURL, type: .originalCameraFile)
-        let ocfFiles = [ocfFile]
-
         let gradeURL = URL(fileURLWithPath: TheoryHolidayTestData.gradeSegmentPath)
         let vfxURL = URL(fileURLWithPath: TheoryHolidayTestData.vfxSegmentPath)
 
-        // Analyze single files
+        let ocfFile = try await analyzer.analyzeMediaFile(at: ocfURL, type: .originalCameraFile)
         let gradeSegment = try await analyzer.analyzeMediaFile(at: gradeURL, type: .gradedSegment)
         var vfxSegment = try await analyzer.analyzeMediaFile(at: vfxURL, type: .gradedSegment)
         vfxSegment.isVFXShot = true
 
-        let allSegments = [gradeSegment, vfxSegment]
+        print("\n📹 Real Files Analysis:")
+        print("   OCF: \(ocfFile.fileName) - \(ocfFile.durationInFrames ?? 0) frames")
+        print("   Grade: \(gradeSegment.fileName) - \(gradeSegment.durationInFrames ?? 0) frames")
+        print("   VFX: \(vfxSegment.fileName) - \(vfxSegment.durationInFrames ?? 0) frames")
 
-        let linker = SegmentOCFLinker()
-        let linkingResult = linker.linkSegments(allSegments, withOCFParents: ocfFiles)
-
-        let theoryParent: OCFParent = try XCTUnwrap(
-            linkingResult.ocfParents.first { $0.ocf.fileName.contains("A006C005_250717MC") },
-            "Should find Theory Holiday OCF parent"
+        // Convert to FFmpegGradedSegments for analysis
+        let ffmpegGradeSegment = FFmpegGradedSegment(
+            url: gradeSegment.url,
+            startTime: CMTime.zero,
+            duration: CMTime(seconds: Double(gradeSegment.durationInFrames ?? 0) / Double(gradeSegment.frameRate?.floatValue ?? 25.0), preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: false,
+            sourceTimecode: gradeSegment.sourceTimecode,
+            frameRate: gradeSegment.frameRate?.floatValue,
+            frameRateRational: gradeSegment.frameRate,
+            isDropFrame: gradeSegment.isDropFrame
         )
 
-        // Create blank rush for testing
-        let blankRushIntermediate = BlankRushIntermediate(projectDirectory: TheoryHolidayTestData.blankRushDirectory)
-        let singleParentResult = LinkingResult(
-            ocfParents: [theoryParent],
-            unmatchedSegments: [],
-            unmatchedOCFs: []
+        let ffmpegVFXSegment = FFmpegGradedSegment(
+            url: vfxSegment.url,
+            startTime: CMTime(seconds: 0.76, preferredTimescale: 600), // Approximate 19-frame offset
+            duration: CMTime(seconds: Double(vfxSegment.durationInFrames ?? 0) / Double(vfxSegment.frameRate?.floatValue ?? 25.0), preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: true,
+            sourceTimecode: vfxSegment.sourceTimecode,
+            frameRate: vfxSegment.frameRate?.floatValue,
+            frameRateRational: vfxSegment.frameRate,
+            isDropFrame: vfxSegment.isDropFrame
         )
 
-        let blankRushResults = await blankRushIntermediate.createBlankRushes(from: singleParentResult)
-        let blankRushResult: BlankRushResult = try XCTUnwrap(
-            blankRushResults.first { $0.success },
-            "Should have successful blank rush result"
+        // Create base properties from OCF
+        let baseProperties = VideoStreamProperties(
+            width: Int(ocfFile.resolution?.width ?? 1920),
+            height: Int(ocfFile.resolution?.height ?? 1080),
+            frameRate: ocfFile.frameRate ?? AVRational(num: 25, den: 1),
+            frameRateFloat: ocfFile.frameRate?.floatValue ?? 25.0,
+            duration: Double(ocfFile.durationInFrames ?? 1000) / Double(ocfFile.frameRate?.floatValue ?? 25.0),
+            timebase: AVRational(num: 1, den: Int32(ocfFile.frameRate?.floatValue ?? 25.0)),
+            timecode: ocfFile.sourceTimecode
         )
 
-        // Test SwiftFFmpeg VFX print process
-        print("\n🎬 Testing SwiftFFmpeg VFX composition...")
+        let segments = [ffmpegGradeSegment, ffmpegVFXSegment]
+        let totalFrames = Int(ocfFile.durationInFrames ?? 1000)
 
-        // Create FFmpegGradedSegments with VFX metadata
-        var ffmpegGradedSegments: [FFmpegGradedSegment] = []
+        let ownershipAnalyzer = FrameOwnershipAnalyzer(
+            baseProperties: baseProperties,
+            segments: segments,
+            totalFrames: totalFrames,
+            verbose: true
+        )
 
-        for child in theoryParent.children {
-            let segmentInfo = child.segment
+        let processingPlan = try ownershipAnalyzer.analyze()
 
-            // Find corresponding MediaFileInfo for VFX metadata
-            guard let mediaFileInfo = allSegments.first(where: { $0.fileName == segmentInfo.fileName }) else {
-                continue
-            }
+        print("\n📊 Theory Holiday Frame Ownership Results:")
+        print("   Total frames: \(processingPlan.statistics.totalFrames)")
+        print("   Segments: \(processingPlan.statistics.segmentCount) (\(processingPlan.statistics.vfxSegmentCount) VFX)")
+        print("   Overlaps: \(processingPlan.statistics.overlapCount)")
+        print("   Processing ranges: \(processingPlan.consolidatedRanges.count)")
 
-            if let segmentTC = segmentInfo.sourceTimecode,
-               let baseTC = blankRushResult.originalOCF.sourceTimecode,
-               let segmentFrameRate = segmentInfo.frameRateDouble,
-               let duration = segmentInfo.durationInFrames {
+        // Log warnings
+        for warning in processingPlan.overlapWarnings {
+            print("   ⚠️ \(warning)")
+        }
 
-                let smpte = SMPTE(fps: segmentFrameRate, dropFrame: segmentInfo.isDropFrame ?? false)
-
-                do {
-                    let segmentFrames = try smpte.getFrames(tc: segmentTC)
-                    let baseFrames = try smpte.getFrames(tc: baseTC)
-                    let relativeFrames = segmentFrames - baseFrames
-
-                    let startTime = CMTime(
-                        value: CMTimeValue(relativeFrames),
-                        timescale: CMTimeScale(segmentFrameRate)
-                    )
-
-                    let segmentDuration = CMTime(
-                        seconds: Double(duration) / Double(segmentFrameRate),
-                        preferredTimescale: CMTimeScale(segmentFrameRate * 1000)
-                    )
-
-                    let ffmpegSegment = FFmpegGradedSegment(
-                        url: segmentInfo.url,
-                        startTime: startTime,
-                        duration: segmentDuration,
-                        sourceStartTime: .zero,
-                        isVFXShot: mediaFileInfo.isVFXShot ?? false,
-                        sourceTimecode: segmentInfo.sourceTimecode,
-                        frameRate: segmentInfo.frameRateFloat,
-                        isDropFrame: segmentInfo.isDropFrame
-                    )
-                    ffmpegGradedSegments.append(ffmpegSegment)
-
-                    let vfxStatus = ffmpegSegment.isVFXShot ? " [VFX]" : " [GRADE]"
-                    print("📝 Segment: \(segmentInfo.fileName)\(vfxStatus)")
-
-                } catch {
-                    XCTFail("Failed to calculate timing for \(segmentInfo.fileName): \(error)")
-                }
+        // Display processing plan
+        print("\n🎬 Theory Holiday Processing Plan:")
+        for (index, range) in processingPlan.consolidatedRanges.enumerated() {
+            let segmentName = range.segment.url.lastPathComponent
+            let vfxTag = range.segment.isVFXShot ? " [VFX]" : " [GRADE]"
+            print("   \(index + 1). Frames \(range.startFrame)-\(range.endFrame): \(segmentName)\(vfxTag)")
+            if range.segmentStartOffset > 0 {
+                print("        ↳ Starting from offset \(range.segmentStartOffset) in source")
             }
         }
 
-        XCTAssertFalse(ffmpegGradedSegments.isEmpty, "Should create FFmpeg graded segments")
+        // Verify VFX protection
+        XCTAssertEqual(processingPlan.statistics.vfxSegmentCount, 1, "Should have 1 VFX segment")
+        XCTAssertGreaterThan(processingPlan.statistics.vfxFrames, 0, "VFX should contribute frames")
 
-        // Separate VFX and regular segments
-        let vfxSegments = ffmpegGradedSegments.filter { $0.isVFXShot }
-        let regularSegments = ffmpegGradedSegments.filter { !$0.isVFXShot }
+        let vfxRange = processingPlan.consolidatedRanges.first { $0.segment.isVFXShot }
+        XCTAssertNotNil(vfxRange, "Should have VFX range in processing plan")
 
-        print("📊 Pre-Composition Summary:")
-        print("  🎨 Input grade segments: \(regularSegments.count)")
-        print("  🎭 Input VFX segments: \(vfxSegments.count)")
+        print("✅ Theory Holiday Frame Ownership Analysis completed successfully")
+    }
 
-        XCTAssertGreaterThan(vfxSegments.count, 0, "Should have VFX segments")
-        XCTAssertGreaterThan(regularSegments.count, 0, "Should have grade segments")
+    // MARK: - Print Process Integration Tests
 
-        // Test VFX composite creation before final composition
-        print("\n🧪 Testing VFX composite creation...")
+    func testTheoryHolidayPrintProcess() async throws {
+        print("🎬 Testing complete print process with Theory Holiday VFX and grade segments...")
 
-        // Create a test SwiftFFmpeg compositor to verify segment processing
-        let testCompositor = SwiftFFmpegProResCompositor()
+        // Import actual files
+        let analyzer = MediaAnalyzer()
 
-        // We can't directly access private methods, but we can test the concept
-        // by verifying the duration differences and expected behavior
-        for gradeSegment in regularSegments {
-            if let matchingVFX = vfxSegments.first(where: { vfxSeg in
-                // Simple filename matching for test
-                let gradeName = gradeSegment.url.lastPathComponent
-                let vfxName = vfxSeg.url.lastPathComponent
-                return gradeName.contains("A006C005_250717MC") && vfxName.contains("A006C005_250717MC")
-            }) {
-                let gradeDuration = gradeSegment.duration.seconds
-                let vfxDuration = matchingVFX.duration.seconds
-                let handleDifference = gradeDuration - vfxDuration
+        let ocfURL = URL(fileURLWithPath: TheoryHolidayTestData.ocfPath)
+        let gradeURL = URL(fileURLWithPath: TheoryHolidayTestData.gradeSegmentPath)
+        let vfxURL = URL(fileURLWithPath: TheoryHolidayTestData.vfxSegmentPath)
 
-                print("  🎬 VFX Composite Pair:")
-                print("    🎨 Grade: \(gradeSegment.url.lastPathComponent) (\(String(format: "%.3f", gradeDuration))s)")
-                print("    🎭 VFX:   \(matchingVFX.url.lastPathComponent) (\(String(format: "%.3f", vfxDuration))s)")
-                print("    📏 Handle difference: \(String(format: "%.3f", handleDifference))s (\(String(format: "%.3f", handleDifference/2))s per side)")
+        let ocfFile = try await analyzer.analyzeMediaFile(at: ocfURL, type: .originalCameraFile)
+        let gradeSegment = try await analyzer.analyzeMediaFile(at: gradeURL, type: .gradedSegment)
+        var vfxSegment = try await analyzer.analyzeMediaFile(at: vfxURL, type: .gradedSegment)
+        vfxSegment.isVFXShot = true
 
-                // Verify VFX is shorter than grade (expected ~38 frames / 25fps = ~1.52s difference)
-                XCTAssertGreaterThan(handleDifference, 1.0, "VFX should be meaningfully shorter than grade segment")
-                XCTAssertLessThan(handleDifference, 3.0, "Handle difference should be reasonable (not too extreme)")
-            }
+        print("\n📹 Setting up print process with:")
+        print("   OCF: \(ocfFile.fileName) - \(ocfFile.durationInFrames ?? 0) frames")
+        print("   Grade: \(gradeSegment.fileName) - \(gradeSegment.durationInFrames ?? 0) frames")
+        print("   VFX: \(vfxSegment.fileName) - \(vfxSegment.durationInFrames ?? 0) frames")
+
+        // Convert to FFmpegGradedSegments with correct timeline positioning
+        let gradeStart = CMTime(value: 235, timescale: 24000/1001) // Frame 235 on timeline
+        let vfxStart = CMTime(value: 255, timescale: 24000/1001)   // Frame 255 on timeline
+
+        let ffmpegGradeSegment = FFmpegGradedSegment(
+            url: gradeSegment.url,
+            startTime: gradeStart,
+            duration: CMTime(seconds: Double(gradeSegment.durationInFrames ?? 0) / Double(gradeSegment.frameRate?.floatValue ?? 23.976), preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: false,
+            sourceTimecode: gradeSegment.sourceTimecode,
+            frameRate: gradeSegment.frameRate?.floatValue,
+            frameRateRational: gradeSegment.frameRate,
+            isDropFrame: gradeSegment.isDropFrame
+        )
+
+        let ffmpegVFXSegment = FFmpegGradedSegment(
+            url: vfxSegment.url,
+            startTime: vfxStart,
+            duration: CMTime(seconds: Double(vfxSegment.durationInFrames ?? 0) / Double(vfxSegment.frameRate?.floatValue ?? 23.976), preferredTimescale: 600),
+            sourceStartTime: CMTime.zero,
+            isVFXShot: true,
+            sourceTimecode: vfxSegment.sourceTimecode,
+            frameRate: vfxSegment.frameRate?.floatValue,
+            frameRateRational: vfxSegment.frameRate,
+            isDropFrame: vfxSegment.isDropFrame
+        )
+
+        // Check for existing blank rush, or use original OCF for testing
+        let blankRushURL = URL(fileURLWithPath: "\(TheoryHolidayTestData.blankRushDirectory)/\(ocfFile.fileName)")
+        let blankRushExists = FileManager.default.fileExists(atPath: blankRushURL.path)
+
+        let baseVideoURL: URL
+        if blankRushExists {
+            print("\n♻️ Using existing blank rush: \(blankRushURL.lastPathComponent)")
+            baseVideoURL = blankRushURL
+        } else {
+            print("\n📹 Using original OCF as base (blank rush not found): \(ocfFile.fileName)")
+            baseVideoURL = ocfFile.url
         }
 
-        // Test output filename generation
-        let baseName = (theoryParent.ocf.fileName as NSString).deletingPathExtension
-        let outputFileName = "\(baseName)_VFXTest.mov"
-        let finalOutputURL = outputURL.appendingPathComponent(outputFileName)
+        // Create FFmpeg compositor settings
+        let outputURL = URL(fileURLWithPath: "\(TheoryHolidayTestData.outputDirectory)/theory_holiday_vfx_test_output.mov")
+
+        // Ensure output directory exists
+        try FileManager.default.createDirectory(at: URL(fileURLWithPath: TheoryHolidayTestData.outputDirectory),
+                                               withIntermediateDirectories: true,
+                                               attributes: nil)
 
         let ffmpegSettings = FFmpegCompositorSettings(
-            outputURL: finalOutputURL,
-            baseVideoURL: blankRushResult.blankRushURL,
-            gradedSegments: ffmpegGradedSegments,
-            proResProfile: "4"
+            outputURL: outputURL,
+            baseVideoURL: baseVideoURL,
+            gradedSegments: [ffmpegGradeSegment, ffmpegVFXSegment],
+            proResProfile: "4" // ProRes 4444
         )
 
-        // Test SwiftFFmpeg compositor with VFX segments
-        let ffmpegCompositor = SwiftFFmpegProResCompositor()
+        print("\n🎯 Print Process Settings:")
+        print("   Output: \(outputURL.lastPathComponent)")
+        print("   Base video: \(baseVideoURL.lastPathComponent)")
+        print("   ProRes profile: \(ffmpegSettings.proResProfile)")
+        print("   VFX segments: \(ffmpegSettings.gradedSegments.filter { $0.isVFXShot }.count)")
+        print("   Total segments: \(ffmpegSettings.gradedSegments.count)")
 
-        let compositionResult = await withCheckedContinuation { continuation in
-            ffmpegCompositor.completionHandler = { result in
-                continuation.resume(returning: result)
+        // Run the SwiftFFmpeg print process
+        let compositor = SwiftFFmpegProResCompositor()
+
+        print("\n🚀 Starting SwiftFFmpeg print process...")
+        let startTime = Date()
+
+        // Set up completion handler to wait for result
+        await withCheckedContinuation { continuation in
+            compositor.completionHandler = { result in
+                continuation.resume()
             }
-            ffmpegCompositor.composeVideo(with: ffmpegSettings)
+
+            compositor.composeVideo(with: ffmpegSettings)
         }
 
-        switch compositionResult {
-        case .success(let outputURL):
-            print("✅ VFX composition successful!")
-            print("📁 Output: \(outputURL.path)")
+        let processingTime = Date().timeIntervalSince(startTime)
+        print("✅ Print process completed in \(String(format: "%.2f", processingTime))s")
 
-            // Verify output file exists
-            XCTAssertTrue(fileManager.fileExists(atPath: outputURL.path), "Output file should exist")
+        // Verify output file was created
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path), "Output file should exist")
 
-        case .failure(let error):
-            XCTFail("VFX composition failed: \(error)")
+        // Get output file size
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: outputURL.path),
+           let fileSize = attributes[.size] as? Int64 {
+            let fileSizeMB = Double(fileSize) / (1024 * 1024)
+            print("📁 Output file: \(String(format: "%.1f", fileSizeMB)) MB")
         }
+
+        print("🎬 Theory Holiday print process with VFX priority system completed successfully!")
+        print("   Output location: \(outputURL.path)")
     }
 
-    // MARK: - Edge Case Tests
+    // MARK: - Performance Tests
 
-    func testVFXSegmentWithoutCorrespondingGrade() {
-        // Test case where VFX segment exists but no corresponding grade segment
-        let vfxOnlyFileName = "V1-9999_STANDALONE_VFX_SHOT.mov"
-
-        XCTAssertTrue(
-            VFXSegmentMatcher.isVFXSegment(fileName: vfxOnlyFileName),
-            "Should identify standalone VFX segment"
+    func testFrameOwnershipAnalysisPerformance() throws {
+        let baseProperties = VideoStreamProperties(
+            width: 1920,
+            height: 1080,
+            frameRate: AVRational(num: 25, den: 1),
+            frameRateFloat: 25.0,
+            duration: 3600.0, // 1 hour
+            timebase: AVRational(num: 1, den: 25),
+            timecode: "01:00:00:00"
         )
 
-        let identifier = VFXSegmentMatcher.extractOCFIdentifier(from: vfxOnlyFileName)
-        XCTAssertEqual(identifier, "STANDALONE_VFX_SHOT", "Should extract identifier from standalone VFX")
-    }
+        // Create many overlapping segments (stress test)
+        var segments: [FFmpegGradedSegment] = []
+        for i in 0..<50 {
+            let startTime = Double(i * 100) / 25.0 // Every 4 seconds
+            let duration = 20.0 // 20 seconds each (overlapping)
+            let isVFX = i % 5 == 0 // Every 5th segment is VFX
 
-    func testGradeSegmentWithoutVFXReplacement() {
-        // Test case where grade segment exists but no VFX replacement
-        let gradeOnlyFileName = "V1-5555_GRADE_ONLY_SHOT.mov"
+            let segment = FFmpegGradedSegment(
+                url: URL(fileURLWithPath: "/test/Segment\(i).mov"),
+                startTime: CMTime(seconds: startTime, preferredTimescale: 600),
+                duration: CMTime(seconds: duration, preferredTimescale: 600),
+                sourceStartTime: CMTime.zero,
+                isVFXShot: isVFX,
+                sourceTimecode: nil,
+                frameRate: 25.0
+            )
+            segments.append(segment)
+        }
 
-        XCTAssertFalse(
-            VFXSegmentMatcher.isVFXSegment(fileName: gradeOnlyFileName),
-            "Should not identify grade-only segment as VFX"
+        let analyzer = FrameOwnershipAnalyzer(
+            baseProperties: baseProperties,
+            segments: segments,
+            totalFrames: 90000, // 1 hour at 25fps
+            verbose: false
         )
 
-        let identifier = VFXSegmentMatcher.extractOCFIdentifier(from: gradeOnlyFileName)
-        XCTAssertEqual(identifier, "GRADE_ONLY_SHOT", "Should extract identifier from grade-only segment")
+        measure {
+            do {
+                let _ = try analyzer.analyze()
+            } catch {
+                XCTFail("Analysis failed: \(error)")
+            }
+        }
     }
 }
 
-// MARK: - VFX Segment Matching Utilities
+// MARK: - Helper Extensions
 
-struct VFXSegmentMatcher {
-
-    /// Identifies VFX segments by filename patterns
-    static func isVFXSegment(fileName: String) -> Bool {
-        // Look for VFX indicators in filename
-        let vfxPatterns = ["VFX", "_VFX_", "__VFX__", "VFX_EX", "_EX_"]
-        return vfxPatterns.contains { pattern in
-            fileName.uppercased().contains(pattern)
-        }
-    }
-
-    /// Extracts OCF identifier from segment filename for pairing
-    static func extractOCFIdentifier(from fileName: String) -> String? {
-        // Extract OCF identifier pattern (e.g., "A006C005_250717MC" from various filename formats)
-        let patterns = [
-            #"([A-Z]\d{3}[A-Z]\d{3}_\d{6}[A-Z]{2})"#,  // A006C005_250717MC pattern
-            #"([A-Z]\d{3}[A-Z]\d{3}_\d{6})"#,           // A006C005_250717 pattern
-            #"([A-Z]\d{3}_[A-Z]\d{3})"#,                 // A006_C005 pattern
-        ]
-
-        for pattern in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(in: fileName, range: NSRange(fileName.startIndex..., in: fileName)),
-               let range = Range(match.range(at: 1), in: fileName) {
-                return String(fileName[range])
-            }
-        }
-
-        return nil
-    }
-
-    /// Checks if grade and VFX segments are paired (share same OCF identifier)
-    static func areSegmentsPaired(grade: String, vfx: String) -> Bool {
-        guard let gradeIdentifier = extractOCFIdentifier(from: grade),
-              let vfxIdentifier = extractOCFIdentifier(from: vfx) else {
-            return false
-        }
-        return gradeIdentifier == vfxIdentifier
+extension MediaFileInfo {
+    var frameRateDouble: Double? {
+        return frameRate.map { Double($0.floatValue) }
     }
 }

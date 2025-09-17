@@ -16,13 +16,23 @@ import TimecodeKit
 
 // Video stream properties for caching (eliminate redundant analysis)
 public struct VideoStreamProperties {
-    let width: Int
-    let height: Int
-    let frameRate: AVRational
-    let frameRateFloat: Float
-    let duration: Double
-    let timebase: AVRational
-    let timecode: String?
+    public let width: Int
+    public let height: Int
+    public let frameRate: AVRational
+    public let frameRateFloat: Float
+    public let duration: Double
+    public let timebase: AVRational
+    public let timecode: String?
+
+    public init(width: Int, height: Int, frameRate: AVRational, frameRateFloat: Float, duration: Double, timebase: AVRational, timecode: String?) {
+        self.width = width
+        self.height = height
+        self.frameRate = frameRate
+        self.frameRateFloat = frameRateFloat
+        self.duration = duration
+        self.timebase = timebase
+        self.timecode = timecode
+    }
 }
 
 public struct FFmpegGradedSegment {
@@ -35,15 +45,17 @@ public struct FFmpegGradedSegment {
     // SMPTE timecode information for precise frame calculation
     public let sourceTimecode: String?
     public let frameRate: Float?
+    public let frameRateRational: AVRational?  // Exact rational for frame calculations
     public let isDropFrame: Bool?
-    
+
     // Cached stream properties to eliminate redundant analysis
     public let cachedStreamProperties: VideoStreamProperties?
 
     public init(
         url: URL, startTime: CMTime, duration: CMTime, sourceStartTime: CMTime,
         isVFXShot: Bool = false,
-        sourceTimecode: String? = nil, frameRate: Float? = nil, isDropFrame: Bool? = nil,
+        sourceTimecode: String? = nil, frameRate: Float? = nil,
+        frameRateRational: AVRational? = nil, isDropFrame: Bool? = nil,
         cachedStreamProperties: VideoStreamProperties? = nil
     ) {
         self.url = url
@@ -53,6 +65,7 @@ public struct FFmpegGradedSegment {
         self.isVFXShot = isVFXShot
         self.sourceTimecode = sourceTimecode
         self.frameRate = frameRate
+        self.frameRateRational = frameRateRational
         self.isDropFrame = isDropFrame
         self.cachedStreamProperties = cachedStreamProperties
     }
@@ -544,6 +557,69 @@ public class SwiftFFmpegProResCompositor {
         baseProperties: VideoStreamProperties
     ) async throws {
 
+        // Calculate total frames for the timeline
+        let totalFrames = convertTimeToFrame(seconds: baseProperties.duration, frameRate: baseProperties.frameRate)
+
+        // Use FrameOwnershipAnalyzer to resolve overlaps and VFX priority
+        let analyzer = FrameOwnershipAnalyzer(
+            baseProperties: baseProperties,
+            segments: segments,
+            totalFrames: totalFrames,
+            verbose: true  // Enable for debugging
+        )
+
+        let processingPlan = try analyzer.analyze()
+
+        // Log warnings if any
+        for warning in processingPlan.overlapWarnings {
+            print("⚠️ Overlap: \(warning)")
+        }
+
+        // Log statistics
+        print("📊 Frame ownership analysis complete:")
+        print("   Total frames: \(processingPlan.statistics.totalFrames)")
+        print("   Segments: \(processingPlan.statistics.segmentCount) (\(processingPlan.statistics.vfxSegmentCount) VFX)")
+        print("   Overlaps: \(processingPlan.statistics.overlapCount)")
+        print("   VFX frames: \(processingPlan.statistics.vfxFrames)")
+        print("   Grade frames: \(processingPlan.statistics.gradeFrames)")
+
+        // Use the consolidated ranges from ProcessingPlan
+        let streamCopyStartTime = CFAbsoluteTimeGetCurrent()
+        print(
+            "📹 Stream-copying \(totalFrames) frames with \(processingPlan.consolidatedRanges.count) segment insertions..."
+        )
+
+        // Process timeline with the pre-analyzed plan
+        try await processTimelineWithProcessingPlan(
+            baseContext: baseContext,
+            baseStream: baseStream,
+            processingPlan: processingPlan,
+            outputContext: outputContext,
+            outputVideoStream: outputVideoStream,
+            baseProperties: baseProperties,
+            totalFrames: totalFrames
+        )
+
+        print("✅ Stream-based timeline processing complete")
+
+        // Overall stream copying performance summary
+        let totalStreamCopyTime = CFAbsoluteTimeGetCurrent() - streamCopyStartTime
+        let overallFPS = Double(totalFrames) / totalStreamCopyTime
+        print(
+            "📊 Stream copying summary: \(totalFrames) frames in \(String(format: "%.3f", totalStreamCopyTime))s (\(String(format: "%.1f", overallFPS)) fps overall)"
+        )
+    }
+
+    // Legacy method for backward compatibility - delegates to new method
+    private func processCompleteTimelineLegacy(
+        baseContext: AVFormatContext,
+        baseStream: AVStream,
+        segments: [FFmpegGradedSegment],
+        outputContext: AVFormatContext,
+        outputVideoStream: AVStream,
+        baseProperties: VideoStreamProperties
+    ) async throws {
+
         // Build segment timeline with SMPTE precision
         var segmentRanges: [(startFrame: Int, endFrame: Int, segment: FFmpegGradedSegment)] = []
 
@@ -650,6 +726,106 @@ public class SwiftFFmpegProResCompositor {
         )
     }
 
+    private func processTimelineWithProcessingPlan(
+        baseContext: AVFormatContext,
+        baseStream: AVStream,
+        processingPlan: ProcessingPlan,
+        outputContext: AVFormatContext,
+        outputVideoStream: AVStream,
+        baseProperties: VideoStreamProperties,
+        totalFrames: Int
+    ) async throws {
+
+        var currentFrame = 0
+        var baseFramesRead = 0
+
+        for range in processingPlan.consolidatedRanges {
+            // 1. Copy base video from currentFrame to range start if there's a gap
+            if currentFrame < range.startFrame {
+                let framesToCopy = range.startFrame - currentFrame
+                let baseCopyStart = CFAbsoluteTimeGetCurrent()
+                print(
+                    "🚀 Bulk copying base video: frames \(currentFrame)-\(range.startFrame-1) (\(framesToCopy) frames)"
+                )
+
+                try await copyBaseVideoFrames(
+                    baseContext: baseContext,
+                    baseStream: baseStream,
+                    outputContext: outputContext,
+                    outputVideoStream: outputVideoStream,
+                    startFrame: currentFrame,
+                    frameCount: framesToCopy,
+                    baseFramesRead: &baseFramesRead,
+                    baseProperties: baseProperties
+                )
+
+                let baseCopyEnd = CFAbsoluteTimeGetCurrent()
+                let baseCopyTime = baseCopyEnd - baseCopyStart
+                let baseFPS = Double(framesToCopy) / baseCopyTime
+                print(
+                    "✅ Base copying: \(framesToCopy) frames in \(String(format: "%.3f", baseCopyTime))s (\(String(format: "%.1f", baseFPS)) fps)"
+                )
+
+                currentFrame = range.startFrame
+            }
+
+            // 2. Copy segment frames with offset support for partial segments
+            let segmentCopyStart = CFAbsoluteTimeGetCurrent()
+            let segmentName = range.segment.url.lastPathComponent
+            let isVFX = range.segment.isVFXShot ? " [VFX]" : ""
+            print(
+                "🎬 Inserting segment\(isVFX): \(segmentName) frames \(range.startFrame)-\(range.endFrame-1) (\(range.frameCount) frames, offset: \(range.segmentStartOffset))"
+            )
+
+            try await copySegmentFramesWithOffset(
+                segment: range.segment,
+                outputContext: outputContext,
+                outputVideoStream: outputVideoStream,
+                startFrame: range.startFrame,
+                frameCount: range.frameCount,
+                segmentStartOffset: range.segmentStartOffset,
+                baseProperties: baseProperties
+            )
+
+            let segmentCopyEnd = CFAbsoluteTimeGetCurrent()
+            let segmentCopyTime = segmentCopyEnd - segmentCopyStart
+            let segmentFPS = Double(range.frameCount) / segmentCopyTime
+            print(
+                "✅ Segment copying: \(range.frameCount) frames in \(String(format: "%.3f", segmentCopyTime))s (\(String(format: "%.1f", segmentFPS)) fps)"
+            )
+
+            currentFrame = range.endFrame
+        }
+
+        // 3. Copy remaining base video to end
+        if currentFrame < totalFrames {
+            let remainingFrames = totalFrames - currentFrame
+            let finalCopyStart = CFAbsoluteTimeGetCurrent()
+            print(
+                "🚀 Bulk copying final base video: frames \(currentFrame)-\(totalFrames-1) (\(remainingFrames) frames)"
+            )
+
+            try await copyBaseVideoFrames(
+                baseContext: baseContext,
+                baseStream: baseStream,
+                outputContext: outputContext,
+                outputVideoStream: outputVideoStream,
+                startFrame: currentFrame,
+                frameCount: remainingFrames,
+                baseFramesRead: &baseFramesRead,
+                baseProperties: baseProperties
+            )
+
+            let finalCopyEnd = CFAbsoluteTimeGetCurrent()
+            let finalCopyTime = finalCopyEnd - finalCopyStart
+            let finalFPS = Double(remainingFrames) / finalCopyTime
+            print(
+                "✅ Final base copying: \(remainingFrames) frames in \(String(format: "%.3f", finalCopyTime))s (\(String(format: "%.1f", finalFPS)) fps)"
+            )
+        }
+    }
+
+    // Legacy method - keep for backward compatibility
     private func processTimelineWithStreamCopying(
         baseContext: AVFormatContext,
         baseStream: AVStream,
@@ -814,6 +990,108 @@ public class SwiftFFmpegProResCompositor {
         }
     }
 
+    private func copySegmentFramesWithOffset(
+        segment: FFmpegGradedSegment,
+        outputContext: AVFormatContext,
+        outputVideoStream: AVStream,
+        startFrame: Int,
+        frameCount: Int,
+        segmentStartOffset: Int,
+        baseProperties: VideoStreamProperties
+    ) async throws {
+
+        // Open segment context for reading
+        let segmentContext = try AVFormatContext(url: segment.url.path)
+
+        // Use cached properties to eliminate expensive findStreamInfo() call!
+        if segment.cachedStreamProperties != nil {
+            print("    ⚡️ Using cached properties (skipping analysis!)")
+            // Skip findStreamInfo() - we already have all the properties!
+        } else {
+            // Fallback: analyze if no cached properties (shouldn't happen)
+            print("    ⚠️ No cached properties, analyzing segment...")
+            let segmentAnalysisStart = CFAbsoluteTimeGetCurrent()
+            try segmentContext.findStreamInfo()
+            let segmentAnalysisEnd = CFAbsoluteTimeGetCurrent()
+            let analysisTime = segmentAnalysisEnd - segmentAnalysisStart
+            print("    🔍 Segment analysis: \(String(format: "%.3f", analysisTime))s")
+        }
+
+        guard
+            let segmentVideoStream = segmentContext.streams.first(where: {
+                $0.codecParameters.width > 0 && $0.codecParameters.height > 0
+            })
+        else {
+            throw FFmpegCompositorError.noVideoStream
+        }
+
+        let packet = AVPacket()
+        var framesSkipped = 0
+        var framesCopied = 0
+
+        // Calculate exact frame duration once for consistent timing
+        let frameDuration = AVMath.rescale(
+            1,  // One frame duration
+            AVRational(num: baseProperties.frameRate.den, den: baseProperties.frameRate.num),
+            outputVideoStream.timebase,
+            rounding: .nearInf,
+            passMinMax: true
+        )
+
+        // Calculate starting PTS using frame-based arithmetic for precision
+        var currentPTS = Int64(startFrame) * frameDuration
+
+        let segmentReadStart = CFAbsoluteTimeGetCurrent()
+
+        if segmentStartOffset > 0 {
+            print("🔍 Skipping \(segmentStartOffset) frames to reach offset...")
+        }
+
+        print("🚀 Bulk copying segment: \(frameCount) frames at passthrough speed")
+
+        // Read and process segment frames
+        while framesCopied < frameCount {
+            do {
+                try segmentContext.readFrame(into: packet)
+
+                if packet.streamIndex == segmentVideoStream.index {
+                    // Skip frames until we reach the offset
+                    if framesSkipped < segmentStartOffset {
+                        framesSkipped += 1
+                        packet.unref()
+                        continue
+                    }
+
+                    // Direct stream copy with continuous timeline (FAST!)
+                    packet.streamIndex = outputVideoStream.index
+                    packet.pts = currentPTS
+                    packet.dts = currentPTS
+                    packet.duration = frameDuration
+
+                    // Direct write without re-encoding (passthrough!)
+                    try outputContext.interleavedWriteFrame(packet)
+
+                    framesCopied += 1
+                    currentPTS += frameDuration
+                    lastOutputDTS = packet.dts
+                }
+
+                packet.unref()
+            } catch let error as SwiftFFmpeg.AVError where error == .eof {
+                print("⚠️ Segment EOF after \(framesCopied) frames (expected \(frameCount))")
+                break
+            }
+        }
+
+        let segmentReadEnd = CFAbsoluteTimeGetCurrent()
+        let segmentReadTime = segmentReadEnd - segmentReadStart
+        let segmentReadFPS = Double(framesCopied) / segmentReadTime
+        print(
+            "✅ Segment passthrough: \(framesCopied) frames copied (skipped \(framesSkipped)) in \(String(format: "%.3f", segmentReadTime))s (\(String(format: "%.1f", segmentReadFPS)) fps)"
+        )
+    }
+
+    // Legacy method without offset support
     private func copySegmentFrames(
         segment: FFmpegGradedSegment,
         outputContext: AVFormatContext,

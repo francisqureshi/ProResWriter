@@ -190,7 +190,7 @@ public final class FrameRateManager {
 
 extension AVRational {
     /// Convert rational to float for compatibility
-    var floatValue: Float {
+    public var floatValue: Float {
         return Float(num) / Float(den)
     }
 
