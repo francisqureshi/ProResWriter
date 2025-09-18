@@ -6,6 +6,7 @@
 //
 
 import Foundation
+@_exported import struct SwiftFFmpeg.AVRational
 
 /// ProResWriterCore - Professional Post-Production Workflow Automation
 ///
@@ -65,6 +66,7 @@ public final class ProResWriterCore {
         // Static library - no instantiation needed
     }
 }
+
 
 // MARK: - Public API Exports
 
