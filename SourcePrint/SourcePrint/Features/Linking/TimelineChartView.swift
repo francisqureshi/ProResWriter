@@ -5,23 +5,23 @@
 //  Created by Francis Qureshi on 19/09/2025.
 //
 
-import SwiftUI
 import Charts
 import ProResWriterCore
+import SwiftUI
 
 struct TimelineChartView: View {
     let visualizationData: TimelineVisualization
     let ocfFileName: String
 
-    private let chartHeight: CGFloat = 120
-    private let trackHeight: CGFloat = 10
+    private let chartHeight: CGFloat = 30
+    private let trackHeight: CGFloat = 4
+
+    private var hasVFX: Bool {
+        visualizationData.placements.contains(where: { $0.isVFX })
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Timeline: \(ocfFileName)")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-
+        VStack(alignment: .leading, spacing: 0) {
             Chart {
                 // Blank rush background (bottom track, y=0)
                 RuleMark(
@@ -30,55 +30,50 @@ struct TimelineChartView: View {
                     y: .value("Track", 0)
                 )
                 .foregroundStyle(Color.gray.opacity(0.3))
-                .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .round))
+                .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
 
                 // Regular segments (middle track, y=1)
-                ForEach(visualizationData.placements.filter { !$0.isVFX }, id: \.segment.url) { placement in
+                ForEach(visualizationData.placements.filter { !$0.isVFX }, id: \.segment.url) {
+                    placement in
                     RuleMark(
                         xStart: .value("Start", placement.startFrame),
                         xEnd: .value("End", placement.endFrame),
                         y: .value("Track", 1)
                     )
                     .foregroundStyle(Color(hex: placement.color) ?? .blue)
-                    .lineStyle(StrokeStyle(lineWidth: trackHeight * 0.8, lineCap: .round))
+                    .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                 }
 
-                // VFX segments (top track, y=2)
-                ForEach(visualizationData.placements.filter { $0.isVFX }, id: \.segment.url) { placement in
-                    RuleMark(
-                        xStart: .value("Start", placement.startFrame),
-                        xEnd: .value("End", placement.endFrame),
-                        y: .value("Track", 2)
-                    )
-                    .foregroundStyle(Color(hex: placement.color) ?? .red)
-                    .lineStyle(StrokeStyle(lineWidth: trackHeight * 0.8, lineCap: .round))
+                // VFX segments (top track, y=2) - only show if VFX exists
+                if hasVFX {
+                    ForEach(visualizationData.placements.filter { $0.isVFX }, id: \.segment.url) {
+                        placement in
+                        RuleMark(
+                            xStart: .value("Start", placement.startFrame),
+                            xEnd: .value("End", placement.endFrame),
+                            y: .value("Track", 2)
+                        )
+                        .foregroundStyle(Color(hex: placement.color) ?? .red)
+                        .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
+                    }
                 }
 
                 // Conflict zones as overlay indicators
-                ForEach(Array(visualizationData.conflictZones.enumerated()), id: \.offset) { index, conflict in
+                ForEach(Array(visualizationData.conflictZones.enumerated()), id: \.offset) {
+                    index, conflict in
                     RuleMark(
                         xStart: .value("Start", conflict.start),
                         xEnd: .value("End", conflict.end),
                         y: .value("Track", 2.5)
                     )
                     .foregroundStyle(Color.orange.opacity(0.8))
-                    .lineStyle(StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .lineStyle(StrokeStyle(lineWidth: 8, lineCap: .butt))
                 }
             }
             .frame(height: chartHeight)
-            .chartYScale(domain: -0.3...2.8)
+            .chartYScale(domain: hasVFX ? 0...2 : 0...1)
             .chartXScale(domain: 0...visualizationData.totalFrames)
-            .chartYAxis {
-                AxisMarks(position: .leading, values: [0, 1, 2]) { value in
-                    if let intValue = value.as(Int.self) {
-                        AxisValueLabel {
-                            Text(trackLabel(for: intValue))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
+            .chartYAxis(.hidden)
             .chartXAxis {
                 AxisMarks(position: .bottom) { value in
                     if let intValue = value.as(Int.self) {
@@ -92,31 +87,10 @@ struct TimelineChartView: View {
                 }
             }
 
-            // Stats summary
-            HStack {
-                Text("\(visualizationData.placements.count) segments")
-                Text("•")
-                Text("\(visualizationData.placements.filter(\.isVFX).count) VFX")
-                Text("•")
-                Text("\(visualizationData.conflictZones.count) conflicts")
-                Spacer()
-                Text("\(visualizationData.totalFrames) frames")
-            }
-            .font(.caption2)
-            .foregroundColor(.secondary)
         }
-        .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 
-    private func trackLabel(for track: Int) -> String {
-        switch track {
-        case 0: return "Rush"
-        case 1: return "Segs"
-        case 2: return "VFX"
-        default: return ""
-        }
-    }
 }
 
 // MARK: - Color Helper Extension
@@ -126,13 +100,16 @@ extension Color {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
+        let a: UInt64
+        let r: UInt64
+        let g: UInt64
+        let b: UInt64
         switch hex.count {
-        case 3: // RGB (12-bit)
+        case 3:  // RGB (12-bit)
             (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
+        case 6:  // RGB (24-bit)
             (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
+        case 8:  // ARGB (32-bit)
             (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
             return nil
@@ -192,7 +169,7 @@ extension Color {
                 isVFX: true,
                 overwrittenRanges: [(220, 280)],
                 color: "#FF6B6B"
-            )
+            ),
         ],
         conflictZones: [
             (start: 200, end: 350, description: "segment1.mov vs vfx_shot.mov")
@@ -205,3 +182,4 @@ extension Color {
     )
     .padding()
 }
+
