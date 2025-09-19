@@ -10,6 +10,7 @@ import SwiftUI
 
 struct LinkingResultsView: View {
     @ObservedObject var project: Project
+    let timelineVisualizationData: [String: TimelineVisualization]
     @EnvironmentObject var projectManager: ProjectManager
     var onPerformLinking: (() -> Void)? = nil
     var onGenerateBlankRushes: (() -> Void)? = nil
@@ -208,7 +209,11 @@ struct LinkingResultsView: View {
                                 .tag(linkedSegment.segment.fileName)
                             }
                         } label: {
-                            OCFParentHeaderView(parent: parent, project: project)
+                            OCFParentHeaderView(
+                                parent: parent,
+                                project: project,
+                                timelineVisualization: timelineVisualizationData[parent.ocf.fileName]
+                            )
                         }
                         .tag(parent.ocf.fileName)
                         .contextMenu {
@@ -384,8 +389,10 @@ struct LinkingResultsView: View {
 struct OCFParentHeaderView: View {
     let parent: OCFParent
     let project: Project
+    let timelineVisualization: TimelineVisualization?
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(parent.ocf.fileName)
@@ -453,6 +460,15 @@ struct OCFParentHeaderView: View {
             }
         }
         .padding(.vertical, 4)
+
+        // Timeline visualization
+        if let timelineData = timelineVisualization {
+            TimelineChartView(
+                visualizationData: timelineData,
+                ocfFileName: parent.ocf.fileName
+            )
+        }
+        }
     }
 }
 

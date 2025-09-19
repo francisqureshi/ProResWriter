@@ -86,11 +86,26 @@ public struct TimelineVisualization {
         public let isVFX: Bool
         public let overwrittenRanges: [(start: Int, end: Int)]
         public let color: String // Hex color for UI
+
+        public init(segment: FFmpegGradedSegment, startFrame: Int, endFrame: Int, isVFX: Bool, overwrittenRanges: [(start: Int, end: Int)], color: String) {
+            self.segment = segment
+            self.startFrame = startFrame
+            self.endFrame = endFrame
+            self.isVFX = isVFX
+            self.overwrittenRanges = overwrittenRanges
+            self.color = color
+        }
     }
 
     public let totalFrames: Int
     public let placements: [SegmentPlacement]
     public let conflictZones: [(start: Int, end: Int, description: String)]
+
+    public init(totalFrames: Int, placements: [SegmentPlacement], conflictZones: [(start: Int, end: Int, description: String)]) {
+        self.totalFrames = totalFrames
+        self.placements = placements
+        self.conflictZones = conflictZones
+    }
 }
 
 // MARK: - Frame Ownership Analyzer

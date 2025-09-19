@@ -19,6 +19,7 @@ struct LinkingTab: View {
     @State private var currentClipName: String = ""
     @State private var currentFileIndex: Int = 0
     @State private var totalFileCount: Int = 0
+    @State private var timelineVisualizationData: [String: TimelineVisualization] = [:]
     
     var body: some View {
         VStack(spacing: 20) {
@@ -73,7 +74,8 @@ struct LinkingTab: View {
             
             // Linking Results Display
             LinkingResultsView(
-                project: project, 
+                project: project,
+                timelineVisualizationData: timelineVisualizationData,
                 onPerformLinking: performLinking,
                 onGenerateBlankRushes: generateBlankRushes
             )
@@ -104,11 +106,17 @@ struct LinkingTab: View {
 
             // Preview processing analysis for each OCF parent
             var analysisResults: [(String, AnalysisStatistics)] = []
+            var visualizationResults: [String: TimelineVisualization] = [:]
 
             for parent in result.parentsWithChildren {
                 do {
                     let processingPlan = try await generateProcessingPlan(for: parent)
                     analysisResults.append((parent.ocf.fileName, processingPlan.statistics))
+
+                    // Store visualization data if available
+                    if let visualizationData = processingPlan.visualizationData {
+                        visualizationResults[parent.ocf.fileName] = visualizationData
+                    }
 
                     await MainActor.run {
                         let stats = processingPlan.statistics
@@ -124,6 +132,10 @@ struct LinkingTab: View {
             await MainActor.run {
                 project.updateLinkingResult(result)
                 projectManager.saveProject(project)
+
+                // Store visualization data for timeline display
+                timelineVisualizationData = visualizationResults
+
                 isLinking = false
                 linkingProgress = ""
                 progressValue = 0.0
