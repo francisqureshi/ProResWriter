@@ -212,14 +212,15 @@ struct LinkingResultsView: View {
                             OCFParentHeaderView(
                                 parent: parent,
                                 project: project,
-                                timelineVisualization: timelineVisualizationData[parent.ocf.fileName]
+                                timelineVisualization: timelineVisualizationData[parent.ocf.fileName],
+                                selectedSegmentFileName: selectedLinkedFiles.first
                             )
                         }
                         .tag(parent.ocf.fileName)
                         .contextMenu {
                             OCFParentContextMenu(
-                                parent: parent, 
-                                project: project, 
+                                parent: parent,
+                                project: project,
                                 projectManager: projectManager,
                                 selectedParents: getSelectedParents(),
                                 allParents: confidentlyLinkedParents
@@ -390,6 +391,7 @@ struct OCFParentHeaderView: View {
     let parent: OCFParent
     let project: Project
     let timelineVisualization: TimelineVisualization?
+    let selectedSegmentFileName: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -465,7 +467,8 @@ struct OCFParentHeaderView: View {
         if let timelineData = timelineVisualization {
             TimelineChartView(
                 visualizationData: timelineData,
-                ocfFileName: parent.ocf.fileName
+                ocfFileName: parent.ocf.fileName,
+                selectedSegmentFileName: selectedSegmentFileName
             )
         }
         }

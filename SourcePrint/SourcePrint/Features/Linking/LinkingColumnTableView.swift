@@ -30,6 +30,17 @@ struct LinkedResultsColumnTableView: View {
     // Selection state
     @State private var selectedRowId: UUID? = nil
 
+    // Get selected segment filename for timeline highlighting
+    private var selectedSegmentFileName: String? {
+        guard let selectedRowId = selectedRowId,
+              let selectedRow = tableData.first(where: { $0.id == selectedRowId }),
+              selectedRow.type == .linkedSegment,
+              let linkedSegment = selectedRow.linkedSegment else {
+            return nil
+        }
+        return linkedSegment.segment.fileName
+    }
+
     // Minimum column widths
     private let minClipNameWidth: CGFloat = 150
     private let minTypeWidth: CGFloat = 60

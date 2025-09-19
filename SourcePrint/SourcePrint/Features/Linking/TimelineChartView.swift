@@ -12,6 +12,7 @@ import SwiftUI
 struct TimelineChartView: View {
     let visualizationData: TimelineVisualization
     let ocfFileName: String
+    let selectedSegmentFileName: String?
 
     private let chartHeight: CGFloat = 30
     private let trackHeight: CGFloat = 4
@@ -35,12 +36,13 @@ struct TimelineChartView: View {
                 // Regular segments (middle track, y=1)
                 ForEach(visualizationData.placements.filter { !$0.isVFX }, id: \.segment.url) {
                     placement in
+                    let isSelected = selectedSegmentFileName == placement.segment.url.lastPathComponent
                     RuleMark(
                         xStart: .value("Start", placement.startFrame),
                         xEnd: .value("End", placement.endFrame),
                         y: .value("Track", 1)
                     )
-                    .foregroundStyle(Color(hex: placement.color) ?? .blue)
+                    .foregroundStyle(isSelected ? Color.white : (Color(hex: placement.color) ?? .blue))
                     .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                 }
 
@@ -48,12 +50,13 @@ struct TimelineChartView: View {
                 if hasVFX {
                     ForEach(visualizationData.placements.filter { $0.isVFX }, id: \.segment.url) {
                         placement in
+                        let isSelected = selectedSegmentFileName == placement.segment.url.lastPathComponent
                         RuleMark(
                             xStart: .value("Start", placement.startFrame),
                             xEnd: .value("End", placement.endFrame),
                             y: .value("Track", 2)
                         )
-                        .foregroundStyle(Color(hex: placement.color) ?? .red)
+                        .foregroundStyle(isSelected ? Color.white : (Color(hex: placement.color) ?? .red))
                         .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                     }
                 }
@@ -178,7 +181,8 @@ extension Color {
 
     TimelineChartView(
         visualizationData: sampleVisualization,
-        ocfFileName: "C001_0101.mov"
+        ocfFileName: "C001_0101.mov",
+        selectedSegmentFileName: nil
     )
     .padding()
 }
