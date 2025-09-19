@@ -46,19 +46,17 @@ struct TimelineChartView: View {
                     .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                 }
 
-                // VFX segments (top track, y=2) - only show if VFX exists
-                if hasVFX {
-                    ForEach(visualizationData.placements.filter { $0.isVFX }, id: \.segment.url) {
-                        placement in
-                        let isSelected = selectedSegmentFileName == placement.segment.url.lastPathComponent
-                        RuleMark(
-                            xStart: .value("Start", placement.startFrame),
-                            xEnd: .value("End", placement.endFrame),
-                            y: .value("Track", 2)
-                        )
-                        .foregroundStyle(isSelected ? Color.white : (Color(hex: placement.color) ?? .red))
-                        .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
-                    }
+                // VFX segments (top track, y=2) - always show track space
+                ForEach(visualizationData.placements.filter { $0.isVFX }, id: \.segment.url) {
+                    placement in
+                    let isSelected = selectedSegmentFileName == placement.segment.url.lastPathComponent
+                    RuleMark(
+                        xStart: .value("Start", placement.startFrame),
+                        xEnd: .value("End", placement.endFrame),
+                        y: .value("Track", 2)
+                    )
+                    .foregroundStyle(isSelected ? Color.white : (Color(hex: placement.color) ?? .red))
+                    .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                 }
 
                 // Conflict zones as overlay indicators
@@ -74,7 +72,7 @@ struct TimelineChartView: View {
                 }
             }
             .frame(height: chartHeight)
-            .chartYScale(domain: hasVFX ? 0...2 : 0...1)
+            .chartYScale(domain: 0...2)
             .chartXScale(domain: 0...visualizationData.totalFrames)
             .chartYAxis(.hidden)
             .chartXAxis {
@@ -92,6 +90,7 @@ struct TimelineChartView: View {
 
         }
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .allowsHitTesting(false)
     }
 
 }

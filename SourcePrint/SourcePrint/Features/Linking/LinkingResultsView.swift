@@ -200,19 +200,32 @@ struct LinkingResultsView: View {
                 List(selection: $selectedLinkedFiles) {
                     ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
                         DisclosureGroup {
-                            ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
-                                TreeLinkedSegmentRowView(
-                                    linkedSegment: linkedSegment,
-                                    isLast: linkedSegment.segment.fileName
-                                        == parent.children.last?.segment.fileName
-                                )
-                                .tag(linkedSegment.segment.fileName)
+                            Group {
+                                // Timeline between header and segments
+                                if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
+                                    TimelineChartView(
+                                        visualizationData: timelineData,
+                                        ocfFileName: parent.ocf.fileName,
+                                        selectedSegmentFileName: selectedLinkedFiles.first
+                                    )
+                                    .padding(.vertical, 8)
+                                }
+
+                                // Child segments
+                                ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                                    TreeLinkedSegmentRowView(
+                                        linkedSegment: linkedSegment,
+                                        isLast: linkedSegment.segment.fileName
+                                            == parent.children.last?.segment.fileName
+                                    )
+                                    .tag(linkedSegment.segment.fileName)
+                                }
                             }
                         } label: {
                             OCFParentHeaderView(
                                 parent: parent,
                                 project: project,
-                                timelineVisualization: timelineVisualizationData[parent.ocf.fileName],
+                                timelineVisualization: nil,
                                 selectedSegmentFileName: selectedLinkedFiles.first
                             )
                         }
@@ -512,12 +525,12 @@ struct TreeLinkedSegmentRowView: View {
                 .foregroundColor(AppTheme.segmentColor)
                 .frame(width: 16)
 
-            // VFX indicator
-            if isVFXShot {
-                Image(systemName: "wand.and.stars")
-                    .foregroundColor(.purple)
-                    .frame(width: 16)
-            }
+            // // VFX indicator
+            // if isVFXShot {
+            //     Image(systemName: "wand.and.stars")
+            //         .foregroundColor(.purple)
+            //         .frame(width: 16)
+            // }
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
