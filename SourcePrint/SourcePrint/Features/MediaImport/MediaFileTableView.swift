@@ -70,7 +70,7 @@ struct MediaFileTableView: View {
     private var tableView: some View {
         List(files, id: \.fileName, selection: $selection) { file in
             MediaFileTableRowView(
-                file: file,
+                file: file.toDisplayInfo(),
                 type: type,
                 onVFXToggle: onVFXToggle
             )
@@ -107,7 +107,7 @@ struct MediaFileTableView: View {
 }
 
 struct MediaFileTableRowView: View {
-    let file: MediaFileInfo
+    let file: DisplayMediaInfo
     let type: MediaFileTableView.MediaType
     let onVFXToggle: ((String, Bool) -> Void)?
 
@@ -153,25 +153,19 @@ struct MediaFileTableRowView: View {
                     // Metadata row
                     HStack(spacing: 1) {
                         // Duration
-                        if let frames = file.durationInFrames, let fps = file.frameRate {
-                            Text("\(Double(frames) / Double(fps), specifier: "%.2f")s")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Text(file.durationDisplay)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
                         // Frame rate
-                        if let fps = file.frameRate {
-                            Text("\(fps, specifier: "%.3f")fps")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Text(file.frameRateDisplay)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
                         // Resolution
-                        if let resolution = file.displayResolution {
-                            Text("\(Int(resolution.width))×\(Int(resolution.height))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Text(file.resolutionDisplay)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
                         // Timecode
                         if let timecode = file.sourceTimecode {
@@ -183,7 +177,7 @@ struct MediaFileTableRowView: View {
                         Spacer()
 
                         // Media type badge
-                        Text(mediaTypeDisplayName(file.mediaType))
+                        Text(file.mediaTypeDisplay)
                             .font(.caption2)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
@@ -198,65 +192,42 @@ struct MediaFileTableRowView: View {
         }
     }
 
-    private func mediaTypeDisplayName(_ mediaType: MediaType) -> String {
-        switch mediaType {
-        case .originalCameraFile:
-            return "OCF"
-        case .gradedSegment:
-            return "Segment"
-        }
-    }
 }
 
 #Preview {
-    // Create sample MediaFileInfo for preview
-    let sampleFiles = [
-        MediaFileInfo(
-            fileName: "C20250825_0303.mov",
-            url: URL(fileURLWithPath: "/path/to/file1.mov"),
-            resolution: CGSize(width: 3840, height: 2160),
-            displayResolution: CGSize(width: 3840, height: 2160),
-            sampleAspectRatio: "1:1",
-            frameRate: 25.0,
-            sourceTimecode: "20:16:31:13",
-            endTimecode: "20:17:16:01",
-            durationInFrames: 1320,
-            isDropFrame: false,
-            reelName: nil,
-            isInterlaced: false,
-            fieldOrder: "progressive",
-            mediaType: .originalCameraFile
-        ),
-        MediaFileInfo(
-            fileName: "Segment_001_VFX.mov",
-            url: URL(fileURLWithPath: "/path/to/file2.mov"),
-            resolution: CGSize(width: 3840, height: 2160),
-            displayResolution: CGSize(width: 3840, height: 2160),
-            sampleAspectRatio: "1:1",
-            frameRate: 59.94,
-            sourceTimecode: "01:00:00:00",
-            endTimecode: "01:00:10:00",
-            durationInFrames: 600,
-            isDropFrame: true,
-            reelName: nil,
-            isInterlaced: false,
-            fieldOrder: "progressive",
-            mediaType: .gradedSegment,
-            isVFXShot: true
-        ),
-    ]
-
-    MediaFileTableView(
-        files: sampleFiles,
-        type: .segment,
-        selectedFiles: .constant([]),
-        onVFXToggle: { fileName, isVFX in
-            print("Toggle VFX for \(fileName): \(isVFX)")
-        },
-        onRemoveFiles: { fileNames in
-            print("Remove files: \(fileNames)")
-        }
+    // Create sample DisplayMediaInfo for preview
+    let sampleFile = DisplayMediaInfo(
+        fileName: "Segment_001_VFX.mov",
+        url: URL(fileURLWithPath: "/path/to/file2.mov"),
+        resolution: CGSize(width: 3840, height: 2160),
+        displayResolution: CGSize(width: 3840, height: 2160),
+        sampleAspectRatio: "1:1",
+        frameRateDisplay: "59.940fps (60000/1001)",
+        frameRateValue: 59.94,
+        isDropFrame: true,
+        sourceTimecode: "01:00:00:00",
+        endTimecode: "01:00:10:00",
+        durationInFrames: 600,
+        durationSeconds: 10.01,
+        reelName: nil,
+        isInterlaced: false,
+        fieldOrder: "progressive",
+        mediaType: .gradedSegment,
+        isVFXShot: true
     )
+
+    VStack {
+        Text("Preview of MediaFileTableRowView")
+            .font(.headline)
+
+        MediaFileTableRowView(
+            file: sampleFile,
+            type: .segment,
+            onVFXToggle: { fileName, isVFX in
+                print("Toggle VFX for \(fileName): \(isVFX)")
+            }
+        )
+    }
     .frame(height: 400)
 }
 

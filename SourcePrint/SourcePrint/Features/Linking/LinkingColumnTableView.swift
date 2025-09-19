@@ -625,17 +625,17 @@ struct LinkingTableRowView: View {
         switch row.type {
         case .ocfParent:
             if let frames = row.ocfParent?.ocf.durationInFrames,
-                let fps = row.ocfParent?.ocf.frameRate, fps > 0
+                let fps = row.ocfParent?.ocf.frameRate, fps.floatValue > 0
             {
-                let seconds = Float(frames) / fps
+                let seconds = Float(frames) / fps.floatValue
                 return String(format: "%.2fs", seconds)
             }
             return ""
         case .linkedSegment:
             if let frames = row.linkedSegment?.segment.durationInFrames,
-                let fps = row.linkedSegment?.segment.frameRate, fps > 0
+                let fps = row.linkedSegment?.segment.frameRate, fps.floatValue > 0
             {
-                let seconds = Float(frames) / fps
+                let seconds = Float(frames) / fps.floatValue
                 return String(format: "%.2fs", seconds)
             }
             return ""
@@ -676,12 +676,12 @@ struct LinkingTableRowView: View {
         switch row.type {
         case .ocfParent:
             if let fps = row.ocfParent?.ocf.frameRate {
-                return String(format: "%.3f", fps)
+                return String(format: "%.3f", fps.floatValue)
             }
             return ""
         case .linkedSegment:
             if let fps = row.linkedSegment?.segment.frameRate {
-                return String(format: "%.3f", fps)
+                return String(format: "%.3f", fps.floatValue)
             }
             return ""
         }

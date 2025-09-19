@@ -397,7 +397,7 @@ struct OCFParentHeaderView: View {
                         .monospacedDigit()
                     Text("•")
                     if let fps = parent.ocf.frameRate {
-                        Text("\(fps, specifier: "%.3f") fps")
+                        Text("\(fps.floatValue, specifier: "%.3f") fps")
                             .monospacedDigit()
                     }
                     if let startTC = parent.ocf.sourceTimecode {
@@ -558,7 +558,7 @@ struct UnmatchedFileRowView: View {
 
                 HStack {
                     if let fps = file.frameRate {
-                        Text("\(fps, specifier: "%.3f") fps")
+                        Text("\(fps.floatValue, specifier: "%.3f") fps")
                             .monospacedDigit()
                     }
                     if let startTC = file.sourceTimecode {
@@ -683,7 +683,7 @@ struct OCFParentRowView: View {
                             .monospacedDigit()
                         Text("•")
                         if let fps = parent.ocf.frameRate {
-                            Text("\(fps, specifier: "%.3f") fps")
+                            Text("\(fps.floatValue, specifier: "%.3f") fps")
                                 .monospacedDigit()
                         }
                         if let startTC = parent.ocf.sourceTimecode {

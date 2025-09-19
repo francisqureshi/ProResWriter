@@ -66,7 +66,9 @@ class OCFParentItem: HierarchicalItem, ObservableObject {
             parts.append("\(Int(resolution.width))x\(Int(resolution.height))")
         }
         
-        parts.append(ocfFile.frameRateDescription)
+        if let frameRate = ocfFile.frameRate {
+            parts.append(FrameRateManager.getFrameRateDescription(frameRate: frameRate, isDropFrame: ocfFile.isDropFrame))
+        }
         
         if let reel = ocfFile.reelName {
             parts.append("Reel: \(reel)")
@@ -83,7 +85,7 @@ class OCFParentItem: HierarchicalItem, ObservableObject {
         }
         
         // Calculate end timecode using SMPTE
-        let smpte = SMPTE(fps: Double(frameRate), dropFrame: ocfFile.isDropFrame ?? false)
+        let smpte = SMPTE(fps: Double(frameRate.floatValue), dropFrame: ocfFile.isDropFrame ?? false)
         
         do {
             let startFrames = try smpte.getFrames(tc: startTC)
@@ -141,7 +143,9 @@ class SegmentChildItem: HierarchicalItem, ObservableObject {
             parts.append("\(Int(resolution.width))x\(Int(resolution.height))")
         }
         
-        parts.append(segment.frameRateDescription)
+        if let frameRate = segment.frameRate {
+            parts.append(FrameRateManager.getFrameRateDescription(frameRate: frameRate, isDropFrame: segment.isDropFrame))
+        }
         parts.append("Confidence: \(linkConfidence)")
         
         if isModified {
@@ -164,7 +168,7 @@ class SegmentChildItem: HierarchicalItem, ObservableObject {
         }
         
         // Calculate end timecode using SMPTE
-        let smpte = SMPTE(fps: Double(frameRate), dropFrame: segment.isDropFrame ?? false)
+        let smpte = SMPTE(fps: Double(frameRate.floatValue), dropFrame: segment.isDropFrame ?? false)
         
         do {
             let startFrames = try smpte.getFrames(tc: startTC)
@@ -216,7 +220,9 @@ class OCFParentItemWithModification: HierarchicalItem, ObservableObject {
             parts.append("\(Int(resolution.width))x\(Int(resolution.height))")
         }
         
-        parts.append(ocfFile.frameRateDescription)
+        if let frameRate = ocfFile.frameRate {
+            parts.append(FrameRateManager.getFrameRateDescription(frameRate: frameRate, isDropFrame: ocfFile.isDropFrame))
+        }
         
         if let reel = ocfFile.reelName {
             parts.append("Reel: \(reel)")
@@ -239,7 +245,7 @@ class OCFParentItemWithModification: HierarchicalItem, ObservableObject {
         }
         
         // Calculate end timecode using SMPTE
-        let smpte = SMPTE(fps: Double(frameRate), dropFrame: ocfFile.isDropFrame ?? false)
+        let smpte = SMPTE(fps: Double(frameRate.floatValue), dropFrame: ocfFile.isDropFrame ?? false)
         
         do {
             let startFrames = try smpte.getFrames(tc: startTC)

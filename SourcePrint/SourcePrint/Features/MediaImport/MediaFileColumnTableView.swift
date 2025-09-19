@@ -233,7 +233,7 @@ struct MediaFileColumnTableView: View {
     private var fileRowsView: some View {
         List(files, id: \.fileName, selection: $selection) { file in
             MediaFileColumnRowView(
-                file: file,
+                file: file.toDisplayInfo(),
                 type: type,
                 onVFXToggle: onVFXToggle,
                 columnWidths: ColumnWidths(
@@ -368,7 +368,7 @@ extension View {
 }
 
 struct MediaFileColumnRowView: View {
-    let file: MediaFileInfo
+    let file: DisplayMediaInfo
     let type: MediaFileColumnTableView.MediaType
     let onVFXToggle: ((String, Bool) -> Void)?
     let columnWidths: ColumnWidths
@@ -427,22 +427,15 @@ struct MediaFileColumnRowView: View {
                 .padding(.horizontal, 4)
             
             // Duration Column
-            Group {
-                if let frames = file.durationInFrames, let fps = file.frameRate {
-                    Text("\(Double(frames) / Double(fps), specifier: "%.2f")s")
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                } else {
-                    Text("—")
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(width: columnWidths.duration, alignment: .leading)
-            .padding(.horizontal, 4)
-            
+            Text(file.durationDisplay)
+                .font(.system(size: 12))
+                .monospacedDigit()
+                .lineLimit(1)
+                .frame(width: columnWidths.duration, alignment: .leading)
+                .padding(.horizontal, 4)
+
             // Frames Column
-            Text(String(format: "%d", file.durationInFrames ?? 0))
+            Text(file.frameCountDisplay)
                 .font(.system(size: 12))
                 .monospacedDigit()
                 .lineLimit(1)
@@ -450,7 +443,7 @@ struct MediaFileColumnRowView: View {
                 .padding(.horizontal, 4)
             
             // Type Column
-            Text(mediaTypeDisplayName(file.mediaType))
+            Text(file.mediaTypeDisplay)
                 .font(.caption)
                 .lineLimit(1)
                 .padding(.horizontal, 4)
@@ -461,27 +454,15 @@ struct MediaFileColumnRowView: View {
                 .padding(.horizontal, 4)
             
             // Resolution Column
-            Group {
-                if let resolution = file.displayResolution {
-                    Text(String(format: "%dx%d", Int(resolution.width), Int(resolution.height)))
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                } else if let resolution = file.resolution {
-                    Text(String(format: "%dx%d", Int(resolution.width), Int(resolution.height)))
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                } else {
-                    Text("—")
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(width: columnWidths.resolution, alignment: .leading)
-            .padding(.horizontal, 4)
+            Text(file.resolutionDisplay)
+                .font(.system(size: 12))
+                .monospacedDigit()
+                .lineLimit(1)
+                .frame(width: columnWidths.resolution, alignment: .leading)
+                .padding(.horizontal, 4)
             
             // FPS Column
-            Text("\(file.frameRate ?? 0, specifier: "%.3f")")
+            Text(String(format: "%.3f", file.frameRateValue))
                 .font(.system(size: 12))
                 .monospacedDigit()
                 .lineLimit(1)
@@ -498,45 +479,42 @@ struct MediaFileColumnRowView: View {
         .padding(.vertical, 2)
     }
     
-    private func mediaTypeDisplayName(_ mediaType: MediaType) -> String {
-        switch mediaType {
-        case .originalCameraFile:
-            return "OCF"
-        case .gradedSegment:
-            return "Segment"
-        }
-    }
 }
 
 #Preview {
     let sampleFiles = [
-        MediaFileInfo(
+        DisplayMediaInfo(
             fileName: "C20250825_0303.mov",
             url: URL(fileURLWithPath: "/path/to/file1.mov"),
             resolution: CGSize(width: 3840, height: 2160),
             displayResolution: CGSize(width: 3840, height: 2160),
             sampleAspectRatio: "1:1",
-            frameRate: 25.0,
+            frameRateDisplay: "25.000fps (25/1)",
+            frameRateValue: 25.0,
+            isDropFrame: false,
             sourceTimecode: "20:16:31:13",
             endTimecode: "20:17:16:01",
             durationInFrames: 1320,
-            isDropFrame: false,
+            durationSeconds: 52.8,
             reelName: nil,
             isInterlaced: false,
             fieldOrder: "progressive",
-            mediaType: .originalCameraFile
+            mediaType: .originalCameraFile,
+            isVFXShot: false
         ),
-        MediaFileInfo(
+        DisplayMediaInfo(
             fileName: "Segment_001_VFX.mov",
             url: URL(fileURLWithPath: "/path/to/file2.mov"),
             resolution: CGSize(width: 3840, height: 2160),
             displayResolution: CGSize(width: 3840, height: 2160),
             sampleAspectRatio: "1:1",
-            frameRate: 59.94,
+            frameRateDisplay: "59.940fps (60000/1001)",
+            frameRateValue: 59.94,
+            isDropFrame: true,
             sourceTimecode: "01:00:00:00",
             endTimecode: "01:00:10:00",
             durationInFrames: 600,
-            isDropFrame: true,
+            durationSeconds: 10.01,
             reelName: nil,
             isInterlaced: false,
             fieldOrder: "progressive",
@@ -545,20 +523,27 @@ struct MediaFileColumnRowView: View {
         )
     ]
     
-    MediaFileColumnTableView(
-        files: sampleFiles,
-        type: .segment,
-        selectedFiles: .constant([]),
-        onVFXToggle: { fileName, isVFX in
-            print("Toggle VFX for \(fileName): \(isVFX)")
-        },
-        onRemoveFiles: { fileNames in
-            print("Remove files: \(fileNames)")
-        },
-        onImportAction: {
-            print("Import action triggered")
-        },
-        isAnalyzing: false
-    )
+    VStack {
+        Text("Preview of MediaFileColumnRowView")
+            .font(.headline)
+
+        MediaFileColumnRowView(
+            file: sampleFiles[1], // VFX segment
+            type: .segment,
+            onVFXToggle: { fileName, isVFX in
+                print("Toggle VFX for \(fileName): \(isVFX)")
+            },
+            columnWidths: ColumnWidths(
+                clipName: 200,
+                startTC: 100,
+                endTC: 100,
+                duration: 80,
+                frames: 70,
+                type: 80,
+                resolution: 100,
+                fps: 60
+            )
+        )
+    }
     .frame(height: 400)
 }

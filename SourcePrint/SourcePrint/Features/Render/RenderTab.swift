@@ -267,7 +267,7 @@ struct RenderTab: View {
                            let duration = segmentInfo.durationInFrames {
                             
                             // Use SMPTE for precise timecode calculation like CLI
-                            let smpte = SMPTE(fps: Double(segmentFrameRate), dropFrame: segmentInfo.isDropFrame ?? false)
+                            let smpte = SMPTE(fps: Double(segmentFrameRate.floatValue), dropFrame: segmentInfo.isDropFrame ?? false)
                             
                             do {
                                 let segmentFrames = try smpte.getFrames(tc: segmentTC)
@@ -276,12 +276,12 @@ struct RenderTab: View {
                                 
                                 let startTime = CMTime(
                                     value: CMTimeValue(relativeFrames),
-                                    timescale: CMTimeScale(segmentFrameRate)
+                                    timescale: CMTimeScale(segmentFrameRate.floatValue)
                                 )
                                 
                                 let segmentDuration = CMTime(
-                                    seconds: Double(duration) / Double(segmentFrameRate),
-                                    preferredTimescale: CMTimeScale(segmentFrameRate * 1000)
+                                    seconds: Double(duration) / Double(segmentFrameRate.floatValue),
+                                    preferredTimescale: CMTimeScale(segmentFrameRate.floatValue * 1000)
                                 )
                                 
                                 let ffmpegSegment = FFmpegGradedSegment(
@@ -291,7 +291,8 @@ struct RenderTab: View {
                                     sourceStartTime: .zero,
                                     isVFXShot: mediaFileInfo.isVFXShot ?? false,
                                     sourceTimecode: segmentInfo.sourceTimecode,
-                                    frameRate: segmentInfo.frameRate,
+                                    frameRate: segmentInfo.frameRate!.floatValue,
+                                    frameRateRational: segmentInfo.frameRate,
                                     isDropFrame: segmentInfo.isDropFrame
                                 )
                                 ffmpegGradedSegments.append(ffmpegSegment)

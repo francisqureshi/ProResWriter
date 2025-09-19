@@ -5,9 +5,33 @@
 
 ## 🎯 TOP PRIORITY TODOS
 
+### Frame Ownership Analysis System ✅ **COMPLETE**
+- **✅ Pre-computed Segment Relationships**: Analyze overlaps and priorities at linking stage
+  - **✅ Grade Overlap Resolution**: Later segments overwrite earlier ones in overlap zones
+  - **✅ VFX Absolute Priority**: VFX shots never overwritten, maintain exact timecode position
+  - **✅ Example**: `[Seg1: TC 1001-1200][VFX: TC 1050-1066][Seg2: TC 1100-1300]`
+    - Result: `Seg1(1001-1049) → VFX(1050-1066) → Seg1(1067-1099) → Seg2(1100-1200) → Seg2(1201-1300)`
+- **✅ Processing Plan Generation**: Convert ownership map to efficient copy ranges for print process
+- **✅ PrintProcess Integration**: SwiftFFmpeg now uses ProcessingPlan with segment offset support
+- **✅ Linking Workflow Integration**: Frame ownership analysis runs during linking stage
+- **⏳ Timeline Visualization Data**: Available for UI timeline preview (pending implementation)
+
+### Code Quality & Data Integrity
+- **⏳ Audit Fallback Values**: Search entire codebase for `??` fallback operators that could mask data quality issues in media analysis, video processing, and frame calculations. Replace silent fallbacks with explicit error handling where missing data should fail fast rather than continue with arbitrary default values.
+
+### Architecture Benefits Achieved:
+- **✅ Single Computation**: Analysis happens once at linking stage (not repeated each print)
+- **✅ Clean Separation**: Analysis logic separate from video processing in `FrameOwnershipAnalyzer.swift`
+- **✅ Debugging Support**: Frame ownership inspection with detailed logging
+- **✅ VFX Protection**: Frame-by-frame ownership ensures VFX shots are never overwritten
+- **✅ Offset Handling**: Partial segment copying with `copySegmentFramesWithOffset` method
+
 ### Critical Issues
-- **Fix VFX printing**: VFX segments printing at wrong timecode position (should use actual VFX timecode anchor, not centering)
-- **UI Preview Timeline**: Create visual timeline/graph showing segment placement for verification and debugging
+- **Fix VFX printing**: ✅ **RESOLVED** by Frame Ownership Analysis system
+- **UI Preview Timeline**: ✅ **DATA AVAILABLE** for timeline preview (visualization data ready)
+
+### Future Optimizations
+- **Remove guessRationalFromFloat**: After Frame Ownership system is complete, ensure all segments always have exact AVRational frame rates from import/linking stage. The guessRationalFromFloat() helper should become unnecessary as we should always know the exact rational (24000/1001 for 23.976, etc.) from the source media analysis.
 
 ## SwiftFFmpeg Print Process ✅
 

@@ -94,10 +94,33 @@ struct LinkingTab: View {
             await MainActor.run {
                 linkingProgress = "Running SegmentOCFLinker..."
             }
-            
+
             let linker = SegmentOCFLinker()
             let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
-            
+
+            await MainActor.run {
+                linkingProgress = "Analyzing frame ownership and overlaps..."
+            }
+
+            // Preview processing analysis for each OCF parent
+            var analysisResults: [(String, AnalysisStatistics)] = []
+
+            for parent in result.parentsWithChildren {
+                do {
+                    let processingPlan = try await generateProcessingPlan(for: parent)
+                    analysisResults.append((parent.ocf.fileName, processingPlan.statistics))
+
+                    await MainActor.run {
+                        let stats = processingPlan.statistics
+                        NSLog("📊 Frame analysis for \(parent.ocf.fileName): \(stats.segmentCount) segments (\(stats.vfxSegmentCount) VFX), \(stats.overlapCount) overlaps")
+                    }
+                } catch {
+                    await MainActor.run {
+                        NSLog("⚠️ Failed to analyze \(parent.ocf.fileName): \(error)")
+                    }
+                }
+            }
+
             await MainActor.run {
                 project.updateLinkingResult(result)
                 projectManager.saveProject(project)
@@ -109,10 +132,59 @@ struct LinkingTab: View {
                 currentFileIndex = 0
                 totalFileCount = 0
                 NSLog("✅ Linking completed: \(result.summary)")
+                NSLog("📊 Analyzed \(analysisResults.count) OCF files for overlaps and VFX priority")
             }
         }
     }
-    
+
+    private func generateProcessingPlan(for parent: OCFParent) async throws -> ProcessingPlan {
+        // Convert MediaFileInfo segments to FFmpegGradedSegments
+        var ffmpegSegments: [FFmpegGradedSegment] = []
+
+        for child in parent.children {
+            let segment = child.segment
+
+            // Create FFmpegGradedSegment from MediaFileInfo
+            let ffmpegSegment = FFmpegGradedSegment(
+                url: segment.url,
+                startTime: CMTime.zero, // Will be calculated by analyzer
+                duration: CMTime(seconds: Double(segment.durationInFrames!) / Double(segment.frameRate!.floatValue), preferredTimescale: 600),
+                sourceStartTime: CMTime.zero,
+                isVFXShot: segment.isVFXShot ?? false,
+                sourceTimecode: segment.sourceTimecode,
+                frameRate: segment.frameRate!.floatValue,
+                frameRateRational: segment.frameRate,
+                isDropFrame: segment.isDropFrame
+            )
+
+            ffmpegSegments.append(ffmpegSegment)
+        }
+
+        // Create base properties from OCF parent
+        let ocf = parent.ocf
+        let baseProperties = VideoStreamProperties(
+            width: Int(ocf.resolution!.width),
+            height: Int(ocf.resolution!.height),
+            frameRate: ocf.frameRate!,
+            frameRateFloat: ocf.frameRate!.floatValue,
+            duration: Double(ocf.durationInFrames!) / Double(ocf.frameRate!.floatValue),
+            timebase: AVRational(num: 1, den: Int32(ocf.frameRate!.floatValue)),
+            timecode: ocf.sourceTimecode
+        )
+
+        let totalFrames = Int(ocf.durationInFrames!)
+
+        // Run the FrameOwnershipAnalyzer
+        let analyzer = FrameOwnershipAnalyzer(
+            baseProperties: baseProperties,
+            segments: ffmpegSegments,
+            totalFrames: totalFrames,
+            verbose: true
+        )
+
+        return try analyzer.analyze()
+    }
+
     private func generateBlankRushes() {
         guard let linkingResult = project.linkingResult else {
             NSLog("⚠️ Cannot generate blank rushes: no linking result")

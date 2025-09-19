@@ -9,7 +9,7 @@ import ProResWriterCore
 import SwiftUI
 
 struct MediaFileRowView: View {
-    let file: MediaFileInfo
+    let file: DisplayMediaInfo
     let type: MediaType
     let onVFXToggle: ((String, Bool) -> Void)?  // Callback to toggle VFX status (fileName, newValue)
 
@@ -41,15 +41,11 @@ struct MediaFileRowView: View {
                     .font(.system(.body, design: .monospaced))
 
                 HStack {
-                    if let frames = file.durationInFrames, let fps = file.frameRate {
-                        Text("\(Double(frames) / Double(fps), specifier: "%.2f")s")
-                    } else {
-                        Text("Unknown duration")
-                    }
+                    Text(file.durationDisplay)
                     Text("•")
-                    Text("\(file.durationInFrames ?? 0) frames")
+                    Text(file.frameCountDisplay + " frames")
                     Text("•")
-                    Text("\(file.frameRate ?? 0, specifier: "%.3f") fps")
+                    Text(file.frameRateDisplay)
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -76,7 +72,7 @@ struct MediaFileRowView: View {
                         .cornerRadius(4)
                 }
 
-                Text("\(file.mediaType)")
+                Text(file.mediaTypeDisplay)
                     .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -100,22 +96,25 @@ struct MediaFileRowView: View {
 }
 
 #Preview {
-    // Create a sample MediaFileInfo for preview
-    let sampleFile = MediaFileInfo(
+    // Create a sample DisplayMediaInfo for preview
+    let sampleFile = DisplayMediaInfo(
         fileName: "C20250825_0303.mov",
         url: URL(fileURLWithPath: "/path/to/file.mov"),
         resolution: CGSize(width: 3840, height: 2160),
         displayResolution: CGSize(width: 3840, height: 2160),
         sampleAspectRatio: "1:1",
-        frameRate: 25.0,
+        frameRateDisplay: "25.000fps (25/1)",
+        frameRateValue: 25.0,
+        isDropFrame: false,
         sourceTimecode: "20:16:31:13",
         endTimecode: "20:17:16:01",
         durationInFrames: 1320,
-        isDropFrame: false,
+        durationSeconds: 52.8,
         reelName: nil,
         isInterlaced: false,
         fieldOrder: "progressive",
-        mediaType: .originalCameraFile
+        mediaType: .originalCameraFile,
+        isVFXShot: false
     )
 
     VStack {

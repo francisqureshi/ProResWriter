@@ -23,6 +23,7 @@ class Project: ObservableObject, Codable, Identifiable {
     @Published var ocfFiles: [MediaFileInfo] = []
     @Published var segments: [MediaFileInfo] = []
     @Published var linkingResult: LinkingResult?
+    // Note: ProcessingPlans are generated on-demand during print process to avoid Codable complexity
 
     // MARK: - Status Tracking
     @Published var blankRushStatus: [String: BlankRushStatus] = [:]  // OCF filename → status
