@@ -968,17 +968,19 @@ struct CompressorStyleOCFCard: View {
     var body: some View {
         VStack(spacing: 0) {
             // Compressor-style header (title bar)
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            }) {
-                HStack {
-                    // OCF filename as main title
+            HStack {
+                // OCF filename as main title (clickable)
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                }) {
                     Text(parent.ocf.fileName)
                         .font(.headline)
                         .foregroundColor(.white)
                         .lineLimit(1)
+                }
+                .buttonStyle(.plain)
 
                     Spacer()
 
@@ -987,11 +989,19 @@ struct CompressorStyleOCFCard: View {
                         // Print Status
                         Button(action: {}) {
                             HStack(spacing: 4) {
-                                Image(systemName: "circle")
-                                    .foregroundColor(.secondary)
-                                Text("Not Printed")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                if let printStatus = project.printStatus[parent.ocf.fileName] {
+                                    Image(systemName: printStatus.icon)
+                                        .foregroundColor(printStatus.color)
+                                    Text(printStatus.displayName)
+                                        .font(.caption)
+                                        .foregroundColor(printStatus.color)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .foregroundColor(.secondary)
+                                    Text("Not Printed")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
                         .buttonStyle(.plain)
@@ -999,25 +1009,40 @@ struct CompressorStyleOCFCard: View {
                         // Blank Rush Status
                         Button(action: {}) {
                             HStack(spacing: 4) {
-                                Image(systemName: "film")
-                                    .foregroundColor(.secondary)
-                                Text("No Blank Rush")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                if project.blankRushFileExists(for: parent.ocf.fileName) {
+                                    Image(systemName: "film.fill")
+                                        .foregroundColor(.green)
+                                    Text("Blank Rush")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                } else {
+                                    Image(systemName: "film")
+                                        .foregroundColor(.secondary)
+                                    Text("No Blank Rush")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
                         .buttonStyle(.plain)
 
-                        // Chevron indicator
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
+                        // Chevron indicator with fixed width and larger click area
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isExpanded.toggle()
+                            }
+                        }) {
+                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                                .frame(width: 20, height: 20)
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                     }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(Color.appBackgroundSecondary)
 
             // Card body (expandable content)
@@ -1058,7 +1083,9 @@ struct CompressorStyleOCFCard: View {
                     .background(Color.appBackgroundTertiary.opacity(0.8))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .padding(8)
+                .padding(.top, 0)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
                 .background(Color.appBackgroundSecondary)
             }
         }
