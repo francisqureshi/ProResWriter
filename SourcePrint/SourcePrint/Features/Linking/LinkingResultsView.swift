@@ -1023,38 +1023,43 @@ struct CompressorStyleOCFCard: View {
             // Card body (expandable content)
             if isExpanded {
                 VStack(spacing: 0) {
-                    // Timeline
-                    if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
-                        TimelineChartView(
-                            visualizationData: timelineData,
-                            ocfFileName: parent.ocf.fileName,
-                            selectedSegmentFileName: selectedLinkedFiles.first
-                        )
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                    }
-
-                    // Linked segments
-                    ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
-                        TreeLinkedSegmentRowView(
-                            linkedSegment: linkedSegment,
-                            isLast: linkedSegment.segment.fileName
-                                == parent.children.last?.segment.fileName
-                        )
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .onTapGesture {
-                            selectedLinkedFiles = [linkedSegment.segment.fileName]
+                    VStack(spacing: 0) {
+                        // Timeline
+                        if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
+                            TimelineChartView(
+                                visualizationData: timelineData,
+                                ocfFileName: parent.ocf.fileName,
+                                selectedSegmentFileName: selectedLinkedFiles.first
+                            )
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
                         }
-                        .background(
-                            selectedLinkedFiles.contains(linkedSegment.segment.fileName)
-                            ? Color.accentColor.opacity(0.2)
-                            : Color.clear
-                        )
+
+                        // Linked segments
+                        ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                            TreeLinkedSegmentRowView(
+                                linkedSegment: linkedSegment,
+                                isLast: linkedSegment.segment.fileName
+                                    == parent.children.last?.segment.fileName
+                            )
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .onTapGesture {
+                                selectedLinkedFiles = [linkedSegment.segment.fileName]
+                            }
+                            .background(
+                                selectedLinkedFiles.contains(linkedSegment.segment.fileName)
+                                ? Color.accentColor.opacity(0.2)
+                                : Color.clear
+                            )
+                        }
                     }
+                    .padding(8)
+                    .background(Color.appBackgroundTertiary.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .padding(8)
-                .background(Color.appBackgroundTertiary.opacity(0.8))
+                .background(Color.appBackgroundSecondary)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
