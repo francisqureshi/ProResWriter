@@ -1050,7 +1050,7 @@ struct CompressorStyleOCFCard: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.appBackgroundSecondary)
+            .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
             .onTapGesture {
                 if selectedOCFParents.contains(parent.ocf.fileName) {
                     selectedOCFParents.remove(parent.ocf.fileName)
@@ -1100,13 +1100,9 @@ struct CompressorStyleOCFCard: View {
                 .padding(.top, 0)
                 .padding(.horizontal, 4)
                 .padding(.bottom, 4)
-                .background(Color.appBackgroundSecondary)
+                .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
     }
 }

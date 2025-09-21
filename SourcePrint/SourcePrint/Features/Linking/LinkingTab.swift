@@ -81,8 +81,35 @@ struct LinkingTab: View {
             )
             .environmentObject(projectManager)
         }
+        .onAppear {
+            generateTimelineVisualizationFromExistingData()
+        }
     }
-    
+
+    private func generateTimelineVisualizationFromExistingData() {
+        guard let linkingResult = project.linkingResult else { return }
+
+        Task {
+            var visualizationResults: [String: TimelineVisualization] = [:]
+
+            for parent in linkingResult.parentsWithChildren {
+                do {
+                    let processingPlan = try await generateProcessingPlan(for: parent)
+
+                    if let visualizationData = processingPlan.visualizationData {
+                        visualizationResults[parent.ocf.fileName] = visualizationData
+                    }
+                } catch {
+                    NSLog("⚠️ Failed to generate timeline visualization for \(parent.ocf.fileName): \(error)")
+                }
+            }
+
+            await MainActor.run {
+                timelineVisualizationData = visualizationResults
+            }
+        }
+    }
+
     private func performLinking() {
         guard !project.ocfFiles.isEmpty && !project.segments.isEmpty else {
             NSLog("⚠️ Cannot link: need both OCF files and segments")
