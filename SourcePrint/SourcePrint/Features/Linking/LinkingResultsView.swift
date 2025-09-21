@@ -234,6 +234,7 @@ struct LinkingResultsView: View {
                                 timelineVisualization: nil,
                                 selectedSegmentFileName: selectedLinkedFiles.first
                             )
+                            .listRowSeparator(.hidden)
                         }
                         .tag(parent.ocf.fileName)
                         .contextMenu {

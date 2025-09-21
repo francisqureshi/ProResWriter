@@ -36,26 +36,30 @@ struct TimelineChartView: View {
                 // Regular segments (middle track, y=1)
                 ForEach(visualizationData.placements.filter { !$0.isVFX }, id: \.segment.url) {
                     placement in
-                    let isSelected = selectedSegmentFileName == placement.segment.url.lastPathComponent
+                    let isSelected =
+                        selectedSegmentFileName == placement.segment.url.lastPathComponent
                     RuleMark(
                         xStart: .value("Start", placement.startFrame),
                         xEnd: .value("End", placement.endFrame),
                         y: .value("Track", 1)
                     )
-                    .foregroundStyle(isSelected ? Color.white : (Color(hex: placement.color) ?? .blue))
+                    .foregroundStyle(
+                        isSelected ? Color.white : Color.appSegment
+                    )
                     .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                 }
 
                 // VFX segments (top track, y=2) - always show track space
                 ForEach(visualizationData.placements.filter { $0.isVFX }, id: \.segment.url) {
                     placement in
-                    let isSelected = selectedSegmentFileName == placement.segment.url.lastPathComponent
+                    let isSelected =
+                        selectedSegmentFileName == placement.segment.url.lastPathComponent
                     RuleMark(
                         xStart: .value("Start", placement.startFrame),
                         xEnd: .value("End", placement.endFrame),
                         y: .value("Track", 2)
                     )
-                    .foregroundStyle(isSelected ? Color.white : (Color(hex: placement.color) ?? .red))
+                    .foregroundStyle(isSelected ? Color.white : Color.appVfxShot)
                     .lineStyle(StrokeStyle(lineWidth: trackHeight, lineCap: .butt))
                 }
 
@@ -185,4 +189,3 @@ extension Color {
     )
     .padding()
 }
-
