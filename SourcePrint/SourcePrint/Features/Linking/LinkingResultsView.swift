@@ -159,6 +159,7 @@ struct LinkingResultsView: View {
         NotificationCenter.default.post(name: .collapseSelectedCards, object: nil)
     }
 
+
     @ViewBuilder
     private var linkingResultsContent: some View {
         HStack(spacing: 0) {
@@ -1014,6 +1015,36 @@ struct CompressorStyleOCFCard: View {
         selectedOCFParents.contains(parent.ocf.fileName)
     }
 
+    private func navigateToNextSegment(in children: [LinkedSegment]) {
+        guard !children.isEmpty else { return }
+
+        if let currentSelected = selectedLinkedFiles.first,
+           let currentIndex = children.firstIndex(where: { $0.segment.fileName == currentSelected }) {
+            // Move to next segment
+            if currentIndex < children.count - 1 {
+                selectedLinkedFiles = [children[currentIndex + 1].segment.fileName]
+            }
+        } else {
+            // No selection, select first segment
+            selectedLinkedFiles = [children[0].segment.fileName]
+        }
+    }
+
+    private func navigateToPreviousSegment(in children: [LinkedSegment]) {
+        guard !children.isEmpty else { return }
+
+        if let currentSelected = selectedLinkedFiles.first,
+           let currentIndex = children.firstIndex(where: { $0.segment.fileName == currentSelected }) {
+            // Move to previous segment
+            if currentIndex > 0 {
+                selectedLinkedFiles = [children[currentIndex - 1].segment.fileName]
+            }
+        } else {
+            // No selection, select last segment
+            selectedLinkedFiles = [children.last!.segment.fileName]
+        }
+    }
+
     private func handleCardSelection() {
         // Check if shift key is pressed for range selection
         let modifierFlags = NSApp.currentEvent?.modifierFlags ?? []
@@ -1149,23 +1180,35 @@ struct CompressorStyleOCFCard: View {
                             .padding(.horizontal, 12)
                         }
 
-                        // Linked segments
-                        ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
-                            TreeLinkedSegmentRowView(
-                                linkedSegment: linkedSegment,
-                                isLast: linkedSegment.segment.fileName
-                                    == parent.children.last?.segment.fileName
-                            )
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .onTapGesture {
-                                selectedLinkedFiles = [linkedSegment.segment.fileName]
+                        // Linked segments container with unified keyboard navigation
+                        VStack(spacing: 0) {
+                            ForEach(Array(parent.children.enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
+                                TreeLinkedSegmentRowView(
+                                    linkedSegment: linkedSegment,
+                                    isLast: linkedSegment.segment.fileName
+                                        == parent.children.last?.segment.fileName
+                                )
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .onTapGesture {
+                                    selectedLinkedFiles = [linkedSegment.segment.fileName]
+                                }
+                                .background(
+                                    selectedLinkedFiles.contains(linkedSegment.segment.fileName)
+                                    ? Color.accentColor.opacity(0.2)
+                                    : Color.clear
+                                )
                             }
-                            .background(
-                                selectedLinkedFiles.contains(linkedSegment.segment.fileName)
-                                ? Color.accentColor.opacity(0.2)
-                                : Color.clear
-                            )
+                        }
+                        .focusable()
+                        .focusEffectDisabled()
+                        .onKeyPress(.downArrow) {
+                            navigateToNextSegment(in: parent.children)
+                            return .handled
+                        }
+                        .onKeyPress(.upArrow) {
+                            navigateToPreviousSegment(in: parent.children)
+                            return .handled
                         }
                     }
                     .padding(8)
