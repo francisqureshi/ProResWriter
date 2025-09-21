@@ -138,6 +138,7 @@ struct LinkingResultsView: View {
             }
         }
         .focusable()
+        .focusEffectDisabled()
         .onKeyPress(.rightArrow) {
             expandSelectedCards()
             return .handled
