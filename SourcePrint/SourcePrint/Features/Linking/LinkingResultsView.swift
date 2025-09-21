@@ -156,13 +156,24 @@ struct LinkingResultsView: View {
                                 .buttonStyle(CompressorButtonStyle(prominent: true))
                                 .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
                             }
-                            
+
                             if let generateBlankRushes = onGenerateBlankRushes {
                                 Button("Generate Blank Rushes") {
                                     generateBlankRushes()
                                 }
                                 .buttonStyle(CompressorButtonStyle())
                                 .disabled(!project.readyForBlankRush)
+                            }
+
+                            if !confidentlyLinkedParents.isEmpty {
+                                Button(selectedOCFParents.isEmpty ? "Select All" : "Clear Selection") {
+                                    if selectedOCFParents.isEmpty {
+                                        selectedOCFParents = Set(confidentlyLinkedParents.map { $0.ocf.fileName })
+                                    } else {
+                                        selectedOCFParents.removeAll()
+                                    }
+                                }
+                                .buttonStyle(CompressorButtonStyle())
                             }
                         }
 
@@ -966,11 +977,48 @@ struct CompressorStyleOCFCard: View {
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
 
-    @State private var isExpanded: Bool = true
+    @State private var isExpanded: Bool = false
 
     private var isSelected: Bool {
         selectedOCFParents.contains(parent.ocf.fileName)
     }
+
+    private func handleCardSelection() {
+        // Check if shift key is pressed for range selection
+        let modifierFlags = NSApp.currentEvent?.modifierFlags ?? []
+        let isShiftPressed = modifierFlags.contains(.shift)
+
+        if isShiftPressed {
+            handleRangeSelection()
+        } else {
+            // Simple toggle
+            if selectedOCFParents.contains(parent.ocf.fileName) {
+                selectedOCFParents.remove(parent.ocf.fileName)
+            } else {
+                selectedOCFParents.insert(parent.ocf.fileName)
+            }
+        }
+    }
+
+    private func handleRangeSelection() {
+        // Find the last selected item to use as range start
+        guard let lastSelectedFileName = selectedOCFParents.first,
+              let lastIndex = allParents.firstIndex(where: { $0.ocf.fileName == lastSelectedFileName }),
+              let currentIndex = allParents.firstIndex(where: { $0.ocf.fileName == parent.ocf.fileName }) else {
+            // No previous selection, just select this one
+            selectedOCFParents.insert(parent.ocf.fileName)
+            return
+        }
+
+        let startIndex = min(lastIndex, currentIndex)
+        let endIndex = max(lastIndex, currentIndex)
+
+        // Select all items in the range
+        for i in startIndex...endIndex {
+            selectedOCFParents.insert(allParents[i].ocf.fileName)
+        }
+    }
+
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1052,11 +1100,7 @@ struct CompressorStyleOCFCard: View {
             .padding(.vertical, 8)
             .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
             .onTapGesture {
-                if selectedOCFParents.contains(parent.ocf.fileName) {
-                    selectedOCFParents.remove(parent.ocf.fileName)
-                } else {
-                    selectedOCFParents.insert(parent.ocf.fileName)
-                }
+                handleCardSelection()
             }
 
             // Card body (expandable content)
