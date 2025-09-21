@@ -203,12 +203,18 @@ struct LinkingResultsView: View {
                             Group {
                                 // Timeline between header and segments
                                 if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
-                                    TimelineChartView(
-                                        visualizationData: timelineData,
-                                        ocfFileName: parent.ocf.fileName,
-                                        selectedSegmentFileName: selectedLinkedFiles.first
-                                    )
-                                    .padding(.vertical, 8)
+                                    Section {
+                                        TimelineChartView(
+                                            visualizationData: timelineData,
+                                            ocfFileName: parent.ocf.fileName,
+                                            selectedSegmentFileName: selectedLinkedFiles.first
+                                        )
+                                        .padding(.vertical, 8)
+                                    }
+                                    .listRowInsets(EdgeInsets())
+                                    .listRowBackground(Color.black.opacity(0.001))
+                                    .disabled(true)
+                                    .selectionDisabled()
                                 }
 
                                 // Child segments
