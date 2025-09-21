@@ -8,6 +8,11 @@
 import ProResWriterCore
 import SwiftUI
 
+extension Notification.Name {
+    static let expandSelectedCards = Notification.Name("expandSelectedCards")
+    static let collapseSelectedCards = Notification.Name("collapseSelectedCards")
+}
+
 struct LinkingResultsView: View {
     @ObservedObject var project: Project
     let timelineVisualizationData: [String: TimelineVisualization]
@@ -132,6 +137,25 @@ struct LinkingResultsView: View {
                 linkingResultsContent
             }
         }
+        .focusable()
+        .onKeyPress(.rightArrow) {
+            expandSelectedCards()
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            collapseSelectedCards()
+            return .handled
+        }
+    }
+
+    private func expandSelectedCards() {
+        // This will be handled by each individual card
+        NotificationCenter.default.post(name: .expandSelectedCards, object: nil)
+    }
+
+    private func collapseSelectedCards() {
+        // This will be handled by each individual card
+        NotificationCenter.default.post(name: .collapseSelectedCards, object: nil)
     }
 
     @ViewBuilder
@@ -1148,5 +1172,19 @@ struct CompressorStyleOCFCard: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onReceive(NotificationCenter.default.publisher(for: .expandSelectedCards)) { _ in
+            if isSelected {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded = true
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .collapseSelectedCards)) { _ in
+            if isSelected {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded = false
+                }
+            }
+        }
     }
 }
