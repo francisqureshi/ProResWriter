@@ -21,6 +21,7 @@ struct LinkingResultsView: View {
     }
     @State private var selectedLinkedFiles: Set<String> = []
     @State private var selectedUnmatchedFiles: Set<String> = []
+    @State private var selectedOCFParents: Set<String> = []
     @State private var showUnmatchedDrawer = true
 
     // Computed properties to separate high/medium confidence from low confidence segments
@@ -56,7 +57,7 @@ struct LinkingResultsView: View {
     // Helper to get selected OCF parents for context menu batch operations
     private func getSelectedParents() -> [OCFParent] {
         return confidentlyLinkedParents.filter { parent in
-            selectedLinkedFiles.contains(parent.ocf.fileName)
+            selectedOCFParents.contains(parent.ocf.fileName)
         }
     }
 
@@ -205,6 +206,7 @@ struct LinkingResultsView: View {
                                 project: project,
                                 timelineVisualizationData: timelineVisualizationData,
                                 selectedLinkedFiles: $selectedLinkedFiles,
+                                selectedOCFParents: $selectedOCFParents,
                                 projectManager: projectManager,
                                 getSelectedParents: getSelectedParents,
                                 allParents: confidentlyLinkedParents
@@ -959,11 +961,16 @@ struct CompressorStyleOCFCard: View {
     let project: Project
     let timelineVisualizationData: [String: TimelineVisualization]
     @Binding var selectedLinkedFiles: Set<String>
+    @Binding var selectedOCFParents: Set<String>
     let projectManager: ProjectManager
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
 
     @State private var isExpanded: Bool = true
+
+    private var isSelected: Bool {
+        selectedOCFParents.contains(parent.ocf.fileName)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1044,6 +1051,13 @@ struct CompressorStyleOCFCard: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color.appBackgroundSecondary)
+            .onTapGesture {
+                if selectedOCFParents.contains(parent.ocf.fileName) {
+                    selectedOCFParents.remove(parent.ocf.fileName)
+                } else {
+                    selectedOCFParents.insert(parent.ocf.fileName)
+                }
+            }
 
             // Card body (expandable content)
             if isExpanded {
@@ -1084,11 +1098,15 @@ struct CompressorStyleOCFCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .padding(.top, 0)
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 4)
                 .background(Color.appBackgroundSecondary)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+        )
     }
 }
