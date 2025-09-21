@@ -191,12 +191,18 @@ struct LinkingResultsView: View {
                             }
 
                             if !confidentlyLinkedParents.isEmpty {
-                                Button(selectedOCFParents.isEmpty ? "Select All" : "Clear Selection") {
-                                    if selectedOCFParents.isEmpty {
+                                Group {
+                                    Button("Select All") {
                                         selectedOCFParents = Set(confidentlyLinkedParents.map { $0.ocf.fileName })
-                                    } else {
+                                    }
+                                    .keyboardShortcut("a", modifiers: .command)
+
+                                    Button("Clear Selection") {
                                         selectedOCFParents.removeAll()
                                     }
+                                    .keyboardShortcut(.escape, modifiers: [])
+                                    .opacity(selectedOCFParents.isEmpty ? 0 : 1)
+                                    .disabled(selectedOCFParents.isEmpty)
                                 }
                                 .buttonStyle(CompressorButtonStyle())
                             }
