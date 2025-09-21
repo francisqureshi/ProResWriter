@@ -196,57 +196,70 @@ struct LinkingResultsView: View {
                 }
                 .padding()
 
-                // Use List view for linked results
-                List(selection: $selectedLinkedFiles) {
-                    ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
-                        DisclosureGroup {
-                            Group {
-                                // Timeline between header and segments
-                                if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
-                                    Section {
-                                        TimelineChartView(
-                                            visualizationData: timelineData,
-                                            ocfFileName: parent.ocf.fileName,
-                                            selectedSegmentFileName: selectedLinkedFiles.first
-                                        )
-                                        .padding(.vertical, 8)
-                                    }
-                                    .listRowInsets(EdgeInsets())
-                                    .listRowBackground(Color.black.opacity(0.001))
-                                    .disabled(true)
-                                    .selectionDisabled()
-                                }
+                // Use ScrollView for true card layout
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
+                            VStack(spacing: 0) {
+                                DisclosureGroup {
+                                    VStack(spacing: 0) {
+                                        // Timeline between header and segments
+                                        if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
+                                            TimelineChartView(
+                                                visualizationData: timelineData,
+                                                ocfFileName: parent.ocf.fileName,
+                                                selectedSegmentFileName: selectedLinkedFiles.first
+                                            )
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 12)
+                                        }
 
-                                // Child segments
-                                ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
-                                    TreeLinkedSegmentRowView(
-                                        linkedSegment: linkedSegment,
-                                        isLast: linkedSegment.segment.fileName
-                                            == parent.children.last?.segment.fileName
+                                        // Child segments
+                                        ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                                            TreeLinkedSegmentRowView(
+                                                linkedSegment: linkedSegment,
+                                                isLast: linkedSegment.segment.fileName
+                                                    == parent.children.last?.segment.fileName
+                                            )
+                                            .padding(.horizontal, 12)
+                                            .onTapGesture {
+                                                selectedLinkedFiles = [linkedSegment.segment.fileName]
+                                            }
+                                            .background(
+                                                selectedLinkedFiles.contains(linkedSegment.segment.fileName)
+                                                ? Color.accentColor.opacity(0.2)
+                                                : Color.clear
+                                            )
+                                        }
+                                    }
+                                    .padding(.bottom, 8)
+                                } label: {
+                                    OCFParentHeaderView(
+                                        parent: parent,
+                                        project: project,
+                                        timelineVisualization: nil,
+                                        selectedSegmentFileName: selectedLinkedFiles.first
                                     )
-                                    .tag(linkedSegment.segment.fileName)
+                                    .padding(12)
+                                    .contentShape(Rectangle())
                                 }
                             }
-                        } label: {
-                            OCFParentHeaderView(
-                                parent: parent,
-                                project: project,
-                                timelineVisualization: nil,
-                                selectedSegmentFileName: selectedLinkedFiles.first
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.appBackgroundTertiary.opacity(0.8))
                             )
-                            .listRowSeparator(.hidden)
-                        }
-                        .tag(parent.ocf.fileName)
-                        .contextMenu {
-                            OCFParentContextMenu(
-                                parent: parent,
-                                project: project,
-                                projectManager: projectManager,
-                                selectedParents: getSelectedParents(),
-                                allParents: confidentlyLinkedParents
-                            )
+                            .contextMenu {
+                                OCFParentContextMenu(
+                                    parent: parent,
+                                    project: project,
+                                    projectManager: projectManager,
+                                    selectedParents: getSelectedParents(),
+                                    allParents: confidentlyLinkedParents
+                                )
+                            }
                         }
                     }
+                    .padding(8)
                 }
             }
             .frame(minWidth: 400)
