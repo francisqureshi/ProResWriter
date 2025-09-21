@@ -200,53 +200,14 @@ struct LinkingResultsView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
-                            VStack(spacing: 0) {
-                                DisclosureGroup {
-                                    VStack(spacing: 0) {
-                                        // Timeline between header and segments
-                                        if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
-                                            TimelineChartView(
-                                                visualizationData: timelineData,
-                                                ocfFileName: parent.ocf.fileName,
-                                                selectedSegmentFileName: selectedLinkedFiles.first
-                                            )
-                                            .padding(.vertical, 8)
-                                            .padding(.horizontal, 12)
-                                        }
-
-                                        // Child segments
-                                        ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
-                                            TreeLinkedSegmentRowView(
-                                                linkedSegment: linkedSegment,
-                                                isLast: linkedSegment.segment.fileName
-                                                    == parent.children.last?.segment.fileName
-                                            )
-                                            .padding(.horizontal, 12)
-                                            .onTapGesture {
-                                                selectedLinkedFiles = [linkedSegment.segment.fileName]
-                                            }
-                                            .background(
-                                                selectedLinkedFiles.contains(linkedSegment.segment.fileName)
-                                                ? Color.accentColor.opacity(0.2)
-                                                : Color.clear
-                                            )
-                                        }
-                                    }
-                                    .padding(.bottom, 8)
-                                } label: {
-                                    OCFParentHeaderView(
-                                        parent: parent,
-                                        project: project,
-                                        timelineVisualization: nil,
-                                        selectedSegmentFileName: selectedLinkedFiles.first
-                                    )
-                                    .padding(12)
-                                    .contentShape(Rectangle())
-                                }
-                            }
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.appBackgroundTertiary.opacity(0.8))
+                            CompressorStyleOCFCard(
+                                parent: parent,
+                                project: project,
+                                timelineVisualizationData: timelineVisualizationData,
+                                selectedLinkedFiles: $selectedLinkedFiles,
+                                projectManager: projectManager,
+                                getSelectedParents: getSelectedParents,
+                                allParents: confidentlyLinkedParents
                             )
                             .contextMenu {
                                 OCFParentContextMenu(
@@ -988,5 +949,114 @@ struct OCFParentContextMenu: View {
         } catch {
             return nil
         }
+    }
+}
+
+// MARK: - Compressor Style OCF Card
+
+struct CompressorStyleOCFCard: View {
+    let parent: OCFParent
+    let project: Project
+    let timelineVisualizationData: [String: TimelineVisualization]
+    @Binding var selectedLinkedFiles: Set<String>
+    let projectManager: ProjectManager
+    let getSelectedParents: () -> [OCFParent]
+    let allParents: [OCFParent]
+
+    @State private var isExpanded: Bool = true
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Compressor-style header (title bar)
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack {
+                    // OCF filename as main title
+                    Text(parent.ocf.fileName)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    // Status indicators (from original header)
+                    HStack(spacing: 8) {
+                        // Print Status
+                        Button(action: {}) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "circle")
+                                    .foregroundColor(.secondary)
+                                Text("Not Printed")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        // Blank Rush Status
+                        Button(action: {}) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "film")
+                                    .foregroundColor(.secondary)
+                                Text("No Blank Rush")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        // Chevron indicator
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
+            .background(Color.appBackgroundSecondary)
+
+            // Card body (expandable content)
+            if isExpanded {
+                VStack(spacing: 0) {
+                    // Timeline
+                    if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
+                        TimelineChartView(
+                            visualizationData: timelineData,
+                            ocfFileName: parent.ocf.fileName,
+                            selectedSegmentFileName: selectedLinkedFiles.first
+                        )
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                    }
+
+                    // Linked segments
+                    ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                        TreeLinkedSegmentRowView(
+                            linkedSegment: linkedSegment,
+                            isLast: linkedSegment.segment.fileName
+                                == parent.children.last?.segment.fileName
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .onTapGesture {
+                            selectedLinkedFiles = [linkedSegment.segment.fileName]
+                        }
+                        .background(
+                            selectedLinkedFiles.contains(linkedSegment.segment.fileName)
+                            ? Color.accentColor.opacity(0.2)
+                            : Color.clear
+                        )
+                    }
+                }
+                .padding(8)
+                .background(Color.appBackgroundTertiary.opacity(0.8))
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
