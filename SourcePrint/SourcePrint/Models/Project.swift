@@ -423,6 +423,20 @@ class Project: ObservableObject, Codable, Identifiable {
             }
         }
 
+        // Set up callback for when video files are deleted
+        watchFolderService?.onVideoFilesDeleted = { [weak self] fileNames, isVFX in
+            DispatchQueue.main.async {
+                self?.handleDeletedVideoFiles(fileNames, isVFX: isVFX)
+            }
+        }
+
+        // Set up callback for when video files are modified
+        watchFolderService?.onVideoFilesModified = { [weak self] fileNames, isVFX in
+            DispatchQueue.main.async {
+                self?.handleModifiedVideoFiles(fileNames, isVFX: isVFX)
+            }
+        }
+
         watchFolderService?.startWatching(gradePath: gradePath, vfxPath: vfxPath)
     }
 
@@ -502,6 +516,78 @@ class Project: ObservableObject, Codable, Identifiable {
                 }
             }
             return results
+        }
+    }
+
+    /// Handle video files deleted from watch folder
+    private func handleDeletedVideoFiles(_ fileNames: [String], isVFX: Bool) {
+        NSLog("🗑️ Removing %d deleted %@ files from project...", fileNames.count, isVFX ? "VFX" : "grade")
+
+        // Remove from segments
+        var removedCount = 0
+        for fileName in fileNames {
+            if segments.contains(where: { $0.fileName == fileName }) {
+                removeSegments([fileName])
+                removedCount += 1
+            }
+        }
+
+        if removedCount > 0 {
+            NSLog("✅ Removed %d deleted %@ files from project", removedCount, isVFX ? "VFX" : "grade")
+        } else {
+            NSLog("⚠️ No matching files found to remove for deleted %@ files", isVFX ? "VFX" : "grade")
+        }
+    }
+
+    /// Handle video files modified in watch folder
+    private func handleModifiedVideoFiles(_ fileNames: [String], isVFX: Bool) {
+        NSLog("📝 Handling %d modified %@ files...", fileNames.count, isVFX ? "VFX" : "grade")
+
+        // Track which OCF parents need re-printing due to modified segments
+        var affectedOCFNames = Set<String>()
+
+        for fileName in fileNames {
+            // Find segment by filename
+            if let segment = segments.first(where: { $0.fileName == fileName }) {
+                NSLog("📝 Found modified segment: %@", fileName)
+
+                // Update the segment's modification date to mark it as changed
+                updateSegmentModificationDate(fileName)
+
+                // Find linked OCF files that use this segment
+                if let linkingResult = linkingResult {
+                    for ocfParent in linkingResult.ocfParents {
+                        for child in ocfParent.children {
+                            if child.segment.fileName == fileName {
+                                affectedOCFNames.insert(ocfParent.ocf.fileName)
+                                NSLog("📝 Segment %@ affects OCF: %@", fileName, ocfParent.ocf.fileName)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Mark affected OCFs as needing re-printing
+        for ocfFileName in affectedOCFNames {
+            printStatus[ocfFileName] = .needsReprint(
+                lastPrintDate: Date(),
+                reason: .segmentModified
+            )
+            NSLog("🔄 Marked OCF %@ as needing re-print due to modified segment", ocfFileName)
+        }
+
+        if !affectedOCFNames.isEmpty {
+            NSLog("✅ Marked %d OCFs as needing re-print due to %d modified %@ files",
+                  affectedOCFNames.count, fileNames.count, isVFX ? "VFX" : "grade")
+        }
+    }
+
+    /// Update modification date for a specific segment
+    private func updateSegmentModificationDate(_ fileName: String) {
+        if segments.contains(where: { $0.fileName == fileName }) {
+            segmentModificationDates[fileName] = Date()
+            NSLog("📅 Updated modification date for segment: %@", fileName)
         }
     }
 }

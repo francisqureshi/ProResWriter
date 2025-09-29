@@ -17,6 +17,12 @@ public class SimpleWatchFolder {
     /// Callback for when video files are detected (URLs, isVFX)
     public var onVideoFilesDetected: (([URL], Bool) -> Void)?
 
+    /// Callback for when video files are deleted (file names, isVFX)
+    public var onVideoFilesDeleted: (([String], Bool) -> Void)?
+
+    /// Callback for when video files are modified (file names, isVFX)
+    public var onVideoFilesModified: (([String], Bool) -> Void)?
+
     /// Pending files waiting for copy completion (filePath -> (lastModified, isVFX))
     private var pendingFiles: [String: (Date, Bool)] = [:]
     private var debounceTimer: Timer?
@@ -201,25 +207,78 @@ public class SimpleWatchFolder {
                 pathAsString.hasPrefix(vfxPath) && monitoredPaths[vfxPath] == true
             } != nil
 
-            // Check for file events and video file extensions
-            let isFileEvent = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated)) != 0 ||
-                              (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified)) != 0
+            // Check for different types of file events
+            let isCreated = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated)) != 0
+            let isModified = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified)) != 0
+            let isRemoved = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemRemoved)) != 0
+            let isRenamed = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemRenamed)) != 0
             let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
             let pathExtension = URL(fileURLWithPath: pathAsString).pathExtension.lowercased()
 
-            if isFileEvent && videoExtensions.contains(pathExtension) {
-                NSLog("🎬 %@ FILE EVENT: %@", isVFXEvent ? "VFX" : "GRADE", URL(fileURLWithPath: pathAsString).lastPathComponent)
+            if videoExtensions.contains(pathExtension) {
+                let fileName = URL(fileURLWithPath: pathAsString).lastPathComponent
 
-                // Add to pending files with current timestamp and VFX flag
-                pendingFiles[pathAsString] = (Date(), isVFXEvent)
+                if isRemoved {
+                    NSLog("🗑️ %@ FILE DELETED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
+                    onVideoFilesDeleted?([fileName], isVFXEvent)
+                } else if isRenamed {
+                    // Handle rename/move events
+                    if FileManager.default.fileExists(atPath: pathAsString) {
+                        // File exists at this path - this is a move-in (treat as creation)
+                        NSLog("📥 %@ FILE MOVED IN: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
 
-                // Reset debounce timer
-                debounceTimer?.invalidate()
-                debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
-                    self?.processCompletedFiles()
+                        // Add to pending files with current timestamp and VFX flag
+                        pendingFiles[pathAsString] = (Date(), isVFXEvent)
+
+                        // Reset debounce timer
+                        debounceTimer?.invalidate()
+                        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+                            self?.processCompletedFiles()
+                        }
+
+                        NSLog("⏳ Moved-in file added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
+                    } else {
+                        // File doesn't exist at this path - this is a move-out (treat as deletion)
+                        NSLog("📤 %@ FILE MOVED OUT: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
+                        onVideoFilesDeleted?([fileName], isVFXEvent)
+                    }
+                } else if isCreated {
+                    NSLog("🎬 %@ FILE CREATED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
+
+                    // Add to pending files with current timestamp and VFX flag
+                    pendingFiles[pathAsString] = (Date(), isVFXEvent)
+
+                    // Reset debounce timer
+                    debounceTimer?.invalidate()
+                    debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+                        self?.processCompletedFiles()
+                    }
+
+                    NSLog("⏳ File added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
+                } else if isModified {
+                    // Check if file exists (modification vs ongoing creation)
+                    if FileManager.default.fileExists(atPath: pathAsString) {
+                        // Check if this is a stable modification (file size unchanged for a moment)
+                        do {
+                            let attributes = try FileManager.default.attributesOfItem(atPath: pathAsString)
+                            if let fileSize = attributes[.size] as? Int64, fileSize > 0 {
+                                NSLog("📝 %@ FILE MODIFIED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
+                                onVideoFilesModified?([fileName], isVFXEvent)
+                            }
+                        } catch {
+                            NSLog("⚠️ Cannot read modified file attributes: %@ - %@", fileName, error.localizedDescription)
+                        }
+                    } else {
+                        // File being created/copied - treat as creation
+                        NSLog("🎬 %@ FILE CREATING: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
+                        pendingFiles[pathAsString] = (Date(), isVFXEvent)
+
+                        debounceTimer?.invalidate()
+                        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+                            self?.processCompletedFiles()
+                        }
+                    }
                 }
-
-                NSLog("⏳ File added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
             }
         }
     }
