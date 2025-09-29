@@ -253,46 +253,49 @@ struct RenderTab: View {
                     // Convert linked children to FFmpegGradedSegments with VFX metadata
                     var ffmpegGradedSegments: [FFmpegGradedSegment] = []
                     for child in ocfParent.children {
-                        let segmentInfo = child.segment
-                        
-                        // Find corresponding MediaFileInfo for VFX metadata
-                        guard let mediaFileInfo = project.segments.first(where: { $0.fileName == segmentInfo.fileName }) else {
-                            NSLog("⚠️ Warning: No MediaFileInfo found for \(segmentInfo.fileName)")
-                            continue
-                        }
-                        
+                        let segmentInfo = child.segment  // This is a MediaFileInfo
+
+                        // Debug: Check what data we have
+                        NSLog("🔍 Segment \(segmentInfo.fileName):")
+                        NSLog("   sourceTimecode: \(segmentInfo.sourceTimecode ?? "nil")")
+                        NSLog("   frameRate (AVRational): \(String(describing: segmentInfo.frameRate))")
+                        NSLog("   frameRateFloat: \(String(describing: segmentInfo.frameRateFloat))")
+                        NSLog("   durationInFrames: \(String(describing: segmentInfo.durationInFrames))")
+
+                        // MediaFileInfo already has all the data we need
                         if let segmentTC = segmentInfo.sourceTimecode,
                            let baseTC = ocfParent.ocf.sourceTimecode,
-                           let segmentFrameRate = segmentInfo.frameRate,
+                           let segmentFrameRate = segmentInfo.frameRate,  // This is AVRational
+                           let segmentFrameRateFloat = segmentInfo.frameRateFloat,
                            let duration = segmentInfo.durationInFrames {
-                            
+
                             // Use SMPTE for precise timecode calculation like CLI
-                            let smpte = SMPTE(fps: Double(segmentFrameRate.floatValue), dropFrame: segmentInfo.isDropFrame ?? false)
-                            
+                            let smpte = SMPTE(fps: Double(segmentFrameRateFloat), dropFrame: segmentInfo.isDropFrame ?? false)
+
                             do {
                                 let segmentFrames = try smpte.getFrames(tc: segmentTC)
                                 let baseFrames = try smpte.getFrames(tc: baseTC)
                                 let relativeFrames = segmentFrames - baseFrames
-                                
+
                                 let startTime = CMTime(
                                     value: CMTimeValue(relativeFrames),
-                                    timescale: CMTimeScale(segmentFrameRate.floatValue)
+                                    timescale: CMTimeScale(segmentFrameRateFloat)
                                 )
-                                
+
                                 let segmentDuration = CMTime(
-                                    seconds: Double(duration) / Double(segmentFrameRate.floatValue),
-                                    preferredTimescale: CMTimeScale(segmentFrameRate.floatValue * 1000)
+                                    seconds: Double(duration) / Double(segmentFrameRateFloat),
+                                    preferredTimescale: CMTimeScale(segmentFrameRateFloat * 1000)
                                 )
-                                
+
                                 let ffmpegSegment = FFmpegGradedSegment(
                                     url: segmentInfo.url,
                                     startTime: startTime,
                                     duration: segmentDuration,
                                     sourceStartTime: .zero,
-                                    isVFXShot: mediaFileInfo.isVFXShot ?? false,
+                                    isVFXShot: segmentInfo.isVFXShot ?? false,
                                     sourceTimecode: segmentInfo.sourceTimecode,
-                                    frameRate: segmentInfo.frameRate!.floatValue,
-                                    frameRateRational: segmentInfo.frameRate,
+                                    frameRate: segmentFrameRateFloat,
+                                    frameRateRational: segmentFrameRate,  // Pass the AVRational directly
                                     isDropFrame: segmentInfo.isDropFrame
                                 )
                                 ffmpegGradedSegments.append(ffmpegSegment)
@@ -301,6 +304,9 @@ struct RenderTab: View {
                                 NSLog("⚠️ SMPTE calculation failed for \(segmentInfo.fileName): \(error)")
                                 continue
                             }
+                        } else {
+                            NSLog("❌ Skipping segment \(segmentInfo.fileName) - missing required data")
+                            NSLog("   Missing: \(segmentInfo.sourceTimecode == nil ? "sourceTimecode " : "")\(segmentInfo.frameRate == nil ? "frameRate " : "")\(segmentInfo.frameRateFloat == nil ? "frameRateFloat " : "")\(segmentInfo.durationInFrames == nil ? "durationInFrames" : "")")
                         }
                     }
                     

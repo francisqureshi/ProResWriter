@@ -246,16 +246,12 @@ public class FrameOwnershipAnalyzer {
             startFrame = segmentStartFrames - baseFrames
 
             // Calculate segment end using duration in frames
-            // If segment has proper AVRational (which it should)
-            if let segmentFrameRateRational = segment.frameRateRational {
-                let durationFrames = convertTimeToFrame(seconds: segment.duration.seconds, frameRate: segmentFrameRateRational)
-                endFrame = startFrame + durationFrames
-            } else {
-                // Fallback: use the float frame rate with best-guess rational
-                let frameRateRational = guessRationalFromFloat(segmentFrameRate)
-                let durationFrames = convertTimeToFrame(seconds: segment.duration.seconds, frameRate: frameRateRational)
-                endFrame = startFrame + durationFrames
+            // Segment must have exact AVRational from import/linking stage
+            guard let segmentFrameRateRational = segment.frameRateRational else {
+                throw FrameOwnershipError.missingRationalFrameRate(segment: segment.url.lastPathComponent)
             }
+            let durationFrames = convertTimeToFrame(seconds: segment.duration.seconds, frameRate: segmentFrameRateRational)
+            endFrame = startFrame + durationFrames
         } else {
             // Fallback to time-based calculation
             startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
@@ -489,39 +485,17 @@ public class FrameOwnershipAnalyzer {
         let fps = Double(frameRate.num) / Double(frameRate.den)
         return Int(round(seconds * fps))
     }
+}
 
-    /// Convert a float frame rate to the best-matching AVRational
-    private func guessRationalFromFloat(_ fps: Float) -> AVRational {
-        // Common professional frame rates with exact rationals
-        if abs(fps - 23.976) < 0.001 {
-            return AVRational(num: 24000, den: 1001)  // NTSC Film
-        } else if abs(fps - 29.97) < 0.001 {
-            return AVRational(num: 30000, den: 1001)  // NTSC Video
-        } else if abs(fps - 59.94) < 0.001 {
-            return AVRational(num: 60000, den: 1001)  // NTSC HD
-        } else if abs(fps - 47.952) < 0.001 {
-            return AVRational(num: 48000, den: 1001)  // NTSC Film 2x
-        } else if abs(fps - 119.88) < 0.001 {
-            return AVRational(num: 120000, den: 1001) // NTSC HD 2x
-        } else if abs(fps - 24.0) < 0.001 {
-            return AVRational(num: 24, den: 1)        // Film
-        } else if abs(fps - 25.0) < 0.001 {
-            return AVRational(num: 25, den: 1)        // PAL
-        } else if abs(fps - 30.0) < 0.001 {
-            return AVRational(num: 30, den: 1)        // HD
-        } else if abs(fps - 50.0) < 0.001 {
-            return AVRational(num: 50, den: 1)        // PAL HD
-        } else if abs(fps - 60.0) < 0.001 {
-            return AVRational(num: 60, den: 1)        // HD
-        } else {
-            // For other rates, use integer if close to integer, otherwise approximate
-            let rounded = round(fps)
-            if abs(fps - rounded) < 0.01 {
-                return AVRational(num: Int32(rounded), den: 1)
-            } else {
-                // Create a rational approximation
-                return AVRational(num: Int32(fps * 1000), den: 1000)
-            }
+// MARK: - Frame Ownership Errors
+
+enum FrameOwnershipError: Error {
+    case missingRationalFrameRate(segment: String)
+
+    var localizedDescription: String {
+        switch self {
+        case .missingRationalFrameRate(let segment):
+            return "Segment '\(segment)' is missing exact AVRational frame rate from import/linking stage"
         }
     }
 }

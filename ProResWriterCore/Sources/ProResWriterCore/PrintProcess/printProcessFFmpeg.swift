@@ -161,7 +161,7 @@ public class SwiftFFmpegProResCompositor {
             let segEndTime = CFAbsoluteTimeGetCurrent()
             segmentAnalysisTime += segEndTime - segStartTime
             
-            // Create new segment with cached properties
+            // Create new segment with cached properties AND preserve frameRateRational
             let cachedSegment = FFmpegGradedSegment(
                 url: segment.url,
                 startTime: segment.startTime,
@@ -170,6 +170,7 @@ public class SwiftFFmpegProResCompositor {
                 isVFXShot: segment.isVFXShot,
                 sourceTimecode: segment.sourceTimecode,
                 frameRate: segment.frameRate,
+                frameRateRational: segment.frameRateRational,  // MUST preserve the AVRational!
                 isDropFrame: segment.isDropFrame,
                 cachedStreamProperties: streamProperties
             )
@@ -1088,7 +1089,11 @@ extension FFmpegGradedSegment {
             startTime: gradedSegment.startTime,
             duration: gradedSegment.duration,
             sourceStartTime: gradedSegment.sourceStartTime,
-            isVFXShot: mediaFileInfo.isVFXShot ?? false
+            isVFXShot: mediaFileInfo.isVFXShot ?? false,
+            sourceTimecode: mediaFileInfo.sourceTimecode,
+            frameRate: mediaFileInfo.frameRateFloat,
+            frameRateRational: mediaFileInfo.frameRate,  // Pass the exact AVRational
+            isDropFrame: mediaFileInfo.isDropFrame
         )
     }
 }
@@ -1104,15 +1109,12 @@ extension FFmpegCompositorSettings {
             gradedSegment -> FFmpegGradedSegment? in
             let fileName = gradedSegment.url.lastPathComponent
             guard let mediaFileInfo = vfxLookup[fileName] else {
-                print("⚠️ Warning: No MediaFileInfo found for segment \(fileName)")
-                // Create fallback segment without VFX metadata
-                return FFmpegGradedSegment(
-                    url: gradedSegment.url,
-                    startTime: gradedSegment.startTime,
-                    duration: gradedSegment.duration,
-                    sourceStartTime: gradedSegment.sourceStartTime,
-                    isVFXShot: false
-                )
+                // Without MediaFileInfo, we can't get frame rate data - this should never happen
+                // in production since all segments should have been analyzed during import
+                print("❌ Error: No MediaFileInfo found for segment \(fileName)")
+                print("   This segment is missing critical frame rate data from import stage")
+                // We cannot proceed without frame rate data
+                return nil
             }
 
             return FFmpegGradedSegment.from(
