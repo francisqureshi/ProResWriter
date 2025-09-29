@@ -388,7 +388,7 @@ class Project: ObservableObject, Codable, Identifiable {
     // MARK: - Watch Folder Monitoring
 
     private func updateWatchFolderMonitoring() {
-        print("🔄 Watch folder settings changed: enabled=\(watchFolderSettings.isEnabled)")
+        NSLog("🔄 Watch folder settings changed: enabled=%@", watchFolderSettings.isEnabled ? "true" : "false")
 
         if watchFolderSettings.isEnabled {
             startWatchFolderIfNeeded()
@@ -398,34 +398,44 @@ class Project: ObservableObject, Codable, Identifiable {
     }
 
     private func startWatchFolderIfNeeded() {
-        guard let folderPath = watchFolderSettings.primaryGradeFolder?.path else {
-            print("⚠️ No watch folder configured")
+        let gradePath = watchFolderSettings.primaryGradeFolder?.path
+        let vfxPath = watchFolderSettings.vfxFolder?.path
+
+        guard gradePath != nil || vfxPath != nil else {
+            NSLog("⚠️ No watch folder paths specified")
             return
         }
 
-        print("🚀 Starting watch folder monitoring for: \(folderPath)")
+        NSLog("🚀 Starting watch folder monitoring...")
+        if let gradePath = gradePath {
+            NSLog("📁 Grade folder: %@", gradePath)
+        }
+        if let vfxPath = vfxPath {
+            NSLog("🎬 VFX folder: %@", vfxPath)
+        }
+
         watchFolderService = SimpleWatchFolder()
 
         // Set up callback for when video files are detected
-        watchFolderService?.onVideoFilesDetected = { [weak self] videoFiles in
+        watchFolderService?.onVideoFilesDetected = { [weak self] videoFiles, isVFX in
             DispatchQueue.main.async {
-                self?.handleDetectedVideoFiles(videoFiles)
+                self?.handleDetectedVideoFiles(videoFiles, isVFX: isVFX)
             }
         }
 
-        watchFolderService?.startWatching(path: folderPath)
+        watchFolderService?.startWatching(gradePath: gradePath, vfxPath: vfxPath)
     }
 
     private func stopWatchFolder() {
-        print("🛑 Stopping watch folder monitoring")
+        NSLog("🛑 Stopping watch folder monitoring")
         watchFolderService?.stopWatching()
         watchFolderService = nil
     }
 
     /// Handle video files detected by the watch folder service
-    private func handleDetectedVideoFiles(_ videoFiles: [URL]) {
+    private func handleDetectedVideoFiles(_ videoFiles: [URL], isVFX: Bool) {
         guard watchFolderSettings.autoImportEnabled else {
-            print("⚠️ Auto-import disabled, ignoring detected files")
+            NSLog("⚠️ Auto-import disabled, ignoring detected files")
             return
         }
 
@@ -436,26 +446,28 @@ class Project: ObservableObject, Codable, Identifiable {
         }
 
         guard !newVideoFiles.isEmpty else {
-            print("⚠️ All detected files already imported, ignoring \(videoFiles.count) file(s)")
+            NSLog("⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
             return
         }
 
-        print("🎬 Auto-importing \(newVideoFiles.count) new video files (filtered \(videoFiles.count - newVideoFiles.count) duplicates)...")
+        NSLog("🎬 Auto-importing %d new %@ files (filtered %d duplicates)...",
+              newVideoFiles.count, isVFX ? "VFX" : "grade", videoFiles.count - newVideoFiles.count)
 
-        // Import as segments (assuming they're graded segments from watch folder)
+        // Import as segments with VFX flag
         Task {
-            let mediaFiles = await analyzeDetectedFiles(urls: newVideoFiles)
+            let mediaFiles = await analyzeDetectedFiles(urls: newVideoFiles, isVFX: isVFX)
 
             await MainActor.run {
                 addSegments(mediaFiles)
-                print("✅ Auto-imported \(mediaFiles.count) new files from watch folder")
+                NSLog("✅ Auto-imported %d new %@ files from watch folder",
+                      mediaFiles.count, isVFX ? "VFX" : "grade")
             }
         }
     }
 
     /// Analyze detected video files for import
-    private func analyzeDetectedFiles(urls: [URL]) async -> [MediaFileInfo] {
-        print("🔍 Analyzing \(urls.count) detected video files...")
+    private func analyzeDetectedFiles(urls: [URL], isVFX: Bool) async -> [MediaFileInfo] {
+        NSLog("🔍 Analyzing %d detected %@ files...", urls.count, isVFX ? "VFX" : "grade")
 
         return await withTaskGroup(of: MediaFileInfo?.self, returning: [MediaFileInfo].self) { taskGroup in
             // Add tasks for each URL
@@ -466,9 +478,17 @@ class Project: ObservableObject, Codable, Identifiable {
                             at: url,
                             type: .gradedSegment
                         )
+
+                        // Set VFX flag on the media file if it's from VFX folder
+                        if isVFX {
+                            var vfxMediaFile = mediaFile
+                            vfxMediaFile.isVFXShot = true
+                            return vfxMediaFile
+                        }
+
                         return mediaFile
                     } catch {
-                        print("❌ Failed to analyze watch folder file \(url.lastPathComponent): \(error)")
+                        NSLog("❌ Failed to analyze watch folder file %@: %@", url.lastPathComponent, error.localizedDescription)
                         return nil
                     }
                 }

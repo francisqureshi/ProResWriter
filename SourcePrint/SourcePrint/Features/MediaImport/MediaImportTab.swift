@@ -309,45 +309,109 @@ struct WatchFolderSection: View {
     @ObservedObject var project: Project
 
     var body: some View {
-        GroupBox("🔍 Watch Folder") {
-            HStack {
-                Toggle("Enable auto-import from watch folder", isOn: $project.watchFolderSettings.isEnabled)
-                .toggleStyle(SwitchToggleStyle())
+        GroupBox("🔍 Watch Folders") {
+            VStack(spacing: 12) {
+                // Master toggle
+                HStack {
+                    Toggle("Enable auto-import from watch folders", isOn: $project.watchFolderSettings.isEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                    Spacer()
+                }
 
-                Spacer()
-
-                if let folder = project.watchFolderSettings.primaryGradeFolder {
-                    VStack(alignment: .trailing) {
-                        Text(folder.lastPathComponent)
+                // Grade folder row
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("📁 Grade Folder")
                             .font(.caption)
-                            .foregroundColor(.primary)
-                        Text(folder.path)
-                            .font(.caption2)
                             .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+
+                        if let folder = project.watchFolderSettings.primaryGradeFolder {
+                            Text(folder.lastPathComponent)
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                            Text(folder.path)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        } else {
+                            Text("No folder selected")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .italic()
+                        }
                     }
+
+                    Spacer()
+
+                    Button("Select Grade Folder") {
+                        selectGradeFolder()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
 
-                Button("Select Folder") {
-                    selectWatchFolder()
+                // VFX folder row
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("🎬 VFX Folder")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if let folder = project.watchFolderSettings.vfxFolder {
+                            Text(folder.lastPathComponent)
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                            Text(folder.path)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        } else {
+                            Text("No folder selected")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .italic()
+                        }
+                    }
+
+                    Spacer()
+
+                    Button("Select VFX Folder") {
+                        selectVFXFolder()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.bordered)
             }
             .padding(.vertical, 4)
         }
         .padding(.horizontal)
     }
 
-    private func selectWatchFolder() {
+    private func selectGradeFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "Select Watch Folder"
+        panel.prompt = "Select Grade Watch Folder"
+        panel.message = "Files in this folder will be imported as grade segments"
 
         if panel.runModal() == .OK, let url = panel.url {
             project.watchFolderSettings.primaryGradeFolder = url
+        }
+    }
+
+    private func selectVFXFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Select VFX Watch Folder"
+        panel.message = "Files in this folder will be imported as VFX segments"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            project.watchFolderSettings.vfxFolder = url
         }
     }
 }
