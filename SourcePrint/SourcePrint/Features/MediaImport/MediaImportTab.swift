@@ -30,7 +30,10 @@ struct MediaImportTab: View {
                 }
                 .padding()
             }
-            
+
+            // Watch Folder Section
+            WatchFolderSection(project: project)
+
             // Media Tables
             HSplitView {
                 // OCF Files Table
@@ -297,5 +300,54 @@ struct MediaImportTab: View {
         project.removeSegments(fileNames)
         projectManager.saveProject(project)
         NSLog("🗑️ Removed \(fileNames.count) segment(s): \(fileNames.joined(separator: ", "))")
+    }
+}
+
+// MARK: - Watch Folder Section
+
+struct WatchFolderSection: View {
+    @ObservedObject var project: Project
+
+    var body: some View {
+        GroupBox("🔍 Watch Folder") {
+            HStack {
+                Toggle("Enable auto-import from watch folder", isOn: $project.watchFolderSettings.isEnabled)
+                .toggleStyle(SwitchToggleStyle())
+
+                Spacer()
+
+                if let folder = project.watchFolderSettings.primaryGradeFolder {
+                    VStack(alignment: .trailing) {
+                        Text(folder.lastPathComponent)
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                        Text(folder.path)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+
+                Button("Select Folder") {
+                    selectWatchFolder()
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.vertical, 4)
+        }
+        .padding(.horizontal)
+    }
+
+    private func selectWatchFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Select Watch Folder"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            project.watchFolderSettings.primaryGradeFolder = url
+        }
     }
 }

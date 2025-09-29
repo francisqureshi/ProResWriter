@@ -40,6 +40,14 @@ class Project: ObservableObject, Codable, Identifiable {
     @Published var blankRushDirectory: URL
     @Published var fileURL: URL?
 
+    // MARK: - Watch Folder Settings
+    @Published var watchFolderSettings: WatchFolderSettings = WatchFolderSettings() {
+        didSet {
+            updateWatchFolderMonitoring()
+        }
+    }
+    private var watchFolderService: SimpleWatchFolder?
+
     // MARK: - Computed Properties
     var hasLinkedMedia: Bool {
         linkingResult?.totalLinkedSegments ?? 0 > 0
@@ -124,6 +132,7 @@ class Project: ObservableObject, Codable, Identifiable {
         case blankRushStatus, segmentModificationDates, lastPrintDate, printHistory
         case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
+        case watchFolderSettings
     }
 
     required init(from decoder: Decoder) throws {
@@ -151,6 +160,8 @@ class Project: ObservableObject, Codable, Identifiable {
         outputDirectory = try container.decode(URL.self, forKey: .outputDirectory)
         blankRushDirectory = try container.decode(URL.self, forKey: .blankRushDirectory)
         fileURL = try container.decodeIfPresent(URL.self, forKey: .fileURL)
+
+        watchFolderSettings = try container.decodeIfPresent(WatchFolderSettings.self, forKey: .watchFolderSettings) ?? WatchFolderSettings()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -175,6 +186,8 @@ class Project: ObservableObject, Codable, Identifiable {
         try container.encode(outputDirectory, forKey: .outputDirectory)
         try container.encode(blankRushDirectory, forKey: .blankRushDirectory)
         try container.encodeIfPresent(fileURL, forKey: .fileURL)
+
+        try container.encode(watchFolderSettings, forKey: .watchFolderSettings)
     }
 
     // MARK: - Project Management
@@ -369,6 +382,106 @@ class Project: ObservableObject, Codable, Identifiable {
                     print("🔍 Found existing blank rush: \(blankRushFileName)")
                 }
             }
+        }
+    }
+
+    // MARK: - Watch Folder Monitoring
+
+    private func updateWatchFolderMonitoring() {
+        print("🔄 Watch folder settings changed: enabled=\(watchFolderSettings.isEnabled)")
+
+        if watchFolderSettings.isEnabled {
+            startWatchFolderIfNeeded()
+        } else {
+            stopWatchFolder()
+        }
+    }
+
+    private func startWatchFolderIfNeeded() {
+        guard let folderPath = watchFolderSettings.primaryGradeFolder?.path else {
+            print("⚠️ No watch folder configured")
+            return
+        }
+
+        print("🚀 Starting watch folder monitoring for: \(folderPath)")
+        watchFolderService = SimpleWatchFolder()
+
+        // Set up callback for when video files are detected
+        watchFolderService?.onVideoFilesDetected = { [weak self] videoFiles in
+            DispatchQueue.main.async {
+                self?.handleDetectedVideoFiles(videoFiles)
+            }
+        }
+
+        watchFolderService?.startWatching(path: folderPath)
+    }
+
+    private func stopWatchFolder() {
+        print("🛑 Stopping watch folder monitoring")
+        watchFolderService?.stopWatching()
+        watchFolderService = nil
+    }
+
+    /// Handle video files detected by the watch folder service
+    private func handleDetectedVideoFiles(_ videoFiles: [URL]) {
+        guard watchFolderSettings.autoImportEnabled else {
+            print("⚠️ Auto-import disabled, ignoring detected files")
+            return
+        }
+
+        // Filter out files that are already imported (prevent duplicates on file overwrites)
+        let existingFileNames = Set(segments.map { $0.fileName })
+        let newVideoFiles = videoFiles.filter { url in
+            !existingFileNames.contains(url.lastPathComponent)
+        }
+
+        guard !newVideoFiles.isEmpty else {
+            print("⚠️ All detected files already imported, ignoring \(videoFiles.count) file(s)")
+            return
+        }
+
+        print("🎬 Auto-importing \(newVideoFiles.count) new video files (filtered \(videoFiles.count - newVideoFiles.count) duplicates)...")
+
+        // Import as segments (assuming they're graded segments from watch folder)
+        Task {
+            let mediaFiles = await analyzeDetectedFiles(urls: newVideoFiles)
+
+            await MainActor.run {
+                addSegments(mediaFiles)
+                print("✅ Auto-imported \(mediaFiles.count) new files from watch folder")
+            }
+        }
+    }
+
+    /// Analyze detected video files for import
+    private func analyzeDetectedFiles(urls: [URL]) async -> [MediaFileInfo] {
+        print("🔍 Analyzing \(urls.count) detected video files...")
+
+        return await withTaskGroup(of: MediaFileInfo?.self, returning: [MediaFileInfo].self) { taskGroup in
+            // Add tasks for each URL
+            for url in urls {
+                taskGroup.addTask {
+                    do {
+                        let mediaFile = try await MediaAnalyzer().analyzeMediaFile(
+                            at: url,
+                            type: .gradedSegment
+                        )
+                        return mediaFile
+                    } catch {
+                        print("❌ Failed to analyze watch folder file \(url.lastPathComponent): \(error)")
+                        return nil
+                    }
+                }
+            }
+
+            // Collect results
+            var results: [MediaFileInfo] = []
+            for await result in taskGroup {
+                if let mediaFile = result {
+                    results.append(mediaFile)
+                }
+            }
+            return results
         }
     }
 }

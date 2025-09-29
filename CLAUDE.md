@@ -98,3 +98,11 @@ ProResWriter/
 - **Typography**: SF Pro migration with monospaced digits for stable layouts
 - **Linking Rules**: Strict validation-based matching with consumer camera detection and VFX exemptions
 - **Apple Compressor Theming**: Professional purple accent with dark backgrounds
+
+### Watch Folder System ✅ **COMPLETE**
+- **FSEvents Integration**: Real-time file system monitoring with macOS FSEvents API
+- **Debounce System**: 3-second delay ensures files are fully copied before import
+- **Duplicate Prevention**: Smart filtering prevents re-importing overwritten files
+- **Automatic Import**: Seamless detection and import of new video files (.mov, .mp4, .m4v, .mxf, .prores)
+- **Safe Memory Handling**: Crash-resistant FSEvents callback with proper memory management
+- **Professional Workflow**: Toggle-based monitoring with folder selection UI
