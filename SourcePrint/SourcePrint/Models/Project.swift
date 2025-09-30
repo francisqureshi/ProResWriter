@@ -43,6 +43,7 @@ class Project: ObservableObject, Codable, Identifiable {
     @Published var offlineFileMetadata: [String: OfflineFileMetadata] = [:]  // Track metadata for offline files
     @Published var lastPrintDate: Date?
     @Published var printHistory: [PrintRecord] = []
+    @Published var ocfCardExpansionState: [String: Bool] = [:]  // OCF filename → isExpanded (default true if not set)
     
     // MARK: - Render Queue System
     @Published var renderQueue: [RenderQueueItem] = []
@@ -146,6 +147,7 @@ class Project: ObservableObject, Codable, Identifiable {
         case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
         case watchFolderSettings
+        case ocfCardExpansionState
     }
 
     required init(from decoder: Decoder) throws {
@@ -178,6 +180,8 @@ class Project: ObservableObject, Codable, Identifiable {
         fileURL = try container.decodeIfPresent(URL.self, forKey: .fileURL)
 
         watchFolderSettings = try container.decodeIfPresent(WatchFolderSettings.self, forKey: .watchFolderSettings) ?? WatchFolderSettings()
+
+        ocfCardExpansionState = try container.decodeIfPresent([String: Bool].self, forKey: .ocfCardExpansionState) ?? [:]
     }
 
     func encode(to encoder: Encoder) throws {
@@ -207,6 +211,8 @@ class Project: ObservableObject, Codable, Identifiable {
         try container.encodeIfPresent(fileURL, forKey: .fileURL)
 
         try container.encode(watchFolderSettings, forKey: .watchFolderSettings)
+
+        try container.encode(ocfCardExpansionState, forKey: .ocfCardExpansionState)
     }
 
     // MARK: - Project Management
@@ -542,6 +548,92 @@ class Project: ObservableObject, Codable, Identifiable {
         }
 
         watchFolderService?.startWatching(gradePath: gradePath, vfxPath: vfxPath)
+
+        // Check for files that changed while app was closed
+        checkForChangedFilesOnStartup(gradePath: gradePath, vfxPath: vfxPath)
+    }
+
+    /// Check if any already-imported files in watch folders have changed while app was closed
+    private func checkForChangedFilesOnStartup(gradePath: String?, vfxPath: String?) {
+        NSLog("🔍 Checking for file changes that occurred while app was closed...")
+
+        var changedCount = 0
+
+        for segment in segments {
+            let fileName = segment.fileName
+            let fileURL = segment.url
+
+            // Check if this segment is in a watch folder
+            var isInWatchFolder = false
+            if let gradePath = gradePath, fileURL.path.hasPrefix(gradePath) {
+                isInWatchFolder = true
+            } else if let vfxPath = vfxPath, fileURL.path.hasPrefix(vfxPath) {
+                isInWatchFolder = true
+            }
+
+            guard isInWatchFolder else { continue }
+
+            // Check if file exists and compare size
+            if let storedSize = segmentFileSizes[fileName],
+               let currentSize = getFileSize(for: fileURL) {
+
+                if currentSize != storedSize {
+                    // File size changed while app was closed
+                    NSLog("⚠️ File changed while app was closed: %@ (old: %lld, new: %lld bytes)",
+                          fileName, storedSize, currentSize)
+
+                    // Update modification date and size
+                    segmentModificationDates[fileName] = Date()
+                    segmentFileSizes[fileName] = currentSize
+
+                    // Mark affected OCFs for re-print
+                    if let linkingResult = linkingResult {
+                        for ocfParent in linkingResult.ocfParents {
+                            for child in ocfParent.children {
+                                if child.segment.fileName == fileName {
+                                    let lastPrint = printStatus[ocfParent.ocf.fileName]
+                                    let printDate: Date
+                                    if case .printed(let date, _) = lastPrint {
+                                        printDate = date
+                                    } else {
+                                        printDate = Date()
+                                    }
+                                    printStatus[ocfParent.ocf.fileName] = .needsReprint(lastPrintDate: printDate, reason: .segmentModified)
+                                }
+                            }
+                        }
+                    }
+
+                    changedCount += 1
+                }
+            } else if !FileManager.default.fileExists(atPath: fileURL.path) {
+                // File was deleted while app was closed
+                if !offlineMediaFiles.contains(fileName) {
+                    NSLog("⚠️ File deleted while app was closed: %@", fileName)
+                    offlineMediaFiles.insert(fileName)
+
+                    // Store metadata
+                    if let storedSize = segmentFileSizes[fileName] {
+                        let metadata = OfflineFileMetadata(
+                            fileName: fileName,
+                            fileSize: storedSize,
+                            offlineDate: Date(),
+                            partialHash: nil
+                        )
+                        offlineFileMetadata[fileName] = metadata
+                    }
+
+                    changedCount += 1
+                }
+            }
+        }
+
+        if changedCount > 0 {
+            NSLog("✅ Found %d file(s) that changed while app was closed", changedCount)
+            objectWillChange.send()
+        } else {
+            NSLog("✅ No changes detected in watch folders")
+        }
     }
 
     private func stopWatchFolder() {
@@ -686,13 +778,10 @@ class Project: ObservableObject, Codable, Identifiable {
             }
         }
 
-        // Auto re-link if any offline files returned and we had linking before
-        if (!returningOfflineFiles.isEmpty || !changedOfflineFiles.isEmpty) && linkingResult != nil {
-            NSLog("🔗 Offline files returned - invalidating linking to trigger re-link...")
-            // Invalidate linking so user can re-link with returned files
-            linkingResult = nil
-            NSLog("⚠️ Please use the Linking tab to re-link the project")
-        }
+        // Note: We no longer invalidate linking when files change
+        // The "Updated" badge shows which files have changed
+        // The OCF "Needs Re-print" status shows what needs to be re-printed
+        // User can manually re-run linking if they want to refresh the analysis
 
         // Import truly new files
         guard !newVideoFiles.isEmpty else {

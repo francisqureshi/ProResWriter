@@ -1065,7 +1065,7 @@ struct CompressorStyleOCFCard: View {
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
 
-    @State private var isExpanded: Bool = false
+    @State private var isExpanded: Bool = true  // Default to expanded
 
     private var isSelected: Bool {
         selectedOCFParents.contains(parent.ocf.fileName)
@@ -1146,6 +1146,9 @@ struct CompressorStyleOCFCard: View {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isExpanded.toggle()
+                        // Save expansion state to project
+                        project.ocfCardExpansionState[parent.ocf.fileName] = isExpanded
+                        projectManager.saveProject(project)
                     }
                 }) {
                     Text(parent.ocf.fileName)
@@ -1203,6 +1206,9 @@ struct CompressorStyleOCFCard: View {
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isExpanded.toggle()
+                                // Save expansion state to project
+                                project.ocfCardExpansionState[parent.ocf.fileName] = isExpanded
+                                projectManager.saveProject(project)
                             }
                         }) {
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
@@ -1292,6 +1298,10 @@ struct CompressorStyleOCFCard: View {
                     isExpanded = false
                 }
             }
+        }
+        .onAppear {
+            // Initialize expansion state from project (default to true if not set)
+            isExpanded = project.ocfCardExpansionState[parent.ocf.fileName] ?? true
         }
     }
 }

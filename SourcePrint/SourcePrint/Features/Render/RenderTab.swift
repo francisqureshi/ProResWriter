@@ -356,7 +356,15 @@ struct RenderTab: View {
                             project.renderQueue[queueIndex].status = .completed
                         }
                         project.printStatus[queueItem.ocfFileName] = .printed(date: Date(), outputURL: finalOutputURL)
-                        
+
+                        // Clear modification dates for all printed segments (they're now in the print)
+                        for child in ocfParent.children {
+                            if project.segmentModificationDates[child.segment.fileName] != nil {
+                                project.segmentModificationDates.removeValue(forKey: child.segment.fileName)
+                                NSLog("🔄 Cleared 'Updated' status for printed segment: %@", child.segment.fileName)
+                            }
+                        }
+
                         NSLog("✅ Composition completed: \(finalOutputURL.lastPathComponent)")
                         
                     case .failure(let error):
