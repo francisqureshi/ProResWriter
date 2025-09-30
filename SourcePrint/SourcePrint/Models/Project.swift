@@ -28,6 +28,7 @@ class Project: ObservableObject, Codable, Identifiable {
     // MARK: - Status Tracking
     @Published var blankRushStatus: [String: BlankRushStatus] = [:]  // OCF filename → status
     @Published var segmentModificationDates: [String: Date] = [:]  // Segment filename → last modified date
+    @Published var offlineMediaFiles: Set<String> = []  // Track offline (deleted/moved) media files
     @Published var lastPrintDate: Date?
     @Published var printHistory: [PrintRecord] = []
     
@@ -129,7 +130,7 @@ class Project: ObservableObject, Codable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
-        case blankRushStatus, segmentModificationDates, lastPrintDate, printHistory
+        case blankRushStatus, segmentModificationDates, offlineMediaFiles, lastPrintDate, printHistory
         case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
         case watchFolderSettings
@@ -151,6 +152,7 @@ class Project: ObservableObject, Codable, Identifiable {
         segmentModificationDates =
             try container.decodeIfPresent([String: Date].self, forKey: .segmentModificationDates)
             ?? [:]
+        offlineMediaFiles = try container.decodeIfPresent(Set<String>.self, forKey: .offlineMediaFiles) ?? []
         lastPrintDate = try container.decodeIfPresent(Date.self, forKey: .lastPrintDate)
         printHistory = try container.decodeIfPresent([PrintRecord].self, forKey: .printHistory) ?? []
         
@@ -177,6 +179,7 @@ class Project: ObservableObject, Codable, Identifiable {
 
         try container.encode(blankRushStatus, forKey: .blankRushStatus)
         try container.encode(segmentModificationDates, forKey: .segmentModificationDates)
+        try container.encode(offlineMediaFiles, forKey: .offlineMediaFiles)
         try container.encodeIfPresent(lastPrintDate, forKey: .lastPrintDate)
         try container.encode(printHistory, forKey: .printHistory)
         
@@ -322,9 +325,10 @@ class Project: ObservableObject, Codable, Identifiable {
     func removeSegments(_ fileNames: [String]) {
         segments.removeAll { fileNames.contains($0.fileName) }
 
-        // Clean up segment modification tracking
+        // Clean up segment modification tracking and offline status
         for fileName in fileNames {
             segmentModificationDates.removeValue(forKey: fileName)
+            offlineMediaFiles.remove(fileName)
         }
 
         // If linking result exists, invalidate it since segments changed
@@ -333,6 +337,37 @@ class Project: ObservableObject, Codable, Identifiable {
         }
 
         updateModified()
+    }
+
+    /// Remove all offline media files from the project
+    func removeOfflineMedia() {
+        let offlineFileNames = Array(offlineMediaFiles)
+
+        NSLog("🗑️ Removing %d offline media files from project", offlineFileNames.count)
+
+        // Remove offline segments
+        segments.removeAll { offlineMediaFiles.contains($0.fileName) }
+
+        // Remove offline OCFs
+        ocfFiles.removeAll { offlineMediaFiles.contains($0.fileName) }
+
+        // Clean up tracking data
+        for fileName in offlineFileNames {
+            segmentModificationDates.removeValue(forKey: fileName)
+            printStatus.removeValue(forKey: fileName)
+            blankRushStatus.removeValue(forKey: fileName)
+        }
+
+        // Clear offline set
+        offlineMediaFiles.removeAll()
+
+        // Invalidate linking if any files were removed
+        if !offlineFileNames.isEmpty {
+            linkingResult = nil
+        }
+
+        updateModified()
+        NSLog("✅ Removed all offline media files")
     }
 
     /// Toggle VFX status for OCF file
@@ -521,21 +556,42 @@ class Project: ObservableObject, Codable, Identifiable {
 
     /// Handle video files deleted from watch folder
     private func handleDeletedVideoFiles(_ fileNames: [String], isVFX: Bool) {
-        NSLog("🗑️ Removing %d deleted %@ files from project...", fileNames.count, isVFX ? "VFX" : "grade")
+        NSLog("📤 Marking %d deleted %@ files as offline...", fileNames.count, isVFX ? "VFX" : "grade")
 
-        // Remove from segments
-        var removedCount = 0
+        // Mark segments as offline instead of removing them
+        var markedCount = 0
         for fileName in fileNames {
             if segments.contains(where: { $0.fileName == fileName }) {
-                removeSegments([fileName])
-                removedCount += 1
+                offlineMediaFiles.insert(fileName)
+                markedCount += 1
             }
         }
 
-        if removedCount > 0 {
-            NSLog("✅ Removed %d deleted %@ files from project", removedCount, isVFX ? "VFX" : "grade")
+        if markedCount > 0 {
+            NSLog("✅ Marked %d deleted %@ files as offline", markedCount, isVFX ? "VFX" : "grade")
+
+            // Mark affected OCFs for re-print
+            if let linkingResult = linkingResult {
+                for fileName in fileNames where offlineMediaFiles.contains(fileName) {
+                    for ocfParent in linkingResult.ocfParents {
+                        for child in ocfParent.children {
+                            if child.segment.fileName == fileName {
+                                let lastPrint = printStatus[ocfParent.ocf.fileName]
+                                let printDate: Date
+                                if case .printed(let date, _) = lastPrint {
+                                    printDate = date
+                                } else {
+                                    printDate = Date()
+                                }
+                                printStatus[ocfParent.ocf.fileName] = .needsReprint(lastPrintDate: printDate, reason: .segmentOffline)
+                                NSLog("⚠️ OCF %@ needs reprint due to offline segment", ocfParent.ocf.fileName)
+                            }
+                        }
+                    }
+                }
+            }
         } else {
-            NSLog("⚠️ No matching files found to remove for deleted %@ files", isVFX ? "VFX" : "grade")
+            NSLog("⚠️ No matching files found to mark offline for deleted %@ files", isVFX ? "VFX" : "grade")
         }
     }
 
@@ -727,12 +783,14 @@ enum PrintStatus: Codable {
 
 enum ReprintReason: String, Codable {
     case segmentModified = "segment_modified"
+    case segmentOffline = "segment_offline"
     case manualRequest = "manual_request"
     case previousFailed = "previous_failed"
-    
+
     var displayName: String {
         switch self {
         case .segmentModified: return "Segment Modified"
+        case .segmentOffline: return "Segment Offline"
         case .manualRequest: return "Manual Request"
         case .previousFailed: return "Previous Failed"
         }

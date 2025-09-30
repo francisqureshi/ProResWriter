@@ -17,6 +17,7 @@ struct MediaImportTab: View {
     @State private var analysisProgress = ""
     @State private var selectedOCFFiles: Set<String> = []
     @State private var selectedSegments: Set<String> = []
+    @State private var showRemoveOfflineConfirmation = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -34,6 +35,28 @@ struct MediaImportTab: View {
             // Watch Folder Section
             WatchFolderSection(project: project)
 
+            // Offline Media Warning/Action Bar
+            if !project.offlineMediaFiles.isEmpty {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text("\(project.offlineMediaFiles.count) offline media file(s)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Button("Remove Offline Media") {
+                        showRemoveOfflineConfirmation = true
+                    }
+                    .buttonStyle(CompressorButtonStyle(prominent: false))
+                }
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(6)
+                .padding(.horizontal)
+            }
+
             // Media Tables
             HSplitView {
                 // OCF Files Table
@@ -41,6 +64,7 @@ struct MediaImportTab: View {
                     files: project.ocfFiles,
                     type: .ocf,
                     selectedFiles: $selectedOCFFiles,
+                    offlineFiles: project.offlineMediaFiles,
                     onVFXToggle: { fileName, isVFX in
                         project.toggleOCFVFXStatus(fileName, isVFX: isVFX)
                         projectManager.saveProject(project)
@@ -56,12 +80,13 @@ struct MediaImportTab: View {
                     isAnalyzing: isAnalyzing
                 )
                 .frame(minWidth: 400)
-                
+
                 // Segments Table
                 MediaFileColumnTableView(
                     files: project.segments,
                     type: .segment,
                     selectedFiles: $selectedSegments,
+                    offlineFiles: project.offlineMediaFiles,
                     onVFXToggle: { fileName, isVFX in
                         project.toggleSegmentVFXStatus(fileName, isVFX: isVFX)
                         projectManager.saveProject(project)
@@ -78,6 +103,19 @@ struct MediaImportTab: View {
                 )
                 .frame(minWidth: 400)
             }
+        }
+        .confirmationDialog(
+            "Remove Offline Media",
+            isPresented: $showRemoveOfflineConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Remove \(project.offlineMediaFiles.count) Offline Files", role: .destructive) {
+                project.removeOfflineMedia()
+                projectManager.saveProject(project)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently remove all offline media files from the project. This cannot be undone.")
         }
     }
     

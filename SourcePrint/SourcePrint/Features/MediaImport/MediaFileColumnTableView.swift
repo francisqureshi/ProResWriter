@@ -12,6 +12,7 @@ struct MediaFileColumnTableView: View {
     let files: [MediaFileInfo]
     let type: MediaType
     let selectedFiles: Binding<Set<String>>
+    let offlineFiles: Set<String>
     let onVFXToggle: ((String, Bool) -> Void)?
     let onRemoveFiles: ([String]) -> Void
     let onImportAction: (() -> Void)?
@@ -235,6 +236,7 @@ struct MediaFileColumnTableView: View {
             MediaFileColumnRowView(
                 file: file.toDisplayInfo(),
                 type: type,
+                isOffline: offlineFiles.contains(file.fileName),
                 onVFXToggle: onVFXToggle,
                 columnWidths: ColumnWidths(
                     clipName: clipNameWidth,
@@ -370,6 +372,7 @@ extension View {
 struct MediaFileColumnRowView: View {
     let file: DisplayMediaInfo
     let type: MediaFileColumnTableView.MediaType
+    let isOffline: Bool
     let onVFXToggle: ((String, Bool) -> Void)?
     let columnWidths: ColumnWidths
     
@@ -377,22 +380,38 @@ struct MediaFileColumnRowView: View {
         HStack(spacing: 0) {
             // Clip Name Column
             HStack(spacing: 4) {
-                Image(systemName: type.icon)
-                    .foregroundColor(type.color)
-                    .frame(width: 16)
-                
+                if isOffline {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .frame(width: 16)
+                } else {
+                    Image(systemName: type.icon)
+                        .foregroundColor(type.color)
+                        .frame(width: 16)
+                }
+
                 if file.isVFX && type == .segment {
                     Image(systemName: "wand.and.stars")
                         .foregroundColor(.purple)
                         .frame(width: 14)
                 }
-                
+
                 Text(file.fileName)
                     .font(.system(size: 12))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                
-                if file.isVFX && type == .segment {
+                    .foregroundColor(isOffline ? .red : .primary)
+
+                if isOffline {
+                    Text("OFFLINE")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 1)
+                        .background(Color.red.opacity(0.2))
+                        .foregroundColor(.red)
+                        .cornerRadius(3)
+                } else if file.isVFX && type == .segment {
                     Text("VFX")
                         .font(.caption2)
                         .fontWeight(.medium)
@@ -402,12 +421,12 @@ struct MediaFileColumnRowView: View {
                         .foregroundColor(.purple)
                         .cornerRadius(3)
                 }
-                
+
                 Spacer()
             }
             .frame(width: columnWidths.clipName, alignment: .leading)
             .padding(.horizontal, 4)
-            
+
             // Start TC Column
             Text(file.sourceTimecode ?? "—")
                 .font(.system(size: 12))
@@ -477,6 +496,7 @@ struct MediaFileColumnRowView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 2)
+        .opacity(isOffline ? 0.6 : 1.0)
     }
     
 }
@@ -530,6 +550,7 @@ struct MediaFileColumnRowView: View {
         MediaFileColumnRowView(
             file: sampleFiles[1], // VFX segment
             type: .segment,
+            isOffline: false,
             onVFXToggle: { fileName, isVFX in
                 print("Toggle VFX for \(fileName): \(isVFX)")
             },

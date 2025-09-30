@@ -365,15 +365,28 @@ class ProjectManager: ObservableObject {
             print("⚠️ Need both OCF files and segments to perform linking")
             return
         }
-        
+
+        // Filter out offline segments before linking
+        let onlineSegments = project.segments.filter { !project.offlineMediaFiles.contains($0.fileName) }
+        let offlineCount = project.segments.count - onlineSegments.count
+
+        if offlineCount > 0 {
+            print("⚠️ Skipping \(offlineCount) offline segment(s) during linking")
+        }
+
+        guard !onlineSegments.isEmpty else {
+            print("⚠️ No online segments available for linking")
+            return
+        }
+
         let linker = SegmentOCFLinker()
-        let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
-        
+        let result = linker.linkSegments(onlineSegments, withOCFParents: project.ocfFiles)
+
         project.updateLinkingResult(result)
         // Refresh print status after linking (in case segment files changed)
         project.refreshPrintStatus()
         saveProject(project)
-        
+
         print("✅ Linking completed: \(result.summary)")
     }
     
