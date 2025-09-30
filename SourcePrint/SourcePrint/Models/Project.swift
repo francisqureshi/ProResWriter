@@ -222,12 +222,8 @@ class Project: ObservableObject, Codable, Identifiable {
     func addSegments(_ newSegments: [MediaFileInfo]) {
         segments.append(contentsOf: newSegments)
 
-        // Track modification dates and file sizes for new segments
+        // Track file sizes for new segments (but NOT modification dates - those are only for changed files)
         for segment in newSegments {
-            if let modDate = getFileModificationDate(for: segment.url) {
-                segmentModificationDates[segment.fileName] = modDate
-            }
-
             if let fileSize = getFileSize(for: segment.url) {
                 segmentFileSizes[segment.fileName] = fileSize
                 NSLog("📊 Stored size for segment: %@ (size: %lld bytes)", segment.fileName, fileSize)

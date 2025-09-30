@@ -13,6 +13,7 @@ struct MediaFileColumnTableView: View {
     let type: MediaType
     let selectedFiles: Binding<Set<String>>
     let offlineFiles: Set<String>
+    let modificationDates: [String: Date]
     let onVFXToggle: ((String, Bool) -> Void)?
     let onRemoveFiles: ([String]) -> Void
     let onImportAction: (() -> Void)?
@@ -29,8 +30,9 @@ struct MediaFileColumnTableView: View {
     @State private var typeWidth: CGFloat = 80
     @State private var resolutionWidth: CGFloat = 100
     @State private var fpsWidth: CGFloat = 60
+    @State private var statusWidth: CGFloat = 120
     @State private var totalWidth: CGFloat = 0
-    
+
     // Minimum column widths to prevent over-shrinking
     private let minClipNameWidth: CGFloat = 120
     private let minStartTCWidth: CGFloat = 80
@@ -40,11 +42,12 @@ struct MediaFileColumnTableView: View {
     private let minTypeWidth: CGFloat = 60
     private let minResolutionWidth: CGFloat = 80
     private let minFpsWidth: CGFloat = 40
-    
+    private let minStatusWidth: CGFloat = 100
+
     // Computed total column width for horizontal scrolling
     private var totalColumnWidth: CGFloat {
-        clipNameWidth + startTCWidth + endTCWidth + durationWidth + 
-        framesWidth + typeWidth + resolutionWidth + fpsWidth
+        clipNameWidth + startTCWidth + endTCWidth + durationWidth +
+        framesWidth + typeWidth + resolutionWidth + fpsWidth + statusWidth
     }
     
     enum MediaType {
@@ -215,12 +218,27 @@ struct MediaFileColumnTableView: View {
                     .foregroundColor(.secondary)
                     .frame(width: fpsWidth, alignment: .leading)
                     .padding(.horizontal, 4)
-                
+
                 ResizeDivider { delta in
                     fpsWidth = max(fpsWidth + delta, minFpsWidth)
                 }
             }
-            
+
+            // Status Column (only for segments)
+            if type == .segment {
+                HStack(spacing: 0) {
+                    Text("Status")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: statusWidth, alignment: .leading)
+                        .padding(.horizontal, 4)
+
+                    ResizeDivider { delta in
+                        statusWidth = max(statusWidth + delta, minStatusWidth)
+                    }
+                }
+            }
+
             // Filler Column (expands to fill remaining space)
             Rectangle()
                 .fill(Color(nsColor: .controlBackgroundColor))
@@ -237,6 +255,7 @@ struct MediaFileColumnTableView: View {
                 file: file.toDisplayInfo(),
                 type: type,
                 isOffline: offlineFiles.contains(file.fileName),
+                modificationDate: modificationDates[file.fileName],
                 onVFXToggle: onVFXToggle,
                 columnWidths: ColumnWidths(
                     clipName: clipNameWidth,
@@ -246,7 +265,8 @@ struct MediaFileColumnTableView: View {
                     frames: framesWidth,
                     type: typeWidth,
                     resolution: resolutionWidth,
-                    fps: fpsWidth
+                    fps: fpsWidth,
+                    status: statusWidth
                 )
             )
             .listRowInsets(EdgeInsets())
@@ -292,6 +312,7 @@ struct ColumnWidths {
     let type: CGFloat
     let resolution: CGFloat
     let fps: CGFloat
+    let status: CGFloat
 }
 
 // MARK: - ResizeDivider Component
@@ -373,9 +394,49 @@ struct MediaFileColumnRowView: View {
     let file: DisplayMediaInfo
     let type: MediaFileColumnTableView.MediaType
     let isOffline: Bool
+    let modificationDate: Date?
     let onVFXToggle: ((String, Bool) -> Void)?
     let columnWidths: ColumnWidths
-    
+
+    private var statusView: some View {
+        HStack(spacing: 4) {
+            if isOffline {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 8))
+                    .foregroundColor(.red)
+                Text("Offline")
+                    .font(.system(size: 11))
+                    .foregroundColor(.red)
+            } else if let modDate = modificationDate {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 8))
+                    .foregroundColor(.yellow)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Updated")
+                        .font(.system(size: 11))
+                        .foregroundColor(.yellow)
+                    Text(formatDate(modDate))
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 8))
+                    .foregroundColor(.green)
+                Text("Online")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Clip Name Column
@@ -488,7 +549,14 @@ struct MediaFileColumnRowView: View {
                 .truncationMode(.tail)
                 .frame(width: columnWidths.fps, alignment: .leading)
                 .padding(.horizontal, 4)
-            
+
+            // Status Column (only for segments)
+            if type == .segment {
+                statusView
+                    .frame(width: columnWidths.status, alignment: .leading)
+                    .padding(.horizontal, 4)
+            }
+
             // Filler Column (expands to fill remaining space)
             Rectangle()
                 .fill(Color.clear)
@@ -551,6 +619,7 @@ struct MediaFileColumnRowView: View {
             file: sampleFiles[1], // VFX segment
             type: .segment,
             isOffline: false,
+            modificationDate: Date(),
             onVFXToggle: { fileName, isVFX in
                 print("Toggle VFX for \(fileName): \(isVFX)")
             },
@@ -562,7 +631,8 @@ struct MediaFileColumnRowView: View {
                 frames: 70,
                 type: 80,
                 resolution: 100,
-                fps: 60
+                fps: 60,
+                status: 120
             )
         )
     }

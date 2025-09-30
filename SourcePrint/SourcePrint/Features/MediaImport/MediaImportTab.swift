@@ -65,6 +65,7 @@ struct MediaImportTab: View {
                     type: .ocf,
                     selectedFiles: $selectedOCFFiles,
                     offlineFiles: project.offlineMediaFiles,
+                    modificationDates: [:], // OCFs don't track modification dates
                     onVFXToggle: { fileName, isVFX in
                         project.toggleOCFVFXStatus(fileName, isVFX: isVFX)
                         projectManager.saveProject(project)
@@ -87,6 +88,7 @@ struct MediaImportTab: View {
                     type: .segment,
                     selectedFiles: $selectedSegments,
                     offlineFiles: project.offlineMediaFiles,
+                    modificationDates: project.segmentModificationDates,
                     onVFXToggle: { fileName, isVFX in
                         project.toggleSegmentVFXStatus(fileName, isVFX: isVFX)
                         projectManager.saveProject(project)
