@@ -102,8 +102,8 @@ public class SimpleWatchFolder {
             return
         }
 
-        // Schedule on run loop
-        FSEventStreamScheduleWithRunLoop(stream, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        // Schedule on dispatch queue
+        FSEventStreamSetDispatchQueue(stream, DispatchQueue.main)
 
         // Start the stream
         if FSEventStreamStart(stream) {
@@ -126,7 +126,7 @@ public class SimpleWatchFolder {
         }
 
         FSEventStreamStop(stream)
-        FSEventStreamUnscheduleFromRunLoop(stream, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        FSEventStreamSetDispatchQueue(stream, nil)
         FSEventStreamRelease(stream)
 
         // Clean up debounce timer and pending files
