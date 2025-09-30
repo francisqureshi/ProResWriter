@@ -8,6 +8,7 @@
 import Foundation
 import ProResWriterCore
 import SwiftUI
+import CryptoKit
 
 // MARK: - File Metadata
 
@@ -15,6 +16,7 @@ struct OfflineFileMetadata: Codable {
     let fileName: String
     let fileSize: Int64
     let offlineDate: Date
+    let partialHash: String?  // Optional hash for fallback comparison
 }
 
 // MARK: - Project Data Model
@@ -36,6 +38,7 @@ class Project: ObservableObject, Codable, Identifiable {
     // MARK: - Status Tracking
     @Published var blankRushStatus: [String: BlankRushStatus] = [:]  // OCF filename → status
     @Published var segmentModificationDates: [String: Date] = [:]  // Segment filename → last modified date
+    @Published var segmentFileSizes: [String: Int64] = [:]  // Segment filename → file size (proactive tracking)
     @Published var offlineMediaFiles: Set<String> = []  // Track offline (deleted/moved) media files
     @Published var offlineFileMetadata: [String: OfflineFileMetadata] = [:]  // Track metadata for offline files
     @Published var lastPrintDate: Date?
@@ -139,7 +142,7 @@ class Project: ObservableObject, Codable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
-        case blankRushStatus, segmentModificationDates, offlineMediaFiles, offlineFileMetadata, lastPrintDate, printHistory
+        case blankRushStatus, segmentModificationDates, segmentFileSizes, offlineMediaFiles, offlineFileMetadata, lastPrintDate, printHistory
         case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
         case watchFolderSettings
@@ -161,6 +164,7 @@ class Project: ObservableObject, Codable, Identifiable {
         segmentModificationDates =
             try container.decodeIfPresent([String: Date].self, forKey: .segmentModificationDates)
             ?? [:]
+        segmentFileSizes = try container.decodeIfPresent([String: Int64].self, forKey: .segmentFileSizes) ?? [:]
         offlineMediaFiles = try container.decodeIfPresent(Set<String>.self, forKey: .offlineMediaFiles) ?? []
         offlineFileMetadata = try container.decodeIfPresent([String: OfflineFileMetadata].self, forKey: .offlineFileMetadata) ?? [:]
         lastPrintDate = try container.decodeIfPresent(Date.self, forKey: .lastPrintDate)
@@ -189,6 +193,7 @@ class Project: ObservableObject, Codable, Identifiable {
 
         try container.encode(blankRushStatus, forKey: .blankRushStatus)
         try container.encode(segmentModificationDates, forKey: .segmentModificationDates)
+        try container.encode(segmentFileSizes, forKey: .segmentFileSizes)
         try container.encode(offlineMediaFiles, forKey: .offlineMediaFiles)
         try container.encode(offlineFileMetadata, forKey: .offlineFileMetadata)
         try container.encodeIfPresent(lastPrintDate, forKey: .lastPrintDate)
@@ -217,10 +222,15 @@ class Project: ObservableObject, Codable, Identifiable {
     func addSegments(_ newSegments: [MediaFileInfo]) {
         segments.append(contentsOf: newSegments)
 
-        // Track modification dates for new segments
+        // Track modification dates and file sizes for new segments
         for segment in newSegments {
             if let modDate = getFileModificationDate(for: segment.url) {
                 segmentModificationDates[segment.fileName] = modDate
+            }
+
+            if let fileSize = getFileSize(for: segment.url) {
+                segmentFileSizes[segment.fileName] = fileSize
+                NSLog("📊 Stored size for segment: %@ (size: %lld bytes)", segment.fileName, fileSize)
             }
         }
 
@@ -336,9 +346,10 @@ class Project: ObservableObject, Codable, Identifiable {
     func removeSegments(_ fileNames: [String]) {
         segments.removeAll { fileNames.contains($0.fileName) }
 
-        // Clean up segment modification tracking and offline status
+        // Clean up segment modification tracking, file sizes, and offline status
         for fileName in fileNames {
             segmentModificationDates.removeValue(forKey: fileName)
+            segmentFileSizes.removeValue(forKey: fileName)
             offlineMediaFiles.remove(fileName)
         }
 
@@ -365,6 +376,7 @@ class Project: ObservableObject, Codable, Identifiable {
         // Clean up tracking data
         for fileName in offlineFileNames {
             segmentModificationDates.removeValue(forKey: fileName)
+            segmentFileSizes.removeValue(forKey: fileName)
             printStatus.removeValue(forKey: fileName)
             blankRushStatus.removeValue(forKey: fileName)
             offlineFileMetadata.removeValue(forKey: fileName)
@@ -417,6 +429,45 @@ class Project: ObservableObject, Codable, Identifiable {
             return resourceValues.fileSize.map { Int64($0) }
         } catch {
             print("⚠️ Could not get file size for \(url.lastPathComponent): \(error)")
+            return nil
+        }
+    }
+
+    /// Calculate partial hash (first 1MB + last 1MB) for file comparison
+    private func calculatePartialHash(for url: URL) -> String? {
+        guard let fileHandle = try? FileHandle(forReadingFrom: url) else {
+            NSLog("⚠️ Could not open file for hashing: %@", url.lastPathComponent)
+            return nil
+        }
+        defer { try? fileHandle.close() }
+
+        do {
+            let chunkSize = 1024 * 1024  // 1MB
+            var hasher = SHA256()
+
+            // Get file size
+            let fileSize = try fileHandle.seekToEnd()
+            try fileHandle.seek(toOffset: 0)
+
+            // Hash first chunk (or entire file if smaller)
+            let firstChunkSize = min(UInt64(chunkSize), fileSize)
+            if let firstData = try? fileHandle.read(upToCount: Int(firstChunkSize)) {
+                hasher.update(data: firstData)
+            }
+
+            // Hash last chunk if file is large enough
+            if fileSize > UInt64(chunkSize * 2) {
+                try fileHandle.seek(toOffset: fileSize - UInt64(chunkSize))
+                if let lastData = try? fileHandle.read(upToCount: chunkSize) {
+                    hasher.update(data: lastData)
+                }
+            }
+
+            let digest = hasher.finalize()
+            let hashString = digest.map { String(format: "%02x", $0) }.joined()
+            return hashString
+        } catch {
+            NSLog("⚠️ Error calculating hash for %@: %@", url.lastPathComponent, error.localizedDescription)
             return nil
         }
     }
@@ -535,12 +586,63 @@ class Project: ObservableObject, Codable, Identifiable {
                         NSLog("⚠️ Offline file returned but CHANGED: %@ (old: %lld, new: %lld bytes)",
                               fileName, metadata.fileSize, currentSize)
                     }
+                } else if let currentSize = getFileSize(for: url) {
+                    // No metadata - use hash fallback
+                    NSLog("🔐 No metadata for %@ - computing hash for comparison", fileName)
+
+                    if let currentHash = calculatePartialHash(for: url) {
+                        // Check if we have a stored hash to compare
+                        if let metadata = offlineFileMetadata[fileName], let storedHash = metadata.partialHash {
+                            if currentHash == storedHash {
+                                // Hash matches - same file
+                                returningOfflineFiles.append(url)
+                                NSLog("🔄 Hash match - file unchanged: %@", fileName)
+                            } else {
+                                // Hash different - file changed
+                                changedOfflineFiles.append(url)
+                                NSLog("⚠️ Hash mismatch - file changed: %@", fileName)
+                            }
+                        } else {
+                            // No stored hash - store for next time and treat as changed
+                            let newMetadata = OfflineFileMetadata(
+                                fileName: fileName,
+                                fileSize: currentSize,
+                                offlineDate: Date(),
+                                partialHash: currentHash
+                            )
+                            offlineFileMetadata[fileName] = newMetadata
+                            changedOfflineFiles.append(url)
+                            NSLog("🔐 Computed and stored hash - treating as changed: %@", fileName)
+                        }
+                    } else {
+                        // Hash computation failed - treat as returning with changes
+                        changedOfflineFiles.append(url)
+                        NSLog("⚠️ Hash computation failed - treating as changed: %@", fileName)
+                    }
                 } else {
-                    // No metadata, treat as returning
+                    // Can't get file size - treat as returning
                     returningOfflineFiles.append(url)
-                    NSLog("🔄 Offline file returned (no metadata): %@", fileName)
+                    NSLog("🔄 Offline file returned (no size check possible): %@", fileName)
                 }
-            } else if !existingFileNames.contains(fileName) {
+            } else if existingFileNames.contains(fileName) {
+                // File already exists and is online - check if it has changed
+                if let storedSize = segmentFileSizes[fileName],
+                   let currentSize = getFileSize(for: url) {
+
+                    if currentSize != storedSize {
+                        // Size changed - file has been replaced
+                        changedOfflineFiles.append(url)
+                        NSLog("⚠️ Online file CHANGED: %@ (old: %lld, new: %lld bytes)",
+                              fileName, storedSize, currentSize)
+                    } else {
+                        // Size unchanged - ignore (already imported)
+                        NSLog("📋 File already imported and unchanged: %@", fileName)
+                    }
+                } else {
+                    // No stored size to compare - ignore
+                    NSLog("📋 File already imported (no size tracking): %@", fileName)
+                }
+            } else {
                 // Truly new file
                 newVideoFiles.append(url)
             }
@@ -560,6 +662,13 @@ class Project: ObservableObject, Codable, Identifiable {
             offlineMediaFiles.remove(fileName)
             offlineFileMetadata.removeValue(forKey: fileName)
             segmentModificationDates[fileName] = Date()
+
+            // Update file size metadata with new size
+            if let newSize = getFileSize(for: url) {
+                segmentFileSizes[fileName] = newSize
+                NSLog("📊 Updated size for changed file: %@ (new size: %lld bytes)", fileName, newSize)
+            }
+
             NSLog("✅ File %@ is back online and marked as modified", fileName)
 
             // Mark affected OCFs for re-print
@@ -658,18 +767,21 @@ class Project: ObservableObject, Codable, Identifiable {
         // Mark segments as offline instead of removing them
         var markedCount = 0
         for fileName in fileNames {
-            if let segment = segments.first(where: { $0.fileName == fileName }) {
+            if segments.contains(where: { $0.fileName == fileName }) {
                 offlineMediaFiles.insert(fileName)
 
-                // Store metadata for later comparison when file returns
-                if let fileSize = getFileSize(for: segment.url) {
+                // Store metadata using pre-stored file size
+                if let fileSize = segmentFileSizes[fileName] {
                     let metadata = OfflineFileMetadata(
                         fileName: fileName,
                         fileSize: fileSize,
-                        offlineDate: Date()
+                        offlineDate: Date(),
+                        partialHash: nil  // Hash will be computed on return if needed
                     )
                     offlineFileMetadata[fileName] = metadata
                     NSLog("📊 Stored metadata for offline file: %@ (size: %lld bytes)", fileName, fileSize)
+                } else {
+                    NSLog("⚠️ No pre-stored size for %@ - will use hash fallback on return", fileName)
                 }
 
                 markedCount += 1
@@ -718,6 +830,12 @@ class Project: ObservableObject, Codable, Identifiable {
 
                 // Update the segment's modification date to mark it as changed
                 updateSegmentModificationDate(fileName)
+
+                // Update file size for modified segment
+                if let fileSize = getFileSize(for: segment.url) {
+                    segmentFileSizes[fileName] = fileSize
+                    NSLog("📊 Updated size for modified segment: %@ (size: %lld bytes)", fileName, fileSize)
+                }
 
                 // Find linked OCF files that use this segment
                 if let linkingResult = linkingResult {

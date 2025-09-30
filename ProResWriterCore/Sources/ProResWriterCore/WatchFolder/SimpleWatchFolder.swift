@@ -218,11 +218,14 @@ public class SimpleWatchFolder {
             if videoExtensions.contains(pathExtension) {
                 let fileName = URL(fileURLWithPath: pathAsString).lastPathComponent
 
-                if isRemoved {
+                // Handle removed/deleted files
+                if isRemoved && !FileManager.default.fileExists(atPath: pathAsString) {
                     NSLog("🗑️ %@ FILE DELETED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
                     onVideoFilesDeleted?([fileName], isVFXEvent)
-                } else if isRenamed {
-                    // Handle rename/move events
+                }
+
+                // Handle renamed/moved files
+                if isRenamed {
                     if FileManager.default.fileExists(atPath: pathAsString) {
                         // File exists at this path - this is a move-in (treat as creation)
                         NSLog("📥 %@ FILE MOVED IN: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
@@ -238,11 +241,13 @@ public class SimpleWatchFolder {
 
                         NSLog("⏳ Moved-in file added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
                     } else {
-                        // File doesn't exist at this path - this is a move-out (treat as deletion)
+                        // File doesn't exist at this path - this is a move-out (already handled by isRemoved)
                         NSLog("📤 %@ FILE MOVED OUT: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-                        onVideoFilesDeleted?([fileName], isVFXEvent)
                     }
-                } else if isCreated {
+                }
+
+                // Handle created files
+                if isCreated && FileManager.default.fileExists(atPath: pathAsString) {
                     NSLog("🎬 %@ FILE CREATED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
 
                     // Add to pending files with current timestamp and VFX flag
@@ -255,7 +260,10 @@ public class SimpleWatchFolder {
                     }
 
                     NSLog("⏳ File added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
-                } else if isModified {
+                }
+
+                // Handle modified files
+                if isModified && !isCreated && !isRemoved {
                     // Check if file exists (modification vs ongoing creation)
                     if FileManager.default.fileExists(atPath: pathAsString) {
                         // Check if this is a stable modification (file size unchanged for a moment)
