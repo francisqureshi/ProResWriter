@@ -9,6 +9,14 @@ import Foundation
 import ProResWriterCore
 import SwiftUI
 
+// MARK: - File Metadata
+
+struct OfflineFileMetadata: Codable {
+    let fileName: String
+    let fileSize: Int64
+    let offlineDate: Date
+}
+
 // MARK: - Project Data Model
 
 class Project: ObservableObject, Codable, Identifiable {
@@ -29,6 +37,7 @@ class Project: ObservableObject, Codable, Identifiable {
     @Published var blankRushStatus: [String: BlankRushStatus] = [:]  // OCF filename → status
     @Published var segmentModificationDates: [String: Date] = [:]  // Segment filename → last modified date
     @Published var offlineMediaFiles: Set<String> = []  // Track offline (deleted/moved) media files
+    @Published var offlineFileMetadata: [String: OfflineFileMetadata] = [:]  // Track metadata for offline files
     @Published var lastPrintDate: Date?
     @Published var printHistory: [PrintRecord] = []
     
@@ -130,7 +139,7 @@ class Project: ObservableObject, Codable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
-        case blankRushStatus, segmentModificationDates, offlineMediaFiles, lastPrintDate, printHistory
+        case blankRushStatus, segmentModificationDates, offlineMediaFiles, offlineFileMetadata, lastPrintDate, printHistory
         case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
         case watchFolderSettings
@@ -153,6 +162,7 @@ class Project: ObservableObject, Codable, Identifiable {
             try container.decodeIfPresent([String: Date].self, forKey: .segmentModificationDates)
             ?? [:]
         offlineMediaFiles = try container.decodeIfPresent(Set<String>.self, forKey: .offlineMediaFiles) ?? []
+        offlineFileMetadata = try container.decodeIfPresent([String: OfflineFileMetadata].self, forKey: .offlineFileMetadata) ?? [:]
         lastPrintDate = try container.decodeIfPresent(Date.self, forKey: .lastPrintDate)
         printHistory = try container.decodeIfPresent([PrintRecord].self, forKey: .printHistory) ?? []
         
@@ -180,6 +190,7 @@ class Project: ObservableObject, Codable, Identifiable {
         try container.encode(blankRushStatus, forKey: .blankRushStatus)
         try container.encode(segmentModificationDates, forKey: .segmentModificationDates)
         try container.encode(offlineMediaFiles, forKey: .offlineMediaFiles)
+        try container.encode(offlineFileMetadata, forKey: .offlineFileMetadata)
         try container.encodeIfPresent(lastPrintDate, forKey: .lastPrintDate)
         try container.encode(printHistory, forKey: .printHistory)
         
@@ -356,6 +367,7 @@ class Project: ObservableObject, Codable, Identifiable {
             segmentModificationDates.removeValue(forKey: fileName)
             printStatus.removeValue(forKey: fileName)
             blankRushStatus.removeValue(forKey: fileName)
+            offlineFileMetadata.removeValue(forKey: fileName)
         }
 
         // Clear offline set
@@ -395,6 +407,16 @@ class Project: ObservableObject, Codable, Identifiable {
             return resourceValues.contentModificationDate
         } catch {
             print("⚠️ Could not get modification date for \(url.lastPathComponent): \(error)")
+            return nil
+        }
+    }
+
+    private func getFileSize(for url: URL) -> Int64? {
+        do {
+            let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
+            return resourceValues.fileSize.map { Int64($0) }
+        } catch {
+            print("⚠️ Could not get file size for \(url.lastPathComponent): \(error)")
             return nil
         }
     }
@@ -488,19 +510,94 @@ class Project: ObservableObject, Codable, Identifiable {
             return
         }
 
-        // Filter out files that are already imported (prevent duplicates on file overwrites)
+        // Check for returning offline files first
+        var returningOfflineFiles: [URL] = []
+        var changedOfflineFiles: [URL] = []
+        var newVideoFiles: [URL] = []
+
         let existingFileNames = Set(segments.map { $0.fileName })
-        let newVideoFiles = videoFiles.filter { url in
-            !existingFileNames.contains(url.lastPathComponent)
+
+        for url in videoFiles {
+            let fileName = url.lastPathComponent
+
+            // Check if this is a returning offline file
+            if offlineMediaFiles.contains(fileName) {
+                if let metadata = offlineFileMetadata[fileName],
+                   let currentSize = getFileSize(for: url) {
+
+                    if currentSize == metadata.fileSize {
+                        // Same size - treat as same file returning
+                        returningOfflineFiles.append(url)
+                        NSLog("🔄 Offline file returned unchanged: %@ (size: %lld bytes)", fileName, currentSize)
+                    } else {
+                        // Different size - file has changed
+                        changedOfflineFiles.append(url)
+                        NSLog("⚠️ Offline file returned but CHANGED: %@ (old: %lld, new: %lld bytes)",
+                              fileName, metadata.fileSize, currentSize)
+                    }
+                } else {
+                    // No metadata, treat as returning
+                    returningOfflineFiles.append(url)
+                    NSLog("🔄 Offline file returned (no metadata): %@", fileName)
+                }
+            } else if !existingFileNames.contains(fileName) {
+                // Truly new file
+                newVideoFiles.append(url)
+            }
         }
 
+        // Handle returning offline files (same size - just remove offline status)
+        for url in returningOfflineFiles {
+            let fileName = url.lastPathComponent
+            offlineMediaFiles.remove(fileName)
+            offlineFileMetadata.removeValue(forKey: fileName)
+            NSLog("✅ File %@ is back online", fileName)
+        }
+
+        // Handle changed offline files (different size - treat as modified)
+        for url in changedOfflineFiles {
+            let fileName = url.lastPathComponent
+            offlineMediaFiles.remove(fileName)
+            offlineFileMetadata.removeValue(forKey: fileName)
+            segmentModificationDates[fileName] = Date()
+            NSLog("✅ File %@ is back online and marked as modified", fileName)
+
+            // Mark affected OCFs for re-print
+            if let linkingResult = linkingResult {
+                for ocfParent in linkingResult.ocfParents {
+                    for child in ocfParent.children {
+                        if child.segment.fileName == fileName {
+                            let lastPrint = printStatus[ocfParent.ocf.fileName]
+                            let printDate: Date
+                            if case .printed(let date, _) = lastPrint {
+                                printDate = date
+                            } else {
+                                printDate = Date()
+                            }
+                            printStatus[ocfParent.ocf.fileName] = .needsReprint(lastPrintDate: printDate, reason: .segmentModified)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Auto re-link if any offline files returned and we had linking before
+        if (!returningOfflineFiles.isEmpty || !changedOfflineFiles.isEmpty) && linkingResult != nil {
+            NSLog("🔗 Offline files returned - invalidating linking to trigger re-link...")
+            // Invalidate linking so user can re-link with returned files
+            linkingResult = nil
+            NSLog("⚠️ Please use the Linking tab to re-link the project")
+        }
+
+        // Import truly new files
         guard !newVideoFiles.isEmpty else {
-            NSLog("⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
+            if returningOfflineFiles.isEmpty && changedOfflineFiles.isEmpty {
+                NSLog("⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
+            }
             return
         }
 
-        NSLog("🎬 Auto-importing %d new %@ files (filtered %d duplicates)...",
-              newVideoFiles.count, isVFX ? "VFX" : "grade", videoFiles.count - newVideoFiles.count)
+        NSLog("🎬 Auto-importing %d new %@ files...", newVideoFiles.count, isVFX ? "VFX" : "grade")
 
         // Import as segments with VFX flag
         Task {
@@ -561,8 +658,20 @@ class Project: ObservableObject, Codable, Identifiable {
         // Mark segments as offline instead of removing them
         var markedCount = 0
         for fileName in fileNames {
-            if segments.contains(where: { $0.fileName == fileName }) {
+            if let segment = segments.first(where: { $0.fileName == fileName }) {
                 offlineMediaFiles.insert(fileName)
+
+                // Store metadata for later comparison when file returns
+                if let fileSize = getFileSize(for: segment.url) {
+                    let metadata = OfflineFileMetadata(
+                        fileName: fileName,
+                        fileSize: fileSize,
+                        offlineDate: Date()
+                    )
+                    offlineFileMetadata[fileName] = metadata
+                    NSLog("📊 Stored metadata for offline file: %@ (size: %lld bytes)", fileName, fileSize)
+                }
+
                 markedCount += 1
             }
         }
