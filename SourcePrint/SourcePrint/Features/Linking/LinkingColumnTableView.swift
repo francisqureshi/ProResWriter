@@ -77,7 +77,9 @@ struct LinkedResultsColumnTableView: View {
                         ocfParent: parent,
                         linkedSegment: nil,
                         unmatchedFile: nil,
-                        project: project
+                        project: project,
+                        offlineFiles: project.offlineMediaFiles,
+                        modificationDates: project.segmentModificationDates
                     ))
 
                 // Add linked segments only if this OCF is expanded
@@ -90,7 +92,9 @@ struct LinkedResultsColumnTableView: View {
                                 ocfParent: nil,
                                 linkedSegment: segment,
                                 unmatchedFile: nil,
-                                project: project
+                                project: project,
+                                offlineFiles: project.offlineMediaFiles,
+                                modificationDates: project.segmentModificationDates
                             ))
                     }
                 }
@@ -388,6 +392,8 @@ struct LinkingTableRow: Identifiable {
     let linkedSegment: LinkedSegment?
     let unmatchedFile: MediaFileInfo?
     let project: Project
+    let offlineFiles: Set<String>
+    let modificationDates: [String: Date]
 
     enum RowType {
         case ocfParent
@@ -540,38 +546,94 @@ struct LinkingTableRowView: View {
                 .padding(.horizontal, 4)
 
             // Status Column
-            HStack(spacing: 4) {
-                switch row.type {
-                case .ocfParent:
-                    if row.project.blankRushFileExists(for: row.ocfParent?.ocf.fileName ?? "") {
-                        Image(systemName: "film.fill")
-                            .foregroundColor(.green)
-                            .frame(width: 12)
-                    } else {
-                        Color.clear.frame(width: 12)
-                    }
-                case .linkedSegment:
-                    if row.linkedSegment?.segment.isVFX == true {
-                        Image(systemName: "wand.and.stars")
-                            .foregroundColor(.purple)
-                            .frame(width: 12)
-                    } else {
-                        Color.clear.frame(width: 12)
-                    }
-                }
-
-                Text(statusText)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-
-                Spacer()
-            }
-            .frame(width: statusWidth, alignment: .leading)
-            .padding(.horizontal, 4)
+            statusView
+                .frame(width: statusWidth, alignment: .leading)
+                .padding(.horizontal, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 2)
+    }
+
+    // Status view with online/offline/updated indicators
+    private var statusView: some View {
+        HStack(spacing: 4) {
+            switch row.type {
+            case .ocfParent:
+                // OCF Parents show blank rush status
+                if row.project.blankRushFileExists(for: row.ocfParent?.ocf.fileName ?? "") {
+                    Image(systemName: "film.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 8))
+                    Text("Blank Rush Ready")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 8))
+                    Text("Ready for Rush")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+
+            case .linkedSegment:
+                // Segments show online/offline/updated status
+                let fileName = row.linkedSegment?.segment.fileName ?? ""
+                let isOffline = row.offlineFiles.contains(fileName)
+                let modDate = row.modificationDates[fileName]
+                let isVFX = row.linkedSegment?.segment.isVFX == true
+
+                if isOffline {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.red)
+                    Text("Offline")
+                        .font(.system(size: 11))
+                        .foregroundColor(.red)
+                } else if let modDate = modDate {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.yellow)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 4) {
+                            Text("Updated")
+                                .font(.system(size: 11))
+                                .foregroundColor(.yellow)
+                            if isVFX {
+                                Image(systemName: "wand.and.stars")
+                                    .foregroundColor(.purple)
+                                    .font(.system(size: 9))
+                            }
+                        }
+                        Text(formatDate(modDate))
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.green)
+                    HStack(spacing: 4) {
+                        Text("Online")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        if isVFX {
+                            Image(systemName: "wand.and.stars")
+                                .foregroundColor(.purple)
+                                .font(.system(size: 9))
+                        }
+                    }
+                }
+            }
+            Spacer()
+        }
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     // Helper computed properties for data display
@@ -695,21 +757,6 @@ struct LinkingTableRowView: View {
                 return String(format: "%.3f", fps.floatValue)
             }
             return ""
-        }
-    }
-
-    private var statusText: String {
-        switch row.type {
-        case .ocfParent:
-            if row.project.blankRushFileExists(for: row.ocfParent?.ocf.fileName ?? "") {
-                return "Blank Rush Ready"
-            }
-            return "Ready for Rush"
-        case .linkedSegment:
-            if row.linkedSegment?.segment.isVFX == true {
-                return "VFX Shot"
-            }
-            return "Linked"
         }
     }
 

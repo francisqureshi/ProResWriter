@@ -517,10 +517,20 @@ struct OCFParentHeaderView: View {
 struct TreeLinkedSegmentRowView: View {
     let linkedSegment: LinkedSegment
     let isLast: Bool
+    @ObservedObject var project: Project
 
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
         linkedSegment.segment.isVFX
+    }
+
+    // Online/offline/updated status
+    private var isOffline: Bool {
+        project.offlineMediaFiles.contains(linkedSegment.segment.fileName)
+    }
+
+    private var modificationDate: Date? {
+        project.segmentModificationDates[linkedSegment.segment.fileName]
     }
 
     var confidenceColor: Color {
@@ -562,6 +572,7 @@ struct TreeLinkedSegmentRowView: View {
                 HStack {
                     Text(linkedSegment.segment.fileName)
                         .font(.body)
+                        .foregroundColor(isOffline ? .red : .primary)
 
                     // VFX badge
                     if isVFXShot {
@@ -574,6 +585,37 @@ struct TreeLinkedSegmentRowView: View {
                             .foregroundColor(.purple)
                             .cornerRadius(3)
                     }
+
+                    // Online/Offline/Updated status badge
+                    if isOffline {
+                        HStack(spacing: 2) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 6))
+                                .foregroundColor(.red)
+                            Text("OFFLINE")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.red.opacity(0.2))
+                        .foregroundColor(.red)
+                        .cornerRadius(3)
+                    } else if let modDate = modificationDate {
+                        HStack(spacing: 2) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 6))
+                                .foregroundColor(.yellow)
+                            Text("UPDATED")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.yellow.opacity(0.2))
+                        .foregroundColor(.yellow)
+                        .cornerRadius(3)
+                    }
                 }
 
                 HStack {
@@ -585,6 +627,12 @@ struct TreeLinkedSegmentRowView: View {
                         Text("TC: \(startTC)")
                             .monospacedDigit()
                     }
+                    // Show modification date for updated files
+                    if let modDate = modificationDate {
+                        Text("•")
+                        Text("Updated: \(formatDate(modDate))")
+                            .monospacedDigit()
+                    }
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -593,6 +641,14 @@ struct TreeLinkedSegmentRowView: View {
             Spacer()
         }
         .padding(.leading, 20)
+        .opacity(isOffline ? 0.6 : 1.0)
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 
@@ -1186,7 +1242,8 @@ struct CompressorStyleOCFCard: View {
                                 TreeLinkedSegmentRowView(
                                     linkedSegment: linkedSegment,
                                     isLast: linkedSegment.segment.fileName
-                                        == parent.children.last?.segment.fileName
+                                        == parent.children.last?.segment.fileName,
+                                    project: project
                                 )
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
