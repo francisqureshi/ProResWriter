@@ -38,7 +38,13 @@ struct RenderTab: View {
                         }
                         .buttonStyle(CompressorButtonStyle())
                         .disabled(project.renderQueue.isEmpty || !hasCompletedItems)
-                        
+
+                        Button("Clear All") {
+                            clearAllItems()
+                        }
+                        .buttonStyle(CompressorButtonStyle())
+                        .disabled(project.renderQueue.isEmpty || isRendering)
+
                         Button(isRendering ? "Stop" : "Process Queue") {
                             if isRendering {
                                 stopQueueProcessing()
@@ -173,7 +179,13 @@ struct RenderTab: View {
         project.renderQueue.removeAll { $0.status == .completed || $0.status == .failed }
         projectManager.saveProject(project)
     }
-    
+
+    private func clearAllItems() {
+        project.renderQueue.removeAll()
+        projectManager.saveProject(project)
+        NSLog("🗑️ Cleared all render queue items")
+    }
+
     private func stopQueueProcessing() {
         shouldStopRendering = true
         renderProgress = "Stopping after current item..."

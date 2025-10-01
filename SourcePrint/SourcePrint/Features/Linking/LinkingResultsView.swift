@@ -325,6 +325,21 @@ struct LinkingResultsView: View {
                     .padding()
 
                     List(selection: $selectedUnmatchedFiles) {
+                        // Unmatched Segments (shown first - most important)
+                        if let linkingResult = linkingResult,
+                            !linkingResult.unmatchedSegments.isEmpty
+                        {
+                            Section("Unmatched Segments (\(linkingResult.unmatchedSegments.count))")
+                            {
+                                ForEach(linkingResult.unmatchedSegments, id: \.fileName) {
+                                    segment in
+                                    UnmatchedFileRowView(file: segment, type: .segment)
+                                        .tag(segment.fileName)
+                                }
+                            }
+                        }
+
+                        // Unmatched OCF Files
                         if let linkingResult = linkingResult, !linkingResult.unmatchedOCFs.isEmpty {
                             Section {
                                 ForEach(linkingResult.unmatchedOCFs, id: \.fileName) { ocf in
@@ -361,19 +376,7 @@ struct LinkingResultsView: View {
                             }
                         }
 
-                        if let linkingResult = linkingResult,
-                            !linkingResult.unmatchedSegments.isEmpty
-                        {
-                            Section("Unmatched Segments (\(linkingResult.unmatchedSegments.count))")
-                            {
-                                ForEach(linkingResult.unmatchedSegments, id: \.fileName) {
-                                    segment in
-                                    UnmatchedFileRowView(file: segment, type: .segment)
-                                        .tag(segment.fileName)
-                                }
-                            }
-                        }
-
+                        // Low Confidence Matches
                         if !lowConfidenceSegments.isEmpty {
                             Section("Low Confidence Matches (\(lowConfidenceSegments.count))") {
                                 ForEach(lowConfidenceSegments, id: \.segment.fileName) {
@@ -1137,6 +1140,17 @@ struct CompressorStyleOCFCard: View {
         }
     }
 
+    private func addToRenderQueue() {
+        // Check if already in queue
+        if !project.renderQueue.contains(where: { $0.ocfFileName == parent.ocf.fileName }) {
+            let queueItem = RenderQueueItem(ocfFileName: parent.ocf.fileName)
+            project.renderQueue.append(queueItem)
+            projectManager.saveProject(project)
+            NSLog("➕ Added %@ to render queue", parent.ocf.fileName)
+        } else {
+            NSLog("ℹ️ %@ already in render queue", parent.ocf.fileName)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1187,10 +1201,10 @@ struct CompressorStyleOCFCard: View {
                             HStack(spacing: 4) {
                                 if project.blankRushFileExists(for: parent.ocf.fileName) {
                                     Image(systemName: "film.fill")
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Color.green.opacity(0.7))
                                     Text("Blank Rush")
                                         .font(.caption)
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Color.green.opacity(0.7))
                                 } else {
                                     Image(systemName: "film")
                                         .foregroundColor(.secondary)
@@ -1201,6 +1215,22 @@ struct CompressorStyleOCFCard: View {
                             }
                         }
                         .buttonStyle(.plain)
+
+                        // Render Button
+                        Button(action: {
+                            addToRenderQueue()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "play.circle.fill")
+                                    .foregroundColor(.accentColor)
+                                Text("Render")
+                                    .font(.caption)
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!project.blankRushFileExists(for: parent.ocf.fileName))
+                        .opacity(project.blankRushFileExists(for: parent.ocf.fileName) ? 1.0 : 0.5)
 
                         // Chevron indicator with fixed width and larger click area
                         Button(action: {
@@ -1290,6 +1320,9 @@ struct CompressorStyleOCFCard: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = true
                 }
+                // Save expansion state to project
+                project.ocfCardExpansionState[parent.ocf.fileName] = true
+                projectManager.saveProject(project)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .collapseSelectedCards)) { _ in
@@ -1297,6 +1330,9 @@ struct CompressorStyleOCFCard: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = false
                 }
+                // Save expansion state to project
+                project.ocfCardExpansionState[parent.ocf.fileName] = false
+                projectManager.saveProject(project)
             }
         }
         .onAppear {
