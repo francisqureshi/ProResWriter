@@ -7,10 +7,14 @@
 
 import ProResWriterCore
 import SwiftUI
+import AVFoundation
+import CoreMedia
+import TimecodeKit
 
 extension Notification.Name {
     static let expandSelectedCards = Notification.Name("expandSelectedCards")
     static let collapseSelectedCards = Notification.Name("collapseSelectedCards")
+    static let renderOCF = Notification.Name("renderOCF")
 }
 
 struct LinkingResultsView: View {
@@ -58,11 +62,63 @@ struct LinkingResultsView: View {
         return linkingResult.unmatchedOCFs.count + linkingResult.unmatchedSegments.count
             + lowConfidenceSegments.count
     }
-    
+
+    // Batch render computed properties
+    var canRenderAllReady: Bool {
+        return confidentlyLinkedParents.contains { parent in
+            project.blankRushFileExists(for: parent.ocf.fileName) &&
+            project.printStatus[parent.ocf.fileName] == nil
+        }
+    }
+
+    var canRenderModified: Bool {
+        return confidentlyLinkedParents.contains { parent in
+            project.blankRushFileExists(for: parent.ocf.fileName) &&
+            parent.children.contains { child in
+                project.segmentModificationDates[child.segment.fileName] != nil
+            }
+        }
+    }
+
     // Helper to get selected OCF parents for context menu batch operations
     private func getSelectedParents() -> [OCFParent] {
         return confidentlyLinkedParents.filter { parent in
             selectedOCFParents.contains(parent.ocf.fileName)
+        }
+    }
+
+    // Batch render functions - these trigger notifications that cards will respond to
+    private func renderAllReady() {
+        let readyToRender = confidentlyLinkedParents.filter { parent in
+            project.blankRushFileExists(for: parent.ocf.fileName) &&
+            project.printStatus[parent.ocf.fileName] == nil
+        }
+
+        NSLog("🎬 Batch rendering %d ready OCFs", readyToRender.count)
+        for parent in readyToRender {
+            NotificationCenter.default.post(
+                name: .renderOCF,
+                object: nil,
+                userInfo: ["ocfFileName": parent.ocf.fileName]
+            )
+        }
+    }
+
+    private func renderModified() {
+        let modifiedOCFs = confidentlyLinkedParents.filter { parent in
+            project.blankRushFileExists(for: parent.ocf.fileName) &&
+            parent.children.contains { child in
+                project.segmentModificationDates[child.segment.fileName] != nil
+            }
+        }
+
+        NSLog("🔄 Re-rendering %d modified OCFs", modifiedOCFs.count)
+        for parent in modifiedOCFs {
+            NotificationCenter.default.post(
+                name: .renderOCF,
+                object: nil,
+                userInfo: ["ocfFileName": parent.ocf.fileName]
+            )
         }
     }
 
@@ -190,6 +246,18 @@ struct LinkingResultsView: View {
                                 .buttonStyle(CompressorButtonStyle())
                                 .disabled(!project.readyForBlankRush)
                             }
+
+                            Button("Render All Ready") {
+                                renderAllReady()
+                            }
+                            .buttonStyle(CompressorButtonStyle())
+                            .disabled(!canRenderAllReady)
+
+                            Button("Re-render Modified") {
+                                renderModified()
+                            }
+                            .buttonStyle(CompressorButtonStyle())
+                            .disabled(!canRenderModified)
 
                             if !confidentlyLinkedParents.isEmpty {
                                 Group {
@@ -1069,6 +1137,11 @@ struct CompressorStyleOCFCard: View {
     let allParents: [OCFParent]
 
     @State private var isExpanded: Bool = true  // Default to expanded
+    @State private var isRendering = false
+    @State private var renderProgress = ""
+    @State private var renderStartTime: Date?
+    @State private var elapsedTime: TimeInterval = 0
+    @State private var renderTimer: Timer?
 
     private var isSelected: Bool {
         selectedOCFParents.contains(parent.ocf.fileName)
@@ -1140,15 +1213,173 @@ struct CompressorStyleOCFCard: View {
         }
     }
 
-    private func addToRenderQueue() {
-        // Check if already in queue
-        if !project.renderQueue.contains(where: { $0.ocfFileName == parent.ocf.fileName }) {
-            let queueItem = RenderQueueItem(ocfFileName: parent.ocf.fileName)
-            project.renderQueue.append(queueItem)
-            projectManager.saveProject(project)
-            NSLog("➕ Added %@ to render queue", parent.ocf.fileName)
-        } else {
-            NSLog("ℹ️ %@ already in render queue", parent.ocf.fileName)
+    private func startRendering() {
+        guard !isRendering else { return }
+        guard let blankRushStatus = project.blankRushStatus[parent.ocf.fileName],
+              case .completed(_, let blankRushURL) = blankRushStatus else {
+            NSLog("⚠️ No completed blank rush found for \(parent.ocf.fileName)")
+            return
+        }
+
+        isRendering = true
+        renderStartTime = Date()
+        elapsedTime = 0
+        renderProgress = "Preparing..."
+
+        // Start timer to update elapsed time
+        renderTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
+            if let startTime = renderStartTime {
+                elapsedTime = Date().timeIntervalSince(startTime)
+            }
+        }
+
+        Task {
+            await renderOCF(blankRushURL: blankRushURL)
+        }
+    }
+
+    private func stopRendering() {
+        renderTimer?.invalidate()
+        renderTimer = nil
+        isRendering = false
+        renderProgress = ""
+        renderStartTime = nil
+        elapsedTime = 0
+    }
+
+    @MainActor
+    private func renderOCF(blankRushURL: URL) async {
+        renderProgress = "Creating composition..."
+
+        do {
+            // Generate output filename
+            let baseName = (parent.ocf.fileName as NSString).deletingPathExtension
+            let outputFileName = "\(baseName).mov"
+            let outputURL = project.outputDirectory.appendingPathComponent(outputFileName)
+
+            // Create SwiftFFmpeg compositor
+            let compositor = SwiftFFmpegProResCompositor()
+
+            // Convert linked children to FFmpegGradedSegments
+            var ffmpegGradedSegments: [FFmpegGradedSegment] = []
+            for child in parent.children {
+                let segmentInfo = child.segment
+
+                if let segmentTC = segmentInfo.sourceTimecode,
+                   let baseTC = parent.ocf.sourceTimecode,
+                   let segmentFrameRate = segmentInfo.frameRate,
+                   let segmentFrameRateFloat = segmentInfo.frameRateFloat,
+                   let duration = segmentInfo.durationInFrames {
+
+                    let smpte = SMPTE(fps: Double(segmentFrameRateFloat), dropFrame: segmentInfo.isDropFrame ?? false)
+
+                    do {
+                        let segmentFrames = try smpte.getFrames(tc: segmentTC)
+                        let baseFrames = try smpte.getFrames(tc: baseTC)
+                        let relativeFrames = segmentFrames - baseFrames
+
+                        let startTime = CMTime(
+                            value: CMTimeValue(relativeFrames),
+                            timescale: CMTimeScale(segmentFrameRateFloat)
+                        )
+
+                        let segmentDuration = CMTime(
+                            seconds: Double(duration) / Double(segmentFrameRateFloat),
+                            preferredTimescale: CMTimeScale(segmentFrameRateFloat * 1000)
+                        )
+
+                        let ffmpegSegment = FFmpegGradedSegment(
+                            url: segmentInfo.url,
+                            startTime: startTime,
+                            duration: segmentDuration,
+                            sourceStartTime: .zero,
+                            isVFXShot: segmentInfo.isVFXShot ?? false,
+                            sourceTimecode: segmentInfo.sourceTimecode,
+                            frameRate: segmentFrameRateFloat,
+                            frameRateRational: segmentFrameRate,
+                            isDropFrame: segmentInfo.isDropFrame
+                        )
+                        ffmpegGradedSegments.append(ffmpegSegment)
+                    } catch {
+                        NSLog("⚠️ SMPTE calculation failed for \(segmentInfo.fileName): \(error)")
+                        continue
+                    }
+                }
+            }
+
+            guard !ffmpegGradedSegments.isEmpty else {
+                NSLog("❌ No valid FFmpeg graded segments for \(parent.ocf.fileName)")
+                await MainActor.run {
+                    stopRendering()
+                }
+                return
+            }
+
+            // Setup compositor settings
+            let settings = FFmpegCompositorSettings(
+                outputURL: outputURL,
+                baseVideoURL: blankRushURL,
+                gradedSegments: ffmpegGradedSegments,
+                proResProfile: "4"
+            )
+
+            compositor.progressHandler = nil
+
+            // Process composition
+            let compositionStartTime = Date()
+            let result = await withCheckedContinuation { continuation in
+                compositor.completionHandler = { result in
+                    continuation.resume(returning: result)
+                }
+                compositor.composeVideo(with: settings)
+            }
+
+            let compositionDuration = Date().timeIntervalSince(compositionStartTime)
+
+            await MainActor.run {
+                switch result {
+                case .success(let finalOutputURL):
+                    let printRecord = PrintRecord(
+                        date: Date(),
+                        outputURL: finalOutputURL,
+                        segmentCount: ffmpegGradedSegments.count,
+                        duration: compositionDuration,
+                        success: true
+                    )
+                    project.addPrintRecord(printRecord)
+                    project.printStatus[parent.ocf.fileName] = .printed(date: Date(), outputURL: finalOutputURL)
+
+                    // Clear modification dates for printed segments
+                    for child in parent.children {
+                        if project.segmentModificationDates[child.segment.fileName] != nil {
+                            project.segmentModificationDates.removeValue(forKey: child.segment.fileName)
+                        }
+                    }
+
+                    projectManager.saveProject(project)
+                    NSLog("✅ Composition completed: \(finalOutputURL.lastPathComponent)")
+
+                case .failure(let error):
+                    let printRecord = PrintRecord(
+                        date: Date(),
+                        outputURL: outputURL,
+                        segmentCount: ffmpegGradedSegments.count,
+                        duration: compositionDuration,
+                        success: false
+                    )
+                    project.addPrintRecord(printRecord)
+                    projectManager.saveProject(project)
+                    NSLog("❌ Composition failed: \(error)")
+                }
+
+                stopRendering()
+            }
+
+        } catch {
+            await MainActor.run {
+                NSLog("❌ Print process error for \(parent.ocf.fileName): \(error)")
+                stopRendering()
+            }
         }
     }
 
@@ -1216,21 +1447,37 @@ struct CompressorStyleOCFCard: View {
                         }
                         .buttonStyle(.plain)
 
-                        // Render Button
-                        Button(action: {
-                            addToRenderQueue()
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "play.circle.fill")
-                                    .foregroundColor(.accentColor)
-                                Text("Render")
-                                    .font(.caption)
-                                    .foregroundColor(.accentColor)
+                        // Render State Display
+                        if isRendering {
+                            Button(action: {
+                                stopRendering()
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "stop.circle.fill")
+                                        .foregroundColor(.red)
+                                    Text(String(format: "%.1fs", elapsedTime))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .monospacedDigit()
+                                }
                             }
+                            .buttonStyle(.plain)
+                        } else {
+                            Button(action: {
+                                startRendering()
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "play.circle.fill")
+                                        .foregroundColor(.accentColor)
+                                    Text("Render")
+                                        .font(.caption)
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!project.blankRushFileExists(for: parent.ocf.fileName))
+                            .opacity(project.blankRushFileExists(for: parent.ocf.fileName) ? 1.0 : 0.5)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(!project.blankRushFileExists(for: parent.ocf.fileName))
-                        .opacity(project.blankRushFileExists(for: parent.ocf.fileName) ? 1.0 : 0.5)
 
                         // Chevron indicator with fixed width and larger click area
                         Button(action: {
@@ -1255,6 +1502,21 @@ struct CompressorStyleOCFCard: View {
             .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
             .onTapGesture {
                 handleCardSelection()
+            }
+
+            // Render Progress Bar (shown when rendering, whether expanded or collapsed)
+            if isRendering {
+                VStack(spacing: 4) {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .scaleEffect(x: 1, y: 0.5, anchor: .center)
+                    Text(renderProgress)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
             }
 
             // Card body (expandable content)
@@ -1333,6 +1595,13 @@ struct CompressorStyleOCFCard: View {
                 // Save expansion state to project
                 project.ocfCardExpansionState[parent.ocf.fileName] = false
                 projectManager.saveProject(project)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .renderOCF)) { notification in
+            if let userInfo = notification.userInfo,
+               let ocfFileName = userInfo["ocfFileName"] as? String,
+               ocfFileName == parent.ocf.fileName {
+                startRendering()
             }
         }
         .onAppear {
