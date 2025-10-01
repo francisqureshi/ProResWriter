@@ -1748,6 +1748,21 @@ struct RenderLogSection: View {
         project.blankRushStatus[ocfFileName] ?? .notCreated
     }
 
+    // Actual status verified against file system
+    private var actualBlankRushStatus: BlankRushStatus {
+        let storedStatus = project.blankRushStatus[ocfFileName] ?? .notCreated
+
+        // Verify file existence for "completed" status
+        if case .completed(_, let url) = storedStatus {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                // File is missing - return .notCreated instead
+                return .notCreated
+            }
+        }
+
+        return storedStatus
+    }
+
     var body: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 8) {
@@ -1768,7 +1783,7 @@ struct RenderLogSection: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    if case .completed(_, let url) = blankRushStatus {
+                    if case .completed(_, let url) = actualBlankRushStatus {
                         Button(action: {
                             NSWorkspace.shared.open(url)
                         }) {
@@ -1843,7 +1858,7 @@ struct RenderLogSection: View {
     // MARK: - Helper Properties
 
     private var blankRushStatusColor: Color {
-        switch blankRushStatus {
+        switch actualBlankRushStatus {
         case .completed: return Color.green.opacity(0.7)
         case .inProgress: return .yellow
         case .failed: return .red
@@ -1852,7 +1867,7 @@ struct RenderLogSection: View {
     }
 
     private var blankRushStatusText: String {
-        switch blankRushStatus {
+        switch actualBlankRushStatus {
         case .completed(let date, _):
             return "Created \(RelativeDateTimeFormatter.shared.localizedString(for: date, relativeTo: Date()))"
         case .inProgress:
