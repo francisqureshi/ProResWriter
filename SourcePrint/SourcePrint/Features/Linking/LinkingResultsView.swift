@@ -1427,26 +1427,6 @@ struct CompressorStyleOCFCard: View {
                         }
                         .buttonStyle(.plain)
 
-                        // Blank Rush Status
-                        Button(action: {}) {
-                            HStack(spacing: 4) {
-                                if project.blankRushFileExists(for: parent.ocf.fileName) {
-                                    Image(systemName: "film.fill")
-                                        .foregroundColor(Color.green.opacity(0.7))
-                                    Text("Blank Rush")
-                                        .font(.caption)
-                                        .foregroundColor(Color.green.opacity(0.7))
-                                } else {
-                                    Image(systemName: "film")
-                                        .foregroundColor(.secondary)
-                                    Text("No Blank Rush")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-
                         // Render State Display
                         if isRendering {
                             Button(action: {
@@ -1534,6 +1514,12 @@ struct CompressorStyleOCFCard: View {
                             .padding(.horizontal, 12)
                         }
 
+                        // Render Log Section
+                        RenderLogSection(
+                            project: project,
+                            ocfFileName: parent.ocf.fileName
+                        )
+
                         // Linked segments container with unified keyboard navigation
                         VStack(spacing: 0) {
                             ForEach(Array(parent.children.enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
@@ -1609,4 +1595,173 @@ struct CompressorStyleOCFCard: View {
             isExpanded = project.ocfCardExpansionState[parent.ocf.fileName] ?? true
         }
     }
+}
+
+// MARK: - Render Log Section
+
+struct RenderLogSection: View {
+    let project: Project
+    let ocfFileName: String
+
+    // Filter print history for this specific OCF
+    private var relevantPrintHistory: [PrintRecord] {
+        let baseName = (ocfFileName as NSString).deletingPathExtension
+        return project.printHistory.filter { record in
+            record.outputURL.lastPathComponent.contains(baseName)
+        }.sorted { $0.date > $1.date } // Most recent first
+    }
+
+    private var mostRecentPrint: PrintRecord? {
+        relevantPrintHistory.first
+    }
+
+    private var blankRushStatus: BlankRushStatus {
+        project.blankRushStatus[ocfFileName] ?? .notCreated
+    }
+
+    var body: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                // Blank Rush Status Row
+                HStack(spacing: 12) {
+                    Label {
+                        Text("Blank Rush")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } icon: {
+                        Image(systemName: "film.fill")
+                            .foregroundColor(blankRushStatusColor)
+                    }
+
+                    Spacer()
+
+                    Text(blankRushStatusText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if case .completed(_, let url) = blankRushStatus {
+                        Button(action: {
+                            NSWorkspace.shared.open(url)
+                        }) {
+                            Image(systemName: "play.circle")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open blank rush")
+                    }
+                }
+
+                Divider()
+
+                // Print History Row
+                HStack(spacing: 12) {
+                    Label {
+                        Text("Print Status")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } icon: {
+                        Image(systemName: printStatusIcon)
+                            .foregroundColor(printStatusColor)
+                    }
+
+                    Spacer()
+
+                    if let print = mostRecentPrint {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(print.success ? "Completed" : "Failed")
+                                    .font(.caption)
+                                    .foregroundColor(print.success ? .green : .red)
+
+                                Text(RelativeDateTimeFormatter.shared.localizedString(for: print.date, relativeTo: Date()))
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Text(String(format: "%.1fs • %d segments", print.duration, print.segmentCount))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .monospacedDigit()
+                        }
+
+                        if print.success {
+                            Button(action: {
+                                showInFinder(url: print.outputURL)
+                            }) {
+                                Image(systemName: "folder")
+                                    .foregroundColor(.accentColor)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Show in Finder")
+                        }
+                    } else {
+                        Text("Never printed")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .italic()
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        } label: {
+            Label("Render Pipeline", systemImage: "gearshape.2")
+                .font(.caption)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Helper Properties
+
+    private var blankRushStatusColor: Color {
+        switch blankRushStatus {
+        case .completed: return Color.green.opacity(0.7)
+        case .inProgress: return .yellow
+        case .failed: return .red
+        case .notCreated: return .secondary
+        }
+    }
+
+    private var blankRushStatusText: String {
+        switch blankRushStatus {
+        case .completed(let date, _):
+            return "Created \(RelativeDateTimeFormatter.shared.localizedString(for: date, relativeTo: Date()))"
+        case .inProgress:
+            return "In Progress..."
+        case .failed(let error):
+            return "Failed: \(error)"
+        case .notCreated:
+            return "Not Created"
+        }
+    }
+
+    private var printStatusIcon: String {
+        if let print = mostRecentPrint {
+            return print.success ? "checkmark.circle.fill" : "xmark.circle.fill"
+        }
+        return "circle"
+    }
+
+    private var printStatusColor: Color {
+        if let print = mostRecentPrint {
+            return print.success ? .green : .red
+        }
+        return .secondary
+    }
+
+    // MARK: - Actions
+
+    private func showInFinder(url: URL) {
+        NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+    }
+}
+
+// MARK: - Relative Date Formatter
+
+extension RelativeDateTimeFormatter {
+    static let shared: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
 }
