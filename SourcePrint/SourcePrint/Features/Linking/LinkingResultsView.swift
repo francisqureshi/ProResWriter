@@ -141,14 +141,6 @@ struct LinkingResultsView: View {
                                 .buttonStyle(CompressorButtonStyle(prominent: true))
                                 .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
                             }
-                            
-                            if let generateBlankRushes = onGenerateBlankRushes {
-                                Button("Generate Blank Rushes") {
-                                    generateBlankRushes()
-                                }
-                                .buttonStyle(CompressorButtonStyle())
-                                .disabled(true) // Always disabled when no linking results
-                            }
                         }
                     }
                     .padding()
@@ -237,14 +229,6 @@ struct LinkingResultsView: View {
                                 }
                                 .buttonStyle(CompressorButtonStyle(prominent: true))
                                 .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
-                            }
-
-                            if let generateBlankRushes = onGenerateBlankRushes {
-                                Button("Generate Blank Rushes") {
-                                    generateBlankRushes()
-                                }
-                                .buttonStyle(CompressorButtonStyle())
-                                .disabled(!project.readyForBlankRush)
                             }
 
                             Button("Render All Ready") {
@@ -1047,7 +1031,18 @@ struct OCFParentContextMenu: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
+
+            Divider()
+
+            // Blank Rush Management
+            if operatingParents.count == 1 {
+                if project.blankRushFileExists(for: parent.ocf.fileName) {
+                    Button("Regenerate Blank Rush", systemImage: "film.fill") {
+                        regenerateBlankRush()
+                    }
+                }
+            }
+
             // Only show print status actions for single item context menus
             if operatingParents.count == 1 {
                 Divider()
@@ -1098,22 +1093,61 @@ struct OCFParentContextMenu: View {
     private func addToRenderQueue() {
         let parentsToAdd = eligibleParentsForQueue
         var addedCount = 0
-        
+
         for parent in parentsToAdd {
             let queueItem = RenderQueueItem(ocfFileName: parent.ocf.fileName)
             project.renderQueue.append(queueItem)
             addedCount += 1
         }
-        
+
         projectManager.saveProject(project)
-        
+
         if addedCount == 1 {
             NSLog("➕ Added \(parentsToAdd.first!.ocf.fileName) to render queue")
         } else {
             NSLog("➕ Added \(addedCount) items to render queue")
         }
     }
-    
+
+    private func regenerateBlankRush() {
+        NSLog("🔄 Regenerating blank rush for \(parent.ocf.fileName)")
+
+        // Mark as in progress
+        project.blankRushStatus[parent.ocf.fileName] = .inProgress
+        projectManager.saveProject(project)
+
+        // Create single-file linking result for this OCF
+        let singleOCFResult = LinkingResult(
+            ocfParents: [parent],
+            unmatchedSegments: [],
+            unmatchedOCFs: []
+        )
+
+        Task {
+            let blankRushCreator = BlankRushIntermediate(projectDirectory: project.blankRushDirectory.path)
+
+            // Create blank rush
+            let results = await blankRushCreator.createBlankRushes(from: singleOCFResult) { clipName, current, total, fps in
+                // No progress UI needed for context menu action
+            }
+
+            await MainActor.run {
+                if let result = results.first {
+                    if result.success {
+                        project.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
+                        projectManager.saveProject(project)
+                        NSLog("✅ Regenerated blank rush for \(parent.ocf.fileName): \(result.blankRushURL.lastPathComponent)")
+                    } else {
+                        let errorMessage = result.error ?? "Unknown error"
+                        project.blankRushStatus[result.originalOCF.fileName] = .failed(error: errorMessage)
+                        projectManager.saveProject(project)
+                        NSLog("❌ Failed to regenerate blank rush for \(parent.ocf.fileName): \(errorMessage)")
+                    }
+                }
+            }
+        }
+    }
+
     private func getFileModificationDate(for url: URL) -> Date? {
         do {
             let resourceValues = try url.resourceValues(forKeys: [.contentModificationDateKey])
@@ -1215,18 +1249,72 @@ struct CompressorStyleOCFCard: View {
 
     private func startRendering() {
         guard !isRendering else { return }
-        guard let blankRushStatus = project.blankRushStatus[parent.ocf.fileName],
-              case .completed(_, let blankRushURL) = blankRushStatus else {
-            NSLog("⚠️ No completed blank rush found for \(parent.ocf.fileName)")
-            return
-        }
 
+        // Check if blank rush exists
+        let blankRushStatus = project.blankRushStatus[parent.ocf.fileName] ?? .notCreated
+
+        switch blankRushStatus {
+        case .completed(_, let blankRushURL):
+            // Verify blank rush file actually exists on disk
+            if FileManager.default.fileExists(atPath: blankRushURL.path) {
+                // Blank rush exists - proceed directly to render
+                beginRender(with: blankRushURL)
+            } else {
+                // Status says completed but file is missing - regenerate
+                NSLog("⚠️ Blank rush file missing for \(parent.ocf.fileName) - regenerating")
+                project.blankRushStatus[parent.ocf.fileName] = .notCreated
+                projectManager.saveProject(project)
+                startRendering() // Retry - will hit .notCreated case
+            }
+
+        case .notCreated:
+            // No blank rush - create it first, then render
+            NSLog("📝 No blank rush exists for \(parent.ocf.fileName) - creating automatically")
+            isRendering = true
+            renderStartTime = Date()
+            elapsedTime = 0
+            renderProgress = "Creating blank rush..."
+
+            // Start timer
+            renderTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
+                if let startTime = renderStartTime {
+                    elapsedTime = Date().timeIntervalSince(startTime)
+                }
+            }
+
+            Task {
+                if let blankRushURL = await generateBlankRushForOCF() {
+                    // Blank rush created successfully - proceed to render
+                    await MainActor.run {
+                        renderProgress = "Blank rush ready - rendering..."
+                    }
+                    await renderOCF(blankRushURL: blankRushURL)
+                } else {
+                    // Blank rush creation failed
+                    await MainActor.run {
+                        stopRendering()
+                        NSLog("❌ Failed to create blank rush for \(parent.ocf.fileName)")
+                    }
+                }
+            }
+
+        case .inProgress:
+            NSLog("⚠️ Blank rush creation already in progress for \(parent.ocf.fileName)")
+
+        case .failed(let error):
+            NSLog("⚠️ Previous blank rush creation failed for \(parent.ocf.fileName): \(error)")
+            // Try again
+            startRendering()
+        }
+    }
+
+    private func beginRender(with blankRushURL: URL) {
         isRendering = true
         renderStartTime = Date()
         elapsedTime = 0
-        renderProgress = "Preparing..."
+        renderProgress = "Rendering..."
 
-        // Start timer to update elapsed time
+        // Start timer
         renderTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
             if let startTime = renderStartTime {
                 elapsedTime = Date().timeIntervalSince(startTime)
@@ -1245,6 +1333,49 @@ struct CompressorStyleOCFCard: View {
         renderProgress = ""
         renderStartTime = nil
         elapsedTime = 0
+    }
+
+    @MainActor
+    private func generateBlankRushForOCF() async -> URL? {
+        renderProgress = "Creating blank rush..."
+
+        // Mark as in progress
+        project.blankRushStatus[parent.ocf.fileName] = .inProgress
+        projectManager.saveProject(project)
+
+        // Create single-file linking result for this OCF
+        let singleOCFResult = LinkingResult(
+            ocfParents: [parent],
+            unmatchedSegments: [],
+            unmatchedOCFs: []
+        )
+
+        let blankRushCreator = BlankRushIntermediate(projectDirectory: project.blankRushDirectory.path)
+
+        // Create blank rush with progress callback
+        let results = await blankRushCreator.createBlankRushes(from: singleOCFResult) { clipName, current, total, fps in
+            await MainActor.run {
+                self.renderProgress = "Creating blank rush... \(Int((current/total) * 100))%"
+            }
+        }
+
+        // Process result
+        if let result = results.first {
+            if result.success {
+                project.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
+                projectManager.saveProject(project)
+                NSLog("✅ Created blank rush for \(parent.ocf.fileName): \(result.blankRushURL.lastPathComponent)")
+                return result.blankRushURL
+            } else {
+                let errorMessage = result.error ?? "Unknown error"
+                project.blankRushStatus[result.originalOCF.fileName] = .failed(error: errorMessage)
+                projectManager.saveProject(project)
+                NSLog("❌ Failed to create blank rush for \(parent.ocf.fileName): \(errorMessage)")
+                return nil
+            }
+        }
+
+        return nil
     }
 
     @MainActor
@@ -1455,8 +1586,6 @@ struct CompressorStyleOCFCard: View {
                                 }
                             }
                             .buttonStyle(.plain)
-                            .disabled(!project.blankRushFileExists(for: parent.ocf.fileName))
-                            .opacity(project.blankRushFileExists(for: parent.ocf.fileName) ? 1.0 : 0.5)
                         }
 
                         // Chevron indicator with fixed width and larger click area
@@ -1600,7 +1729,7 @@ struct CompressorStyleOCFCard: View {
 // MARK: - Render Log Section
 
 struct RenderLogSection: View {
-    let project: Project
+    @ObservedObject var project: Project
     let ocfFileName: String
 
     // Filter print history for this specific OCF
