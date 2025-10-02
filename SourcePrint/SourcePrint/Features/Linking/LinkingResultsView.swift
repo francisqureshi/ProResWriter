@@ -38,6 +38,7 @@ struct LinkingResultsView: View {
     @State private var batchRenderQueue: [String] = []
     @State private var isProcessingBatchQueue = false
     @State private var totalInBatch: Int = 0
+    @State private var currentlyRenderingOCF: String? = nil  // Track which OCF is currently rendering
 
     // Computed properties to separate high/medium confidence from low confidence segments
     var confidentlyLinkedParents: [OCFParent] {
@@ -145,13 +146,53 @@ struct LinkingResultsView: View {
             return
         }
 
-        // Process this OCF directly
-        Task {
-            await processOCFInQueue(parent: parent)
+        // Set the currently rendering OCF (prevents other cards from starting)
+        currentlyRenderingOCF = nextOCFFileName
 
-            // Process next item
-            await MainActor.run {
-                processBatchRenderQueue()
+        // Post notification to trigger card's UI and rendering
+        NotificationCenter.default.post(
+            name: .renderOCF,
+            object: nil,
+            userInfo: ["ocfFileName": nextOCFFileName]
+        )
+
+        // Poll until this OCF completes or times out (5 minutes max per OCF)
+        var pollCount = 0
+        let maxPolls = 600 // 5 minutes at 0.5s intervals
+
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            pollCount += 1
+
+            if case .printed = project.printStatus[nextOCFFileName] {
+                timer.invalidate()
+                NSLog("✅ Completed %@ after %d polls, processing next in queue", nextOCFFileName, pollCount)
+
+                // Clear currently rendering flag
+                currentlyRenderingOCF = nil
+
+                // Small delay then process next item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    processBatchRenderQueue()
+                }
+            } else if pollCount >= maxPolls {
+                timer.invalidate()
+                NSLog("⚠️ Timeout waiting for %@ after %d seconds, falling back to direct processing", nextOCFFileName, pollCount / 2)
+
+                // Clear currently rendering flag before fallback
+                currentlyRenderingOCF = nil
+
+                // Fallback to direct processing if card doesn't respond
+                Task {
+                    await processOCFInQueue(parent: parent)
+
+                    // Process next item
+                    await MainActor.run {
+                        processBatchRenderQueue()
+                    }
+                }
+            } else if pollCount % 20 == 0 {
+                // Log status every 10 seconds
+                NSLog("   Still waiting for %@... (status: %@)", nextOCFFileName, String(describing: project.printStatus[nextOCFFileName]))
             }
         }
     }
@@ -546,7 +587,7 @@ struct LinkingResultsView: View {
 
                 // Use ScrollView for true card layout
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    VStack(spacing: 12) {
                         ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
                             CompressorStyleOCFCard(
                                 parent: parent,
@@ -556,7 +597,8 @@ struct LinkingResultsView: View {
                                 selectedOCFParents: $selectedOCFParents,
                                 projectManager: projectManager,
                                 getSelectedParents: getSelectedParents,
-                                allParents: confidentlyLinkedParents
+                                allParents: confidentlyLinkedParents,
+                                currentlyRenderingOCF: currentlyRenderingOCF
                             )
                             .contextMenu {
                                 OCFParentContextMenu(
@@ -1421,6 +1463,7 @@ struct CompressorStyleOCFCard: View {
     let projectManager: ProjectManager
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
+    let currentlyRenderingOCF: String?  // Global lock to prevent concurrent rendering
 
 
     @State private var isExpanded: Bool = true  // Default to expanded
@@ -1503,6 +1546,12 @@ struct CompressorStyleOCFCard: View {
     private func startRendering() {
         guard !isRendering else { return }
 
+        // Check global rendering lock - only proceed if this card is the one that should render
+        if let rendering = currentlyRenderingOCF, rendering != parent.ocf.fileName {
+            NSLog("⏸️ Skipping %@ - another OCF is currently rendering (%@)", parent.ocf.fileName, rendering)
+            return
+        }
+
         // Check if blank rush exists
         let blankRushStatus = project.blankRushStatus[parent.ocf.fileName] ?? .notCreated
 
@@ -1516,7 +1565,7 @@ struct CompressorStyleOCFCard: View {
                 // Status says completed but file is missing - regenerate
                 NSLog("⚠️ Blank rush file missing for \(parent.ocf.fileName) - regenerating")
                 project.blankRushStatus[parent.ocf.fileName] = .notCreated
-                projectManager.saveProject(project)
+                // Don't save here - will save after blank rush creation completes
                 startRendering() // Retry - will hit .notCreated case
             }
 
@@ -1566,13 +1615,13 @@ struct CompressorStyleOCFCard: View {
                             // File is valid - mark as completed and use it
                             NSLog("✅ Found valid blank rush file for stuck .inProgress status: \(parent.ocf.fileName)")
                             project.blankRushStatus[parent.ocf.fileName] = .completed(date: Date(), url: expectedURL)
-                            projectManager.saveProject(project)
+                            // Save will happen after render completes
                             beginRender(with: expectedURL)
                         } else {
                             // File is invalid/corrupted - reset and regenerate
                             NSLog("⚠️ Invalid blank rush file for .inProgress status - regenerating: \(parent.ocf.fileName)")
                             project.blankRushStatus[parent.ocf.fileName] = .notCreated
-                            projectManager.saveProject(project)
+                            // Save will happen after blank rush creation completes
                             startRendering()
                         }
                     }
@@ -1581,7 +1630,7 @@ struct CompressorStyleOCFCard: View {
                 // Status is .inProgress but file doesn't exist - reset to .notCreated
                 NSLog("⚠️ Blank rush stuck in .inProgress but file missing for \(parent.ocf.fileName) - resetting")
                 project.blankRushStatus[parent.ocf.fileName] = .notCreated
-                projectManager.saveProject(project)
+                // Save will happen after blank rush creation completes
                 startRendering() // Retry - will hit .notCreated case
             }
 
@@ -1589,7 +1638,7 @@ struct CompressorStyleOCFCard: View {
             // Allow retry by resetting to .notCreated
             NSLog("⚠️ Previous blank rush creation failed for \(parent.ocf.fileName): \(error) - retrying")
             project.blankRushStatus[parent.ocf.fileName] = .notCreated
-            projectManager.saveProject(project)
+            // Save will happen after blank rush creation completes
             startRendering()
         }
     }
@@ -1639,7 +1688,7 @@ struct CompressorStyleOCFCard: View {
 
         // Mark as in progress
         project.blankRushStatus[parent.ocf.fileName] = .inProgress
-        projectManager.saveProject(project)
+        // Don't save here - status updates will be saved after completion
 
         // Create single-file linking result for this OCF
         let singleOCFResult = LinkingResult(
@@ -1661,13 +1710,13 @@ struct CompressorStyleOCFCard: View {
         if let result = results.first {
             if result.success {
                 project.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
-                projectManager.saveProject(project)
+                // Save will happen after render completes
                 NSLog("✅ Created blank rush for \(parent.ocf.fileName): \(result.blankRushURL.lastPathComponent)")
                 return result.blankRushURL
             } else {
                 let errorMessage = result.error ?? "Unknown error"
                 project.blankRushStatus[result.originalOCF.fileName] = .failed(error: errorMessage)
-                projectManager.saveProject(project)
+                // Save will happen when status is checked
                 NSLog("❌ Failed to create blank rush for \(parent.ocf.fileName): \(errorMessage)")
                 return nil
             }
@@ -2016,6 +2065,13 @@ struct CompressorStyleOCFCard: View {
             }
             // Update state but don't save (batch collapse shouldn't trigger multiple saves)
             project.ocfCardExpansionState[parent.ocf.fileName] = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .renderOCF)) { notification in
+            if let userInfo = notification.userInfo,
+               let ocfFileName = userInfo["ocfFileName"] as? String,
+               ocfFileName == parent.ocf.fileName {
+                startRendering()
+            }
         }
         .onAppear {
             // Initialize expansion state from project (default to true if not set)
