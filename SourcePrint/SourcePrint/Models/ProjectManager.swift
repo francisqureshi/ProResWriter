@@ -22,6 +22,9 @@ class ProjectManager: ObservableObject {
     // MARK: - File Management
     private let documentsDirectory: URL
     private let projectsDirectory: URL
+
+    // Serial queue for thread-safe project saves
+    private let saveQueue = DispatchQueue(label: "com.sourceprint.projectsave", qos: .userInitiated)
     
     // MARK: - Initialization
     init() {
@@ -118,55 +121,58 @@ class ProjectManager: ObservableObject {
     }
     
     func saveProject(_ project: Project) {
-        // Use the original file location if it exists, otherwise use default directory
-        let url: URL
-        if let originalFileURL = project.fileURL {
-            // Check if project name has changed - if so, update filename to match
-            let currentFilename = originalFileURL.deletingPathExtension().lastPathComponent
-            let expectedFilename = project.name  // Keep natural filename with spaces
-            
-            if currentFilename != expectedFilename {
-                // Project name changed - update filename to match
-                let newURL = originalFileURL.deletingLastPathComponent()
-                    .appendingPathComponent("\(expectedFilename).w2")
-                
-                // Try to rename the file if it's in the same directory
-                if originalFileURL.deletingLastPathComponent() == newURL.deletingLastPathComponent() {
-                    do {
-                        try FileManager.default.moveItem(at: originalFileURL, to: newURL)
-                        project.fileURL = newURL
-                        url = newURL
-                        print("📝 Renamed file to match project name: \(newURL.path)")
-                    } catch {
-                        print("⚠️ Could not rename file, saving to original location: \(error)")
+        // Serialize all project saves on a dedicated queue to prevent concurrent access corruption
+        saveQueue.async {
+            // Use the original file location if it exists, otherwise use default directory
+            let url: URL
+            if let originalFileURL = project.fileURL {
+                // Check if project name has changed - if so, update filename to match
+                let currentFilename = originalFileURL.deletingPathExtension().lastPathComponent
+                let expectedFilename = project.name  // Keep natural filename with spaces
+
+                if currentFilename != expectedFilename {
+                    // Project name changed - update filename to match
+                    let newURL = originalFileURL.deletingLastPathComponent()
+                        .appendingPathComponent("\(expectedFilename).w2")
+
+                    // Try to rename the file if it's in the same directory
+                    if originalFileURL.deletingLastPathComponent() == newURL.deletingLastPathComponent() {
+                        do {
+                            try FileManager.default.moveItem(at: originalFileURL, to: newURL)
+                            project.fileURL = newURL
+                            url = newURL
+                            print("📝 Renamed file to match project name: \(newURL.path)")
+                        } catch {
+                            print("⚠️ Could not rename file, saving to original location: \(error)")
+                            url = originalFileURL
+                        }
+                    } else {
                         url = originalFileURL
                     }
                 } else {
                     url = originalFileURL
+                    print("💾 Saving to original location: \(originalFileURL.path)")
                 }
             } else {
-                url = originalFileURL
-                print("💾 Saving to original location: \(originalFileURL.path)")
+                // Create filename from project name, preserving natural spacing
+                let filename = "\(project.name).w2"
+                url = self.projectsDirectory.appendingPathComponent(filename)
+                project.fileURL = url // Set the file URL for future saves
+                print("💾 Saving to default location: \(url.path)")
             }
-        } else {
-            // Create filename from project name, preserving natural spacing
-            let filename = "\(project.name).w2"
-            url = projectsDirectory.appendingPathComponent(filename)
-            project.fileURL = url // Set the file URL for future saves
-            print("💾 Saving to default location: \(url.path)")
-        }
-        
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = .prettyPrinted
-            
-            let data = try encoder.encode(project)
-            try data.write(to: url)
-            
-            print("✅ Saved project: \(project.name)")
-        } catch {
-            print("❌ Failed to save project \(project.name): \(error)")
+
+            do {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                encoder.outputFormatting = .prettyPrinted
+
+                let data = try encoder.encode(project)
+                try data.write(to: url)
+
+                print("✅ Saved project: \(project.name)")
+            } catch {
+                print("❌ Failed to save project \(project.name): \(error)")
+            }
         }
     }
     

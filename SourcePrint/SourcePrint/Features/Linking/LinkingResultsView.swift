@@ -14,6 +14,7 @@ import TimecodeKit
 extension Notification.Name {
     static let expandSelectedCards = Notification.Name("expandSelectedCards")
     static let collapseSelectedCards = Notification.Name("collapseSelectedCards")
+    static let collapseAllCards = Notification.Name("collapseAllCards")
     static let renderOCF = Notification.Name("renderOCF")
 }
 
@@ -32,6 +33,10 @@ struct LinkingResultsView: View {
     @State private var selectedUnmatchedFiles: Set<String> = []
     @State private var selectedOCFParents: Set<String> = []
     @State private var showUnmatchedDrawer = true
+
+    // Batch render queue
+    @State private var batchRenderQueue: [String] = []
+    @State private var isProcessingBatchQueue = false
 
     // Computed properties to separate high/medium confidence from low confidence segments
     var confidentlyLinkedParents: [OCFParent] {
@@ -64,16 +69,14 @@ struct LinkingResultsView: View {
     }
 
     // Batch render computed properties
-    var canRenderAllReady: Bool {
+    var canRenderAll: Bool {
         return confidentlyLinkedParents.contains { parent in
-            project.blankRushFileExists(for: parent.ocf.fileName) &&
-            project.printStatus[parent.ocf.fileName] == nil
+            !project.offlineMediaFiles.contains(parent.ocf.fileName)
         }
     }
 
     var canRenderModified: Bool {
         return confidentlyLinkedParents.contains { parent in
-            project.blankRushFileExists(for: parent.ocf.fileName) &&
             parent.children.contains { child in
                 project.segmentModificationDates[child.segment.fileName] != nil
             }
@@ -88,37 +91,89 @@ struct LinkingResultsView: View {
     }
 
     // Batch render functions - these trigger notifications that cards will respond to
-    private func renderAllReady() {
-        let readyToRender = confidentlyLinkedParents.filter { parent in
-            project.blankRushFileExists(for: parent.ocf.fileName) &&
-            project.printStatus[parent.ocf.fileName] == nil
+    private func renderAll() {
+        let ocfsToRender = confidentlyLinkedParents.filter { parent in
+            !project.offlineMediaFiles.contains(parent.ocf.fileName)
         }
 
-        NSLog("🎬 Batch rendering %d ready OCFs", readyToRender.count)
-        for parent in readyToRender {
-            NotificationCenter.default.post(
-                name: .renderOCF,
-                object: nil,
-                userInfo: ["ocfFileName": parent.ocf.fileName]
-            )
+        NSLog("🎬 Adding %d OCFs to batch render queue", ocfsToRender.count)
+
+        // Add to queue
+        batchRenderQueue = ocfsToRender.map { $0.ocf.fileName }
+
+        // Start processing if not already running
+        if !isProcessingBatchQueue {
+            processBatchRenderQueue()
         }
     }
 
     private func renderModified() {
         let modifiedOCFs = confidentlyLinkedParents.filter { parent in
-            project.blankRushFileExists(for: parent.ocf.fileName) &&
             parent.children.contains { child in
                 project.segmentModificationDates[child.segment.fileName] != nil
             }
         }
 
-        NSLog("🔄 Re-rendering %d modified OCFs", modifiedOCFs.count)
-        for parent in modifiedOCFs {
-            NotificationCenter.default.post(
-                name: .renderOCF,
-                object: nil,
-                userInfo: ["ocfFileName": parent.ocf.fileName]
-            )
+        NSLog("🔄 Adding %d modified OCFs to batch render queue", modifiedOCFs.count)
+
+        // Add to queue
+        batchRenderQueue = modifiedOCFs.map { $0.ocf.fileName }
+
+        // Start processing if not already running
+        if !isProcessingBatchQueue {
+            processBatchRenderQueue()
+        }
+    }
+
+    private func processBatchRenderQueue() {
+        guard !batchRenderQueue.isEmpty else {
+            isProcessingBatchQueue = false
+            NSLog("✅ Batch render queue completed!")
+            return
+        }
+
+        isProcessingBatchQueue = true
+        let nextOCF = batchRenderQueue.removeFirst()
+
+        NSLog("📤 Processing batch queue: %@ (%d remaining)", nextOCF, batchRenderQueue.count)
+        NSLog("   Current status: %@", String(describing: project.printStatus[nextOCF]))
+
+        // Trigger render for this OCF
+        NotificationCenter.default.post(
+            name: .renderOCF,
+            object: nil,
+            userInfo: ["ocfFileName": nextOCF]
+        )
+
+        NSLog("   Posted .renderOCF notification for %@", nextOCF)
+
+        // Poll until this OCF completes or times out (5 minutes max per OCF)
+        var pollCount = 0
+        let maxPolls = 600 // 5 minutes at 0.5s intervals
+
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            pollCount += 1
+
+            if case .printed = project.printStatus[nextOCF] {
+                timer.invalidate()
+                NSLog("✅ Completed %@ after %d polls, processing next in queue", nextOCF, pollCount)
+
+                // Small delay then process next item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    processBatchRenderQueue()
+                }
+            } else if pollCount >= maxPolls {
+                timer.invalidate()
+                NSLog("⚠️ Timeout waiting for %@ after %d seconds, skipping to next", nextOCF, pollCount / 2)
+
+                // Skip and process next item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    processBatchRenderQueue()
+                }
+            } else if pollCount % 20 == 0 {
+                // Log status every 10 seconds
+                NSLog("   Still waiting for %@... (status: %@)", nextOCF, String(describing: project.printStatus[nextOCF]))
+            }
         }
     }
 
@@ -231,11 +286,11 @@ struct LinkingResultsView: View {
                                 .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
                             }
 
-                            Button("Render All Ready") {
-                                renderAllReady()
+                            Button("Render All") {
+                                renderAll()
                             }
                             .buttonStyle(CompressorButtonStyle())
-                            .disabled(!canRenderAllReady)
+                            .disabled(!canRenderAll)
 
                             Button("Re-render Modified") {
                                 renderModified()
@@ -1170,6 +1225,7 @@ struct CompressorStyleOCFCard: View {
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
 
+
     @State private var isExpanded: Bool = true  // Default to expanded
     @State private var isRendering = false
     @State private var renderProgress = ""
@@ -1299,12 +1355,57 @@ struct CompressorStyleOCFCard: View {
             }
 
         case .inProgress:
-            NSLog("⚠️ Blank rush creation already in progress for \(parent.ocf.fileName)")
+            // Check if blank rush file exists from previous incomplete creation
+            let expectedURL = project.blankRushDirectory.appendingPathComponent("\(parent.ocf.fileName)_blank.mov")
+
+            if FileManager.default.fileExists(atPath: expectedURL.path) {
+                // File exists - verify it's a valid video file using MediaAnalyzer
+                NSLog("🔍 Validating stuck .inProgress blank rush for \(parent.ocf.fileName)...")
+                Task {
+                    let isValid = await isValidBlankRush(at: expectedURL)
+
+                    await MainActor.run {
+                        if isValid {
+                            // File is valid - mark as completed and use it
+                            NSLog("✅ Found valid blank rush file for stuck .inProgress status: \(parent.ocf.fileName)")
+                            project.blankRushStatus[parent.ocf.fileName] = .completed(date: Date(), url: expectedURL)
+                            projectManager.saveProject(project)
+                            beginRender(with: expectedURL)
+                        } else {
+                            // File is invalid/corrupted - reset and regenerate
+                            NSLog("⚠️ Invalid blank rush file for .inProgress status - regenerating: \(parent.ocf.fileName)")
+                            project.blankRushStatus[parent.ocf.fileName] = .notCreated
+                            projectManager.saveProject(project)
+                            startRendering()
+                        }
+                    }
+                }
+            } else {
+                // Status is .inProgress but file doesn't exist - reset to .notCreated
+                NSLog("⚠️ Blank rush stuck in .inProgress but file missing for \(parent.ocf.fileName) - resetting")
+                project.blankRushStatus[parent.ocf.fileName] = .notCreated
+                projectManager.saveProject(project)
+                startRendering() // Retry - will hit .notCreated case
+            }
 
         case .failed(let error):
-            NSLog("⚠️ Previous blank rush creation failed for \(parent.ocf.fileName): \(error)")
-            // Try again
+            // Allow retry by resetting to .notCreated
+            NSLog("⚠️ Previous blank rush creation failed for \(parent.ocf.fileName): \(error) - retrying")
+            project.blankRushStatus[parent.ocf.fileName] = .notCreated
+            projectManager.saveProject(project)
             startRendering()
+        }
+    }
+
+    /// Validate that a blank rush file is actually a valid, readable video file
+    private func isValidBlankRush(at url: URL) async -> Bool {
+        do {
+            // Use MediaAnalyzer to verify it's a valid video file
+            let _ = try await MediaAnalyzer().analyzeMediaFile(at: url, type: .gradedSegment)
+            return true
+        } catch {
+            NSLog("⚠️ Blank rush validation failed for \(url.lastPathComponent): \(error)")
+            return false
         }
     }
 
@@ -1711,6 +1812,13 @@ struct CompressorStyleOCFCard: View {
                 project.ocfCardExpansionState[parent.ocf.fileName] = false
                 projectManager.saveProject(project)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .collapseAllCards)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded = false
+            }
+            // Update state but don't save (batch collapse shouldn't trigger multiple saves)
+            project.ocfCardExpansionState[parent.ocf.fileName] = false
         }
         .onReceive(NotificationCenter.default.publisher(for: .renderOCF)) { notification in
             if let userInfo = notification.userInfo,
