@@ -217,37 +217,22 @@ public class MediaAnalyzer {
                     }
 
                     // Extract frame rate - store original AVRational for perfect precision
-                    // Try both realFramerate and averageFramerate, validate both, prefer the valid one
+                    // Try realFramerate first (equivalent to r_frame_rate - most accurate)
                     let realFR = stream.realFramerate
-                    let avgFR = stream.averageFramerate
-
-                    // Validate both frame rates
-                    let realFRValid = realFR.den > 0 && realFR.num > 0 && {
-                        let floatValue = Float(realFR.num) / Float(realFR.den)
-                        return floatValue > 0 && floatValue <= 240
-                    }()
-
-                    let avgFRValid = avgFR.den > 0 && avgFR.num > 0 && {
-                        let floatValue = Float(avgFR.num) / Float(avgFR.den)
-                        return floatValue > 0 && floatValue <= 240
-                    }()
-
-                    // Prefer realFramerate if valid, otherwise use averageFramerate
-                    if realFRValid {
-                        frameRate = realFR
+                    if realFR.den > 0 {
+                        frameRate = realFR  // Store original rational directly!
                         let floatValue = Float(realFR.num) / Float(realFR.den)
                         print("    📊 realFramerate: \(floatValue)fps (\(realFR.num)/\(realFR.den)) - stored as exact rational")
-                    } else if avgFRValid {
-                        frameRate = avgFR
-                        let floatValue = Float(avgFR.num) / Float(avgFR.den)
-                        print("    📊 averageFramerate: \(floatValue)fps (\(avgFR.num)/\(avgFR.den)) - stored as exact rational")
-                        if !realFRValid && realFR.den > 0 {
-                            NSLog("⚠️ Ignored invalid realFramerate: \(realFR.num)/\(realFR.den)")
-                        }
                     } else {
-                        // Both invalid - use 24fps fallback
-                        NSLog("⚠️ Both frame rates invalid - realFR: \(realFR.num)/\(realFR.den), avgFR: \(avgFR.num)/\(avgFR.den) - using 24fps fallback")
-                        frameRate = AVRational(num: 24, den: 1)
+                        // Fallback to averageFramerate if realFramerate is unavailable
+                        let avgFR = stream.averageFramerate
+                        if avgFR.den > 0 {
+                            frameRate = avgFR  // Store original rational directly!
+                            let floatValue = Float(avgFR.num) / Float(avgFR.den)
+                            print(
+                                "    📊 averageFramerate (fallback): \(floatValue)fps (\(avgFR.num)/\(avgFR.den)) - stored as exact rational"
+                            )
+                        }
                     }
 
                     // Explore additional stream properties

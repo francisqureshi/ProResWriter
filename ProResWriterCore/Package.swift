@@ -13,6 +13,11 @@ let package = Package(
         .library(
             name: "ProResWriterCore",
             targets: ["ProResWriterCore"]
+        ),
+        // Test executable for diagnosing SwiftFFmpeg frame rate issues
+        .executable(
+            name: "FrameRateTest",
+            targets: ["FrameRateTest"]
         )
     ],
     dependencies: [
@@ -34,6 +39,14 @@ let package = Package(
             resources: [
                 .process("Resources/Fonts/FiraCodeNerdFont-Regular.ttf")
             ]
+        ),
+        // Test executable for diagnosing SwiftFFmpeg issues
+        .executableTarget(
+            name: "FrameRateTest",
+            dependencies: [
+                "SwiftFFmpeg"
+            ],
+            path: "Sources/FrameRateTest"
         ),
         // Unit tests for Core functionality
         .testTarget(
