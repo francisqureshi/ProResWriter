@@ -19,6 +19,12 @@ public final class FrameRateManager {
     /// Convert float frame rate to rational representation
     /// Uses exact NTSC rationals for common rates, 1000-scale for others
     public static func convertToRational(frameRate: Float) -> AVRational {
+        // Validate frame rate is reasonable (between 1 and 240 fps)
+        guard frameRate.isFinite && frameRate > 0 && frameRate <= 240 else {
+            NSLog("⚠️ Invalid frame rate value: %f, using 24fps fallback", frameRate)
+            return AVRational(num: 24, den: 1)  // Safe fallback
+        }
+
         // Check for common NTSC rates that need exact rationals
         if abs(frameRate - 23.976) < 0.001 {
             return AVRational(num: 24000, den: 1001)  // Exact NTSC
@@ -34,7 +40,10 @@ public final class FrameRateManager {
             return AVRational(num: 120000, den: 1001)  // Exact NTSC
         } else {
             // Use 1000-scale for all other frame rates
-            return AVRational(num: Int32(frameRate * 1000), den: 1000)
+            // Clamp to safe Int32 range before conversion
+            let scaledValue = frameRate * 1000
+            let clampedValue = min(max(scaledValue, Float(Int32.min)), Float(Int32.max))
+            return AVRational(num: Int32(clampedValue), den: 1000)
         }
     }
 

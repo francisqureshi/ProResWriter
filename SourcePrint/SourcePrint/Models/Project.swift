@@ -809,40 +809,34 @@ class Project: ObservableObject, Codable, Identifiable {
     private func analyzeDetectedFiles(urls: [URL], isVFX: Bool) async -> [MediaFileInfo] {
         NSLog("🔍 Analyzing %d detected %@ files...", urls.count, isVFX ? "VFX" : "grade")
 
-        return await withTaskGroup(of: MediaFileInfo?.self, returning: [MediaFileInfo].self) { taskGroup in
-            // Add tasks for each URL
-            for url in urls {
-                taskGroup.addTask {
-                    do {
-                        let mediaFile = try await MediaAnalyzer().analyzeMediaFile(
-                            at: url,
-                            type: .gradedSegment
-                        )
+        // Process files serially to avoid potential MediaAnalyzer threading issues on M1
+        var results: [MediaFileInfo] = []
 
-                        // Set VFX flag on the media file if it's from VFX folder
-                        if isVFX {
-                            var vfxMediaFile = mediaFile
-                            vfxMediaFile.isVFXShot = true
-                            return vfxMediaFile
-                        }
+        for url in urls {
+            do {
+                NSLog("📹 Analyzing: %@", url.lastPathComponent)
+                let mediaFile = try await MediaAnalyzer().analyzeMediaFile(
+                    at: url,
+                    type: .gradedSegment
+                )
 
-                        return mediaFile
-                    } catch {
-                        NSLog("❌ Failed to analyze watch folder file %@: %@", url.lastPathComponent, error.localizedDescription)
-                        return nil
-                    }
-                }
-            }
-
-            // Collect results
-            var results: [MediaFileInfo] = []
-            for await result in taskGroup {
-                if let mediaFile = result {
+                // Set VFX flag on the media file if it's from VFX folder
+                if isVFX {
+                    var vfxMediaFile = mediaFile
+                    vfxMediaFile.isVFXShot = true
+                    results.append(vfxMediaFile)
+                } else {
                     results.append(mediaFile)
                 }
+
+                NSLog("✅ Analyzed: %@", url.lastPathComponent)
+            } catch {
+                NSLog("❌ Failed to analyze watch folder file %@: %@", url.lastPathComponent, error.localizedDescription)
             }
-            return results
         }
+
+        NSLog("✅ Analysis complete: %d/%d files analyzed successfully", results.count, urls.count)
+        return results
     }
 
     /// Handle video files deleted from watch folder

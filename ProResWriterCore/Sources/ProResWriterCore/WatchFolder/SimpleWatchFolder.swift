@@ -184,19 +184,21 @@ public class SimpleWatchFolder {
     private func handleEvents(numEvents: Int, eventPaths: UnsafeRawPointer, eventFlags: UnsafePointer<FSEventStreamEventFlags>) {
         NSLog("🚨 FSEvent triggered! %d events", numEvents)
 
-        // Convert eventPaths to array of path strings using safer approach
-        let pathsPointer = eventPaths.bindMemory(to: UnsafePointer<CChar>.self, capacity: numEvents)
-        let pathsBuffer = UnsafeBufferPointer(start: pathsPointer, count: numEvents)
+        // Convert eventPaths to array of path strings using the safest approach
+        let pathsArray = unsafeBitCast(eventPaths, to: NSArray.self) as! [String]
+
+        guard pathsArray.count == numEvents else {
+            NSLog("⚠️ Path array count mismatch: expected %d, got %d", numEvents, pathsArray.count)
+            return
+        }
 
         for i in 0..<numEvents {
-            // Safely get the path string
-            guard i < pathsBuffer.count else {
+            guard i < pathsArray.count else {
                 NSLog("⚠️ Index %d out of bounds", i)
                 continue
             }
 
-            let pathPtr = pathsBuffer[i]
-            let pathAsString = String(cString: pathPtr)
+            let pathAsString = pathsArray[i]
             let flags = eventFlags[i]
 
             NSLog("📁 Event %d: %@", i, pathAsString)
