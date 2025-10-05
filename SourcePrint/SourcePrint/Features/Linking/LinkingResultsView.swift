@@ -18,6 +18,38 @@ extension Notification.Name {
     static let renderOCF = Notification.Name("renderOCF")
 }
 
+// MARK: - Helper Functions
+
+/// Format linkMethod string into user-friendly badge labels
+fileprivate func formatLinkMethodBadges(_ linkMethod: String) -> [String] {
+    let criteria = linkMethod.split(separator: "+").map(String.init)
+    return criteria.map { criterion in
+        switch criterion {
+        case "resolution": return "Resolution"
+        case "fps": return "FPS"
+        case "filename_contains": return "Filename"
+        case "timecode_range": return "Timecode"
+        case "reel": return "Reel"
+        case "vfx_exemption": return "VFX"
+        case "consumer_camera": return "Consumer"
+        default: return criterion.capitalized
+        }
+    }
+}
+
+/// Sort segments chronologically by start timecode
+fileprivate func sortedByTimecode(_ segments: [LinkedSegment]) -> [LinkedSegment] {
+    return segments.sorted { seg1, seg2 in
+        guard let tc1 = seg1.segment.sourceTimecode,
+              let tc2 = seg2.segment.sourceTimecode else {
+            // If no timecode, maintain original order
+            return false
+        }
+        // Timecode strings sort correctly lexicographically (HH:MM:SS:FF or HH:MM:SS;FF)
+        return tc1 < tc2
+    }
+}
+
 struct LinkingResultsView: View {
     @ObservedObject var project: Project
     let timelineVisualizationData: [String: TimelineVisualization]
@@ -33,6 +65,14 @@ struct LinkingResultsView: View {
     @State private var selectedUnmatchedFiles: Set<String> = []
     @State private var selectedOCFParents: Set<String> = []
     @State private var showUnmatchedDrawer = true
+
+    // Unified navigation state
+    enum NavigationContext {
+        case ocfList
+        case segmentList
+    }
+    @State private var navigationContext: NavigationContext = .ocfList
+    @State private var focusedOCFIndex: Int = 0
 
     // Batch render queue
     @State private var batchRenderQueue: [String] = []
@@ -470,6 +510,14 @@ struct LinkingResultsView: View {
             collapseSelectedCards()
             return .handled
         }
+        .onKeyPress(.downArrow) {
+            handleDownArrow()
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            handleUpArrow()
+            return .handled
+        }
     }
 
     private func expandSelectedCards() {
@@ -480,6 +528,108 @@ struct LinkingResultsView: View {
     private func collapseSelectedCards() {
         // This will be handled by each individual card
         NotificationCenter.default.post(name: .collapseSelectedCards, object: nil)
+    }
+
+    private func handleDownArrow() {
+        guard !confidentlyLinkedParents.isEmpty else { return }
+
+        // Ensure focusedOCFIndex is valid
+        if focusedOCFIndex >= confidentlyLinkedParents.count {
+            focusedOCFIndex = 0
+        }
+
+        let currentOCF = confidentlyLinkedParents[focusedOCFIndex]
+        let sortedChildren = sortedByTimecode(currentOCF.children)
+
+        switch navigationContext {
+        case .ocfList:
+            // Currently focused on an OCF card
+            let isExpanded = project.ocfCardExpansionState[currentOCF.ocf.fileName] ?? true
+
+            if isExpanded && !sortedChildren.isEmpty {
+                // OCF is expanded and has segments → move to first segment
+                navigationContext = .segmentList
+                selectedOCFParents = [currentOCF.ocf.fileName]
+                selectedLinkedFiles = [sortedChildren[0].segment.fileName]
+            } else {
+                // OCF is collapsed or has no segments → move to next OCF
+                if focusedOCFIndex < confidentlyLinkedParents.count - 1 {
+                    focusedOCFIndex += 1
+                    selectedOCFParents = [confidentlyLinkedParents[focusedOCFIndex].ocf.fileName]
+                }
+            }
+
+        case .segmentList:
+            // Currently focused on a segment
+            guard let currentSegment = selectedLinkedFiles.first,
+                  let segmentIndex = sortedChildren.firstIndex(where: { $0.segment.fileName == currentSegment }) else {
+                return
+            }
+
+            if segmentIndex < sortedChildren.count - 1 {
+                // Move to next segment in current OCF
+                selectedLinkedFiles = [sortedChildren[segmentIndex + 1].segment.fileName]
+            } else {
+                // At last segment → move to next OCF card
+                if focusedOCFIndex < confidentlyLinkedParents.count - 1 {
+                    focusedOCFIndex += 1
+                    navigationContext = .ocfList
+                    selectedLinkedFiles.removeAll()
+                    selectedOCFParents = [confidentlyLinkedParents[focusedOCFIndex].ocf.fileName]
+                }
+            }
+        }
+    }
+
+    private func handleUpArrow() {
+        guard !confidentlyLinkedParents.isEmpty else { return }
+
+        // Ensure focusedOCFIndex is valid
+        if focusedOCFIndex >= confidentlyLinkedParents.count {
+            focusedOCFIndex = max(0, confidentlyLinkedParents.count - 1)
+        }
+
+        let currentOCF = confidentlyLinkedParents[focusedOCFIndex]
+        let sortedChildren = sortedByTimecode(currentOCF.children)
+
+        switch navigationContext {
+        case .segmentList:
+            // Currently focused on a segment
+            guard let currentSegment = selectedLinkedFiles.first,
+                  let segmentIndex = sortedChildren.firstIndex(where: { $0.segment.fileName == currentSegment }) else {
+                return
+            }
+
+            if segmentIndex > 0 {
+                // Move to previous segment in current OCF
+                selectedLinkedFiles = [sortedChildren[segmentIndex - 1].segment.fileName]
+            } else {
+                // At first segment → move back to parent OCF card
+                navigationContext = .ocfList
+                selectedLinkedFiles.removeAll()
+                selectedOCFParents = [currentOCF.ocf.fileName]
+            }
+
+        case .ocfList:
+            // Currently focused on an OCF card
+            if focusedOCFIndex > 0 {
+                focusedOCFIndex -= 1
+                let previousOCF = confidentlyLinkedParents[focusedOCFIndex]
+                let previousSortedChildren = sortedByTimecode(previousOCF.children)
+                let isExpanded = project.ocfCardExpansionState[previousOCF.ocf.fileName] ?? true
+
+                if isExpanded && !previousSortedChildren.isEmpty {
+                    // Previous OCF is expanded → jump to its last segment
+                    navigationContext = .segmentList
+                    selectedOCFParents = [previousOCF.ocf.fileName]
+                    selectedLinkedFiles = [previousSortedChildren.last!.segment.fileName]
+                } else {
+                    // Previous OCF is collapsed → select it
+                    selectedOCFParents = [previousOCF.ocf.fileName]
+                }
+            }
+            // If already at first OCF, do nothing (stay at top)
+        }
     }
 
 
@@ -588,13 +738,16 @@ struct LinkingResultsView: View {
                 // Use ScrollView for true card layout
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(confidentlyLinkedParents, id: \.ocf.fileName) { parent in
+                        ForEach(Array(confidentlyLinkedParents.enumerated()), id: \.element.ocf.fileName) { index, parent in
                             CompressorStyleOCFCard(
                                 parent: parent,
+                                ocfIndex: index,
                                 project: project,
                                 timelineVisualizationData: timelineVisualizationData,
                                 selectedLinkedFiles: $selectedLinkedFiles,
                                 selectedOCFParents: $selectedOCFParents,
+                                focusedOCFIndex: $focusedOCFIndex,
+                                navigationContext: $navigationContext,
                                 projectManager: projectManager,
                                 getSelectedParents: getSelectedParents,
                                 allParents: confidentlyLinkedParents,
@@ -968,12 +1121,20 @@ struct TreeLinkedSegmentRowView: View {
                 }
 
                 HStack {
-                    Text(linkedSegment.linkMethod)
-                    Text("•")
-                    Text("\(linkedSegment.linkConfidence)".lowercased())
-                    if let startTC = linkedSegment.segment.sourceTimecode {
+                    HStack(spacing: 4) {
+                        ForEach(formatLinkMethodBadges(linkedSegment.linkMethod), id: \.self) { badge in
+                            Text(badge)
+                                .font(.caption2)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(3)
+                        }
+                    }
+                    if let startTC = linkedSegment.segment.sourceTimecode,
+                       let endTC = linkedSegment.segment.endTimecode {
                         Text("•")
-                        Text("TC: \(startTC)")
+                        Text("\(startTC) - \(endTC)")
                             .monospacedDigit()
                     }
                     // Show modification date for updated files
@@ -1090,12 +1251,20 @@ struct LowConfidenceSegmentRowView: View {
                 }
 
                 HStack {
-                    Text(linkedSegment.linkMethod)
-                    Text("•")
-                    Text("low confidence")
-                    if let startTC = linkedSegment.segment.sourceTimecode {
+                    HStack(spacing: 4) {
+                        ForEach(formatLinkMethodBadges(linkedSegment.linkMethod), id: \.self) { badge in
+                            Text(badge)
+                                .font(.caption2)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(3)
+                        }
+                    }
+                    if let startTC = linkedSegment.segment.sourceTimecode,
+                       let endTC = linkedSegment.segment.endTimecode {
                         Text("•")
-                        Text("TC: \(startTC)")
+                        Text("\(startTC) - \(endTC)")
                             .monospacedDigit()
                     }
                 }
@@ -1164,7 +1333,7 @@ struct OCFParentRowView: View {
 
             // Children Segments (when expanded)
             if isExpanded && parent.hasChildren {
-                ForEach(parent.children, id: \.segment.fileName) { linkedSegment in
+                ForEach(sortedByTimecode(parent.children), id: \.segment.fileName) { linkedSegment in
                     LinkedSegmentRowView(linkedSegment: linkedSegment)
                         .padding(.leading, 20)
                 }
@@ -1236,12 +1405,20 @@ struct LinkedSegmentRowView: View {
                 }
 
                 HStack {
-                    Text(linkedSegment.linkMethod)
-                    Text("•")
-                    Text("\(linkedSegment.linkConfidence)".lowercased())
-                    if let startTC = linkedSegment.segment.sourceTimecode {
+                    HStack(spacing: 4) {
+                        ForEach(formatLinkMethodBadges(linkedSegment.linkMethod), id: \.self) { badge in
+                            Text(badge)
+                                .font(.caption2)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(3)
+                        }
+                    }
+                    if let startTC = linkedSegment.segment.sourceTimecode,
+                       let endTC = linkedSegment.segment.endTimecode {
                         Text("•")
-                        Text("TC: \(startTC)")
+                        Text("\(startTC) - \(endTC)")
                             .monospacedDigit()
                     }
                 }
@@ -1456,10 +1633,13 @@ struct OCFParentContextMenu: View {
 
 struct CompressorStyleOCFCard: View {
     let parent: OCFParent
+    let ocfIndex: Int
     let project: Project
     let timelineVisualizationData: [String: TimelineVisualization]
     @Binding var selectedLinkedFiles: Set<String>
     @Binding var selectedOCFParents: Set<String>
+    @Binding var focusedOCFIndex: Int
+    @Binding var navigationContext: LinkingResultsView.NavigationContext
     let projectManager: ProjectManager
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
@@ -1477,37 +1657,12 @@ struct CompressorStyleOCFCard: View {
         selectedOCFParents.contains(parent.ocf.fileName)
     }
 
-    private func navigateToNextSegment(in children: [LinkedSegment]) {
-        guard !children.isEmpty else { return }
-
-        if let currentSelected = selectedLinkedFiles.first,
-           let currentIndex = children.firstIndex(where: { $0.segment.fileName == currentSelected }) {
-            // Move to next segment
-            if currentIndex < children.count - 1 {
-                selectedLinkedFiles = [children[currentIndex + 1].segment.fileName]
-            }
-        } else {
-            // No selection, select first segment
-            selectedLinkedFiles = [children[0].segment.fileName]
-        }
-    }
-
-    private func navigateToPreviousSegment(in children: [LinkedSegment]) {
-        guard !children.isEmpty else { return }
-
-        if let currentSelected = selectedLinkedFiles.first,
-           let currentIndex = children.firstIndex(where: { $0.segment.fileName == currentSelected }) {
-            // Move to previous segment
-            if currentIndex > 0 {
-                selectedLinkedFiles = [children[currentIndex - 1].segment.fileName]
-            }
-        } else {
-            // No selection, select last segment
-            selectedLinkedFiles = [children.last!.segment.fileName]
-        }
-    }
-
     private func handleCardSelection() {
+        // Update navigation state
+        focusedOCFIndex = ocfIndex
+        navigationContext = .ocfList
+        selectedLinkedFiles.removeAll()
+
         // Check if shift key is pressed for range selection
         let modifierFlags = NSApp.currentEvent?.modifierFlags ?? []
         let isShiftPressed = modifierFlags.contains(.shift)
@@ -1955,7 +2110,7 @@ struct CompressorStyleOCFCard: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
+            .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
             .onTapGesture {
                 handleCardSelection()
             }
@@ -1972,7 +2127,7 @@ struct CompressorStyleOCFCard: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
+                .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
             }
 
             // Card body (expandable content)
@@ -1996,19 +2151,23 @@ struct CompressorStyleOCFCard: View {
                             ocfFileName: parent.ocf.fileName
                         )
 
-                        // Linked segments container with unified keyboard navigation
+                        // Linked segments container - keyboard navigation handled at LinkingResultsView level
                         VStack(spacing: 0) {
-                            ForEach(Array(parent.children.enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
+                            ForEach(Array(sortedByTimecode(parent.children).enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
                                 TreeLinkedSegmentRowView(
                                     linkedSegment: linkedSegment,
                                     isLast: linkedSegment.segment.fileName
-                                        == parent.children.last?.segment.fileName,
+                                        == sortedByTimecode(parent.children).last?.segment.fileName,
                                     project: project
                                 )
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
                                 .onTapGesture {
+                                    // Update navigation state
+                                    focusedOCFIndex = ocfIndex
+                                    navigationContext = .segmentList
                                     selectedLinkedFiles = [linkedSegment.segment.fileName]
+                                    selectedOCFParents = [parent.ocf.fileName]
                                 }
                                 .background(
                                     selectedLinkedFiles.contains(linkedSegment.segment.fileName)
@@ -2016,16 +2175,6 @@ struct CompressorStyleOCFCard: View {
                                     : Color.clear
                                 )
                             }
-                        }
-                        .focusable()
-                        .focusEffectDisabled()
-                        .onKeyPress(.downArrow) {
-                            navigateToNextSegment(in: parent.children)
-                            return .handled
-                        }
-                        .onKeyPress(.upArrow) {
-                            navigateToPreviousSegment(in: parent.children)
-                            return .handled
                         }
                     }
                     .padding(8)
@@ -2035,7 +2184,7 @@ struct CompressorStyleOCFCard: View {
                 .padding(.top, 0)
                 .padding(.horizontal, 4)
                 .padding(.bottom, 4)
-                .background(isSelected ? Color.accentColor : Color.appBackgroundSecondary)
+                .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
