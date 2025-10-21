@@ -24,7 +24,10 @@ public struct VideoStreamProperties {
     public let timebase: AVRational
     public let timecode: String?
 
-    public init(width: Int, height: Int, frameRate: AVRational, frameRateFloat: Float, duration: Double, timebase: AVRational, timecode: String?) {
+    public init(
+        width: Int, height: Int, frameRate: AVRational, frameRateFloat: Float, duration: Double,
+        timebase: AVRational, timecode: String?
+    ) {
         self.width = width
         self.height = height
         self.frameRate = frameRate
@@ -154,13 +157,13 @@ public class SwiftFFmpegProResCompositor {
         // Pre-analyze all segments and cache properties to eliminate duplicate analysis
         var segmentAnalysisTime: Double = 0
         var cachedSegments: [FFmpegGradedSegment] = []
-        
+
         for (index, segment) in settings.gradedSegments.enumerated() {
             let segStartTime = CFAbsoluteTimeGetCurrent()
             let streamProperties = try analyzeVideoWithFFmpeg(url: segment.url)
             let segEndTime = CFAbsoluteTimeGetCurrent()
             segmentAnalysisTime += segEndTime - segStartTime
-            
+
             // Create new segment with cached properties AND preserve frameRateRational
             let cachedSegment = FFmpegGradedSegment(
                 url: segment.url,
@@ -175,7 +178,7 @@ public class SwiftFFmpegProResCompositor {
                 cachedStreamProperties: streamProperties
             )
             cachedSegments.append(cachedSegment)
-            
+
             if index % 5 == 0 || index == settings.gradedSegments.count - 1 {
                 print(
                     "  📊 Analyzed \(index + 1)/\(settings.gradedSegments.count) segments (\(String(format: "%.3f", segmentAnalysisTime))s total)"
@@ -202,9 +205,10 @@ public class SwiftFFmpegProResCompositor {
             gradedSegments: cachedSegments,
             proResProfile: settings.proResProfile
         )
-        
+
         // Process timeline with direct stream copying (no more redundant analysis!)
-        try await processTimelineDirectly(settings: optimizedSettings, baseProperties: baseProperties)
+        try await processTimelineDirectly(
+            settings: optimizedSettings, baseProperties: baseProperties)
 
         let exportEndTime = CFAbsoluteTimeGetCurrent()
         let exportDuration = exportEndTime - exportStartTime
@@ -317,12 +321,14 @@ public class SwiftFFmpegProResCompositor {
 
         print("📊 Timeline segments: \(regularSegments.count) regular + \(vfxSegments.count) VFX")
         for (index, segment) in regularSegments.enumerated() {
-            let startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
+            let startFrame = convertTimeToFrame(
+                seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
             print(
                 "   Regular \(index + 1): \(segment.url.lastPathComponent) at frame \(startFrame)")
         }
         for (index, segment) in vfxSegments.enumerated() {
-            let startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
+            let startFrame = convertTimeToFrame(
+                seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
             print("   VFX \(index + 1): \(segment.url.lastPathComponent) at frame \(startFrame)")
         }
 
@@ -559,7 +565,8 @@ public class SwiftFFmpegProResCompositor {
     ) async throws {
 
         // Calculate total frames for the timeline
-        let totalFrames = convertTimeToFrame(seconds: baseProperties.duration, frameRate: baseProperties.frameRate)
+        let totalFrames = convertTimeToFrame(
+            seconds: baseProperties.duration, frameRate: baseProperties.frameRate)
 
         // Use FrameOwnershipAnalyzer to resolve overlaps and VFX priority
         let analyzer = FrameOwnershipAnalyzer(
@@ -579,7 +586,9 @@ public class SwiftFFmpegProResCompositor {
         // Log statistics
         print("📊 Frame ownership analysis complete:")
         print("   Total frames: \(processingPlan.statistics.totalFrames)")
-        print("   Segments: \(processingPlan.statistics.segmentCount) (\(processingPlan.statistics.vfxSegmentCount) VFX)")
+        print(
+            "   Segments: \(processingPlan.statistics.segmentCount) (\(processingPlan.statistics.vfxSegmentCount) VFX)"
+        )
         print("   Overlaps: \(processingPlan.statistics.overlapCount)")
         print("   VFX frames: \(processingPlan.statistics.vfxFrames)")
         print("   Grade frames: \(processingPlan.statistics.gradeFrames)")
@@ -723,7 +732,7 @@ public class SwiftFFmpegProResCompositor {
 
         let packet = AVPacket()
         var framesCopied = 0
-        
+
         // Calculate exact frame duration once for consistent timing
         let frameDuration = AVMath.rescale(
             1,  // One frame duration
@@ -732,7 +741,7 @@ public class SwiftFFmpegProResCompositor {
             rounding: .nearInf,
             passMinMax: true
         )
-        
+
         // Calculate starting PTS for this segment
         let startPTS = Int64(startFrame) * frameDuration
         var currentPTS = startPTS
@@ -765,7 +774,7 @@ public class SwiftFFmpegProResCompositor {
                 framesCopied += 1
                 baseFramesRead += 1
                 lastOutputDTS = packet.dts
-                
+
                 // Increment PTS by exact frame duration for perfect timing
                 currentPTS += frameDuration
             }
@@ -919,9 +928,12 @@ public class SwiftFFmpegProResCompositor {
     ) async throws {
 
         let segmentType = isVFX ? "VFX" : "regular"
-        let startFrame = convertTimeToFrame(seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
+        let startFrame = convertTimeToFrame(
+            seconds: segment.startTime.seconds, frameRate: baseProperties.frameRate)
         let endFrame =
-            startFrame + convertTimeToFrame(seconds: segment.duration.seconds, frameRate: baseProperties.frameRate)
+            startFrame
+            + convertTimeToFrame(
+                seconds: segment.duration.seconds, frameRate: baseProperties.frameRate)
         print("🎬 Applying \(segmentType) segment: \(segment.url.lastPathComponent)")
         print("   Timeline position: frame \(startFrame) - \(endFrame)")
 
@@ -1030,13 +1042,13 @@ public class SwiftFFmpegProResCompositor {
         // Convert CMTime to PTS using timebase
         return Int64(time.seconds * Double(timebase.den) / Double(timebase.num))
     }
-    
+
     private func convertTimeToFrame(seconds: Double, frameRate: AVRational) -> Int {
         // Convert time to frame using precise rational arithmetic
         let fps = Double(frameRate.num) / Double(frameRate.den)
         return Int(round(seconds * fps))
     }
-    
+
     private func calculateEndTimecode(
         startTC: String,
         durationSeconds: Double,
@@ -1045,7 +1057,7 @@ public class SwiftFFmpegProResCompositor {
     ) -> String? {
         // Use SMPTE to calculate end timecode from start + duration
         let smpte = SMPTE(fps: Double(frameRate), dropFrame: isDropFrame)
-        
+
         do {
             let startFrames = try smpte.getFrames(tc: startTC)
             let durationFrames = Int(round(durationSeconds * Double(frameRate)))
