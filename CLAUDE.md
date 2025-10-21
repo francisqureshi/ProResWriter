@@ -99,10 +99,13 @@ ProResWriter/
 - **Linking Rules**: Strict validation-based matching with consumer camera detection and VFX exemptions
 - **Apple Compressor Theming**: Professional purple accent with dark backgrounds
 
-### Watch Folder System ✅ **COMPLETE**
-- **FSEvents Integration**: Real-time file system monitoring with macOS FSEvents API
+### Watch Folder System ✅ **PRODUCTION READY** (v0.1.0 Build 9)
+- **FileMonitor Integration**: Modern Swift library wrapper around FSEvents (https://github.com/aus-der-Technik/FileMonitor)
+- **Zero Crashes**: Eliminated unsafe C pointer code, fixed QuickLook crash
+- **Complete File Detection**: Copy, move, modify, and batch delete all working perfectly
 - **Debounce System**: 3-second delay ensures files are fully copied before import
-- **Duplicate Prevention**: Smart filtering prevents re-importing overwritten files
+- **Smart Change Detection**: Distinguishes new files, modifications, and deletions (including batch operations)
 - **Automatic Import**: Seamless detection and import of new video files (.mov, .mp4, .m4v, .mxf, .prores)
-- **Safe Memory Handling**: Crash-resistant FSEvents callback with proper memory management
-- **Professional Workflow**: Toggle-based monitoring with folder selection UI
+- **Hidden File Filtering**: Ignores system files (. prefix) to prevent QuickLook interference
+- **Professional Workflow**: Toggle-based monitoring with VFX vs grade folder distinction
+- **Async/await Architecture**: Clean concurrent event handling with MainActor thread safety

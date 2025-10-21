@@ -1,6 +1,15 @@
 {
-  "originHash" : "5a0b30741b91600d7f4b429132c19dc096b31c66ed3edc69be64ce76661430e2",
+  "originHash" : "e306490472a8cd1df118f72522cac0b4a892b761c458ef51dcd995c6b749783d",
   "pins" : [
+    {
+      "identity" : "filemonitor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aus-der-Technik/FileMonitor.git",
+      "state" : {
+        "revision" : "5adbe8f2383eac5148475ef84977806bbd33e8d7",
+        "version" : "1.2.1"
+      }
+    },
     {
       "identity" : "swiftffmpeg",
       "kind" : "remoteSourceControl",

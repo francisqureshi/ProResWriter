@@ -25,6 +25,8 @@ let package = Package(
         .package(url: "https://github.com/sunlubo/SwiftFFmpeg", from: "1.6.0"),
         // TimecodeKit for professional timecode calculations
         .package(url: "https://github.com/orchetect/TimecodeKit", from: "2.3.3"),
+        // FileMonitor for safe file system event monitoring
+        .package(url: "https://github.com/aus-der-Technik/FileMonitor.git", from: "1.0.0"),
     ],
     targets: [
         // Core media processing engine (includes TUI components)
@@ -34,6 +36,7 @@ let package = Package(
                 "SwiftFFmpeg",
                 .product(name: "TimecodeKit", package: "TimecodeKit"),
                 .product(name: "TimecodeKitAV", package: "TimecodeKit"),
+                .product(name: "FileMonitor", package: "FileMonitor"),
             ],
             path: "Sources/ProResWriterCore",
             resources: [

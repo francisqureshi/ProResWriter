@@ -1,0 +1,43 @@
+NEW FEATURES:
+- Add search bar for linked OCF parents
+
+ACTIVE BUGS:
+- None currently
+
+
+21/10/2025
+
+✅ RESOLVED BUGS (21/10/2025 - v0.1.0 Build 9):
+
+Watch Folder System - Complete Rewrite:
+- [FIXED] QuickLook crash in watch folder
+  • Root cause: unsafeBitCast memory corruption in FSEvents C API
+  • Solution: Migrated to FileMonitor library (https://github.com/aus-der-Technik/FileMonitor)
+  • Result: Zero crashes, clean Swift code with async/await
+
+- [FIXED] File detection issues
+  • Move-in detection: Files moved into folder now properly imported
+  • Batch delete detection: All deleted files detected (not just first one)
+  • Smart change detection: Distinguishes new files vs modifications vs deletions
+  • Handles macOS quirk where batch deletes report as "change" events
+
+Watch Folder Feature Set (All Working):
+  ✅ Copy files in → 3s debounce → auto-import
+  ✅ Move files in → 3s debounce → auto-import
+  ✅ Modify existing files → update metadata
+  ✅ Delete single file → mark offline
+  ✅ Delete multiple files → mark all offline
+  ✅ QuickLook files → no crash
+  ✅ Hidden file filtering (. prefix ignored)
+  ✅ Video extension filtering (.mov, .mp4, .m4v, .mxf, .prores)
+  ✅ VFX vs grade folder distinction
+
+Technical Details:
+  • Replaced FSEventStreamRef with FileMonitor library
+  • Eliminated all unsafe C pointer code (unsafeBitCast, UnsafeRawPointer)
+  • Async/await event consumption with MainActor for thread safety
+  • Smart file existence checks to detect deletions reported as changes
+
+VERSION MANAGEMENT:
+- Semantic versioning implemented: v0.1.0
+- Auto-incrementing build numbers (currently Build 9)

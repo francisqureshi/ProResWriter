@@ -3,15 +3,18 @@
 //  ProResWriterCore
 //
 //  Created by Claude on 29/09/2025.
+//  Rewritten with FileMonitor on 21/10/2025.
 //  Watch folder service supporting multiple folders with different behaviors
 //
 
 import Foundation
-import CoreServices
+import FileMonitor
 
 /// Watch folder service supporting multiple folders with different behaviors
 public class SimpleWatchFolder {
-    private var eventStream: FSEventStreamRef?
+    private var gradeMonitor: FileMonitor?
+    private var vfxMonitor: FileMonitor?
+    private var monitorTasks: [Task<Void, Never>] = []
     private var isActive = false
 
     /// Callback for when video files are detected (URLs, isVFX)
@@ -28,8 +31,8 @@ public class SimpleWatchFolder {
     private var debounceTimer: Timer?
     private let debounceInterval: TimeInterval = 3.0 // Wait 3 seconds after last change
 
-    /// Paths being monitored (path -> isVFX)
-    private var monitoredPaths: [String: Bool] = [:]
+    /// Video file extensions to monitor
+    private let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
 
     public init() {}
 
@@ -42,77 +45,180 @@ public class SimpleWatchFolder {
             return
         }
 
-        // Build paths array and track which paths are VFX
-        var pathsToWatch: [String] = []
-        monitoredPaths.removeAll()
+        isActive = true
 
+        // Start monitoring grade folder
         if let gradePath = gradePath {
-            pathsToWatch.append(gradePath)
-            monitoredPaths[gradePath] = false // Grade folder
             NSLog("📁 Monitoring grade folder: %@", gradePath)
-
-            // Scan for existing files in grade folder
+            startMonitoring(path: gradePath, isVFX: false)
+            // Scan for existing files
             scanExistingFiles(in: gradePath, isVFX: false)
         }
 
+        // Start monitoring VFX folder
         if let vfxPath = vfxPath {
-            pathsToWatch.append(vfxPath)
-            monitoredPaths[vfxPath] = true // VFX folder
             NSLog("🎬 Monitoring VFX folder: %@", vfxPath)
-
-            // Scan for existing files in VFX folder
+            startMonitoring(path: vfxPath, isVFX: true)
+            // Scan for existing files
             scanExistingFiles(in: vfxPath, isVFX: true)
         }
 
-        guard !pathsToWatch.isEmpty else {
+        if gradePath == nil && vfxPath == nil {
             NSLog("⚠️ No folders specified for monitoring")
-            return
+            isActive = false
         }
+    }
 
-        // Create array of paths to watch
-        let pathsArray = pathsToWatch as CFArray
+    /// Start monitoring a specific path
+    private func startMonitoring(path: String, isVFX: Bool) {
+        do {
+            let monitor = try FileMonitor(directory: URL(fileURLWithPath: path))
 
-        // Create context to pass self to callback
-        let context = Unmanaged.passUnretained(self).toOpaque()
-        var fsContext = FSEventStreamContext(
-            version: 0,
-            info: context,
-            retain: nil,
-            release: nil,
-            copyDescription: nil
-        )
+            // Store monitor reference
+            if isVFX {
+                vfxMonitor = monitor
+            } else {
+                gradeMonitor = monitor
+            }
 
-        // Create FSEvent stream
-        eventStream = FSEventStreamCreate(
-            kCFAllocatorDefault,
-            { (stream, info, numEvents, eventPaths, eventFlags, eventIds) in
-                guard let info = info else { return }
-                let service = Unmanaged<SimpleWatchFolder>.fromOpaque(info).takeUnretainedValue()
-                service.handleEvents(numEvents: numEvents, eventPaths: eventPaths, eventFlags: eventFlags)
-            },
-            &fsContext,
-            pathsArray,
-            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            1.0, // 1 second latency
-            FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents)
-        )
+            // Start the monitor
+            try monitor.start()
+            NSLog("✅ Started FileMonitor for %@ folder", isVFX ? "VFX" : "grade")
 
-        guard let stream = eventStream else {
-            NSLog("❌ Failed to create FSEventStream")
-            return
+            // Create task to consume events
+            let task = Task {
+                await self.consumeEvents(from: monitor, isVFX: isVFX)
+            }
+            monitorTasks.append(task)
+
+        } catch {
+            NSLog("❌ Failed to start monitoring %@: %@", path, error.localizedDescription)
         }
+    }
 
-        // Schedule on dispatch queue
-        FSEventStreamSetDispatchQueue(stream, DispatchQueue.main)
+    /// Consume events from FileMonitor stream
+    private func consumeEvents(from monitor: FileMonitor, isVFX: Bool) async {
+        for await event in monitor.stream {
+            // Run on main thread since we use Timer and callbacks
+            await MainActor.run {
+                self.handleEvent(event, isVFX: isVFX)
+            }
+        }
+    }
 
-        // Start the stream
-        if FSEventStreamStart(stream) {
-            isActive = true
-            NSLog("✅ SimpleWatchFolder: Successfully started monitoring %d folders", pathsToWatch.count)
-        } else {
-            NSLog("❌ Failed to start FSEventStream")
-            FSEventStreamRelease(stream)
-            eventStream = nil
+    /// Handle individual file change event
+    private func handleEvent(_ event: FileChange, isVFX: Bool) {
+        let fileURL: URL
+        let pathString: String
+        let fileName: String
+
+        switch event {
+        case .added(let file):
+            fileURL = file
+            pathString = fileURL.path
+            fileName = fileURL.lastPathComponent
+
+            // Skip hidden files
+            if fileName.hasPrefix(".") {
+                return
+            }
+
+            // Check if it's a video file
+            let fileExtension = fileURL.pathExtension.lowercased()
+            guard videoExtensions.contains(fileExtension) else {
+                return
+            }
+
+            NSLog("🎬 %@ FILE CREATED: %@", isVFX ? "VFX" : "GRADE", fileName)
+
+            // Add to pending files with current timestamp and VFX flag
+            pendingFiles[pathString] = (Date(), isVFX)
+
+            // Reset debounce timer
+            debounceTimer?.invalidate()
+            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+                self?.processCompletedFiles()
+            }
+
+            NSLog("⏳ File added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
+
+        case .changed(let file):
+            fileURL = file
+            pathString = fileURL.path
+            fileName = fileURL.lastPathComponent
+
+            // Skip hidden files
+            if fileName.hasPrefix(".") {
+                return
+            }
+
+            let fileExtension = fileURL.pathExtension.lowercased()
+            guard videoExtensions.contains(fileExtension) else {
+                return
+            }
+
+            // Check if file still exists - "changed" can mean deleted when multiple files are deleted
+            if !FileManager.default.fileExists(atPath: pathString) {
+                // File was deleted (reported as "changed" by FileMonitor for batch deletes)
+                NSLog("🗑️ %@ FILE DELETED (via change event): %@", isVFX ? "VFX" : "GRADE", fileName)
+                onVideoFilesDeleted?([fileName], isVFX)
+
+                // Remove from pending if it was there
+                pendingFiles.removeValue(forKey: pathString)
+                return
+            }
+
+            // File exists - check if it's a modification or new file
+            if FileManager.default.fileExists(atPath: pathString) {
+                do {
+                    let attributes = try FileManager.default.attributesOfItem(atPath: pathString)
+                    if let fileSize = attributes[.size] as? Int64, fileSize > 0 {
+                        // Check if this is a new file (move-in) vs an actual modification
+                        if pendingFiles[pathString] == nil {
+                            // New file moved in - treat as creation
+                            NSLog("🎬 %@ FILE MOVED IN: %@", isVFX ? "VFX" : "GRADE", fileName)
+
+                            // Add to pending files with current timestamp and VFX flag
+                            pendingFiles[pathString] = (Date(), isVFX)
+
+                            // Reset debounce timer
+                            debounceTimer?.invalidate()
+                            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+                                self?.processCompletedFiles()
+                            }
+
+                            NSLog("⏳ Moved-in file added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
+                        } else {
+                            // Existing file modified
+                            NSLog("📝 %@ FILE MODIFIED: %@", isVFX ? "VFX" : "GRADE", fileName)
+                            onVideoFilesModified?([fileName], isVFX)
+                        }
+                    }
+                } catch {
+                    NSLog("⚠️ Cannot read modified file attributes: %@ - %@", fileName, error.localizedDescription)
+                }
+            }
+
+        case .deleted(let file):
+            fileURL = file
+            pathString = fileURL.path
+            fileName = fileURL.lastPathComponent
+
+            // Skip hidden files
+            if fileName.hasPrefix(".") {
+                return
+            }
+
+            let fileExtension = fileURL.pathExtension.lowercased()
+            guard videoExtensions.contains(fileExtension) else {
+                return
+            }
+
+            NSLog("🗑️ %@ FILE DELETED: %@", isVFX ? "VFX" : "GRADE", fileName)
+            onVideoFilesDeleted?([fileName], isVFX)
+
+            // Remove from pending if it was there
+            pendingFiles.removeValue(forKey: pathString)
         }
     }
 
@@ -120,22 +226,28 @@ public class SimpleWatchFolder {
     public func stopWatching() {
         NSLog("🛑 SimpleWatchFolder: Stopping watch")
 
-        guard let stream = eventStream, isActive else {
+        guard isActive else {
             NSLog("⚠️ Not currently watching")
             return
         }
 
-        FSEventStreamStop(stream)
-        FSEventStreamSetDispatchQueue(stream, nil)
-        FSEventStreamRelease(stream)
+        // Cancel all monitor tasks
+        for task in monitorTasks {
+            task.cancel()
+        }
+        monitorTasks.removeAll()
+
+        // Stop monitors
+        gradeMonitor?.stop()
+        vfxMonitor?.stop()
+        gradeMonitor = nil
+        vfxMonitor = nil
 
         // Clean up debounce timer and pending files
         debounceTimer?.invalidate()
         debounceTimer = nil
         pendingFiles.removeAll()
-        monitoredPaths.removeAll()
 
-        eventStream = nil
         isActive = false
         NSLog("✅ SimpleWatchFolder: Stopped")
     }
@@ -145,7 +257,6 @@ public class SimpleWatchFolder {
         NSLog("📂 Scanning existing files in %@ folder: %@", isVFX ? "VFX" : "grade", folderPath)
 
         let folderURL = URL(fileURLWithPath: folderPath)
-        let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
 
         do {
             let fileURLs = try FileManager.default.contentsOfDirectory(at: folderURL,
@@ -177,119 +288,6 @@ public class SimpleWatchFolder {
             }
         } catch {
             NSLog("❌ Error scanning folder %@: %@", folderPath, error.localizedDescription)
-        }
-    }
-
-    /// Handle FSEvents callback
-    private func handleEvents(numEvents: Int, eventPaths: UnsafeRawPointer, eventFlags: UnsafePointer<FSEventStreamEventFlags>) {
-        NSLog("🚨 FSEvent triggered! %d events", numEvents)
-
-        // Convert eventPaths to array of path strings using the safest approach
-        let pathsArray = unsafeBitCast(eventPaths, to: NSArray.self) as! [String]
-
-        guard pathsArray.count == numEvents else {
-            NSLog("⚠️ Path array count mismatch: expected %d, got %d", numEvents, pathsArray.count)
-            return
-        }
-
-        for i in 0..<numEvents {
-            guard i < pathsArray.count else {
-                NSLog("⚠️ Index %d out of bounds", i)
-                continue
-            }
-
-            let pathAsString = pathsArray[i]
-            let flags = eventFlags[i]
-
-            NSLog("📁 Event %d: %@", i, pathAsString)
-            NSLog("   Flags: %d", flags)
-
-            // Determine if this event is in a VFX folder
-            let isVFXEvent = monitoredPaths.keys.first { vfxPath in
-                pathAsString.hasPrefix(vfxPath) && monitoredPaths[vfxPath] == true
-            } != nil
-
-            // Check for different types of file events
-            let isCreated = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated)) != 0
-            let isModified = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified)) != 0
-            let isRemoved = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemRemoved)) != 0
-            let isRenamed = (flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemRenamed)) != 0
-            let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
-            let pathExtension = URL(fileURLWithPath: pathAsString).pathExtension.lowercased()
-
-            if videoExtensions.contains(pathExtension) {
-                let fileName = URL(fileURLWithPath: pathAsString).lastPathComponent
-
-                // Handle removed/deleted files
-                if isRemoved && !FileManager.default.fileExists(atPath: pathAsString) {
-                    NSLog("🗑️ %@ FILE DELETED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-                    onVideoFilesDeleted?([fileName], isVFXEvent)
-                }
-
-                // Handle renamed/moved files
-                if isRenamed {
-                    if FileManager.default.fileExists(atPath: pathAsString) {
-                        // File exists at this path - this is a move-in (treat as creation)
-                        NSLog("📥 %@ FILE MOVED IN: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-
-                        // Add to pending files with current timestamp and VFX flag
-                        pendingFiles[pathAsString] = (Date(), isVFXEvent)
-
-                        // Reset debounce timer
-                        debounceTimer?.invalidate()
-                        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
-                            self?.processCompletedFiles()
-                        }
-
-                        NSLog("⏳ Moved-in file added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
-                    } else {
-                        // File doesn't exist at this path - this is a move-out (already handled by isRemoved)
-                        NSLog("📤 %@ FILE MOVED OUT: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-                    }
-                }
-
-                // Handle created files
-                if isCreated && FileManager.default.fileExists(atPath: pathAsString) {
-                    NSLog("🎬 %@ FILE CREATED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-
-                    // Add to pending files with current timestamp and VFX flag
-                    pendingFiles[pathAsString] = (Date(), isVFXEvent)
-
-                    // Reset debounce timer
-                    debounceTimer?.invalidate()
-                    debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
-                        self?.processCompletedFiles()
-                    }
-
-                    NSLog("⏳ File added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
-                }
-
-                // Handle modified files
-                if isModified && !isCreated && !isRemoved {
-                    // Check if file exists (modification vs ongoing creation)
-                    if FileManager.default.fileExists(atPath: pathAsString) {
-                        // Check if this is a stable modification (file size unchanged for a moment)
-                        do {
-                            let attributes = try FileManager.default.attributesOfItem(atPath: pathAsString)
-                            if let fileSize = attributes[.size] as? Int64, fileSize > 0 {
-                                NSLog("📝 %@ FILE MODIFIED: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-                                onVideoFilesModified?([fileName], isVFXEvent)
-                            }
-                        } catch {
-                            NSLog("⚠️ Cannot read modified file attributes: %@ - %@", fileName, error.localizedDescription)
-                        }
-                    } else {
-                        // File being created/copied - treat as creation
-                        NSLog("🎬 %@ FILE CREATING: %@", isVFXEvent ? "VFX" : "GRADE", fileName)
-                        pendingFiles[pathAsString] = (Date(), isVFXEvent)
-
-                        debounceTimer?.invalidate()
-                        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
-                            self?.processCompletedFiles()
-                        }
-                    }
-                }
-            }
         }
     }
 
