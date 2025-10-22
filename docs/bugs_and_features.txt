@@ -2,10 +2,11 @@ NEW FEATURES:
 - Add search bar for linked OCF parents
 
 ACTIVE BUGS:
-- No Icon...
+- Slow Linking page card clicking....
 
 
-21/10/2025
+✅ RESOLVED BUGS (22/10/2025 - v0.1.0 Build 17):
+  - No Icon...
 
 ✅ RESOLVED BUGS (21/10/2025 - v0.1.0 Build 9):
 
