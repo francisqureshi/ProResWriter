@@ -5,8 +5,8 @@ ACTIVE BUGS:
 - Slow Linking page card clicking....
 
 
-✅ RESOLVED BUGS (22/10/2025 - v0.1.0 Build 17):
-  - No Icon...
+✅ RESOLVED BUGS (22/10/2025 Build 19) :
+  - No Icon - now with v02 icon! :)
 
 ✅ RESOLVED BUGS (21/10/2025 - v0.1.0 Build 9):
 
