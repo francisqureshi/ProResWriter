@@ -1,5 +1,5 @@
 //
-//  SimpleWatchFolder.swift
+//  FilneMonitorWatchFolder.swift
 //  ProResWriterCore
 //
 //  Created by Claude on 29/09/2025.
@@ -7,11 +7,11 @@
 //  Watch folder service supporting multiple folders with different behaviors
 //
 
-import Foundation
 import FileMonitor
+import Foundation
 
 /// Watch folder service supporting multiple folders with different behaviors
-public class SimpleWatchFolder {
+public class FileMonitorWatchFolder {
     private var gradeMonitor: FileMonitor?
     private var vfxMonitor: FileMonitor?
     private var monitorTasks: [Task<Void, Never>] = []
@@ -29,7 +29,7 @@ public class SimpleWatchFolder {
     /// Pending files waiting for copy completion (filePath -> (lastModified, isVFX))
     private var pendingFiles: [String: (Date, Bool)] = [:]
     private var debounceTimer: Timer?
-    private let debounceInterval: TimeInterval = 3.0 // Wait 3 seconds after last change
+    private let debounceInterval: TimeInterval = 3.0  // Wait 3 seconds after last change
 
     /// Video file extensions to monitor
     private let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
@@ -38,7 +38,7 @@ public class SimpleWatchFolder {
 
     /// Start monitoring multiple folders
     public func startWatching(gradePath: String?, vfxPath: String?) {
-        NSLog("🔍 SimpleWatchFolder: Starting to watch folders...")
+        NSLog("🔍 WatchFolder: Starting to watch folders...")
 
         guard !isActive else {
             NSLog("⚠️ Already watching - stop first")
@@ -136,11 +136,14 @@ public class SimpleWatchFolder {
 
             // Reset debounce timer
             debounceTimer?.invalidate()
-            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false)
+            { [weak self] _ in
                 self?.processCompletedFiles()
             }
 
-            NSLog("⏳ File added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
+            NSLog(
+                "⏳ File added to pending queue. Will process in %.1f seconds if no more changes...",
+                debounceInterval)
 
         case .changed(let file):
             fileURL = file
@@ -183,11 +186,15 @@ public class SimpleWatchFolder {
 
                             // Reset debounce timer
                             debounceTimer?.invalidate()
-                            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+                            debounceTimer = Timer.scheduledTimer(
+                                withTimeInterval: debounceInterval, repeats: false
+                            ) { [weak self] _ in
                                 self?.processCompletedFiles()
                             }
 
-                            NSLog("⏳ Moved-in file added to pending queue. Will process in %.1f seconds if no more changes...", debounceInterval)
+                            NSLog(
+                                "⏳ Moved-in file added to pending queue. Will process in %.1f seconds if no more changes...",
+                                debounceInterval)
                         } else {
                             // Existing file modified
                             NSLog("📝 %@ FILE MODIFIED: %@", isVFX ? "VFX" : "GRADE", fileName)
@@ -195,7 +202,9 @@ public class SimpleWatchFolder {
                         }
                     }
                 } catch {
-                    NSLog("⚠️ Cannot read modified file attributes: %@ - %@", fileName, error.localizedDescription)
+                    NSLog(
+                        "⚠️ Cannot read modified file attributes: %@ - %@", fileName,
+                        error.localizedDescription)
                 }
             }
 
@@ -224,7 +233,7 @@ public class SimpleWatchFolder {
 
     /// Stop monitoring
     public func stopWatching() {
-        NSLog("🛑 SimpleWatchFolder: Stopping watch")
+        NSLog("🛑 WatchFolder: Stopping watch")
 
         guard isActive else {
             NSLog("⚠️ Not currently watching")
@@ -249,7 +258,7 @@ public class SimpleWatchFolder {
         pendingFiles.removeAll()
 
         isActive = false
-        NSLog("✅ SimpleWatchFolder: Stopped")
+        NSLog("✅ WatchFolder: Stopped")
     }
 
     /// Scan for existing files in a folder on startup
@@ -259,9 +268,10 @@ public class SimpleWatchFolder {
         let folderURL = URL(fileURLWithPath: folderPath)
 
         do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: folderURL,
-                                                                      includingPropertiesForKeys: [.isRegularFileKey],
-                                                                      options: [.skipsHiddenFiles])
+            let fileURLs = try FileManager.default.contentsOfDirectory(
+                at: folderURL,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles])
 
             var existingVideoFiles: [URL] = []
 
@@ -272,14 +282,18 @@ public class SimpleWatchFolder {
                     let fileExtension = fileURL.pathExtension.lowercased()
 
                     if videoExtensions.contains(fileExtension) {
-                        NSLog("📄 Found existing %@ file: %@", isVFX ? "VFX" : "grade", fileURL.lastPathComponent)
+                        NSLog(
+                            "📄 Found existing %@ file: %@", isVFX ? "VFX" : "grade",
+                            fileURL.lastPathComponent)
                         existingVideoFiles.append(fileURL)
                     }
                 }
             }
 
             if !existingVideoFiles.isEmpty {
-                NSLog("🎬 Found %d existing %@ files to import", existingVideoFiles.count, isVFX ? "VFX" : "grade")
+                NSLog(
+                    "🎬 Found %d existing %@ files to import", existingVideoFiles.count,
+                    isVFX ? "VFX" : "grade")
 
                 // Import existing files immediately (they're already complete)
                 onVideoFilesDetected?(existingVideoFiles, isVFX)
@@ -312,8 +326,9 @@ public class SimpleWatchFolder {
                     do {
                         let attributes = try FileManager.default.attributesOfItem(atPath: filePath)
                         if let fileSize = attributes[.size] as? Int64, fileSize > 0 {
-                            NSLog("✅ File ready for import: %@ (size: %lld bytes) [%@]",
-                                 fileURL.lastPathComponent, fileSize, isVFX ? "VFX" : "GRADE")
+                            NSLog(
+                                "✅ File ready for import: %@ (size: %lld bytes) [%@]",
+                                fileURL.lastPathComponent, fileSize, isVFX ? "VFX" : "GRADE")
 
                             if isVFX {
                                 vfxFiles.append(fileURL)
@@ -322,11 +337,15 @@ public class SimpleWatchFolder {
                             }
                             filesToRemove.append(filePath)
                         } else {
-                            NSLog("⚠️ File has zero size, waiting longer: %@", fileURL.lastPathComponent)
+                            NSLog(
+                                "⚠️ File has zero size, waiting longer: %@",
+                                fileURL.lastPathComponent)
                         }
                     } catch {
-                        NSLog("⚠️ Cannot read file attributes: %@ - %@", fileURL.lastPathComponent, error.localizedDescription)
-                        filesToRemove.append(filePath) // Remove problematic files
+                        NSLog(
+                            "⚠️ Cannot read file attributes: %@ - %@", fileURL.lastPathComponent,
+                            error.localizedDescription)
+                        filesToRemove.append(filePath)  // Remove problematic files
                     }
                 } else {
                     NSLog("⚠️ File no longer exists: %@", filePath)
@@ -354,7 +373,8 @@ public class SimpleWatchFolder {
         // If there are still pending files, schedule another check
         if !pendingFiles.isEmpty {
             NSLog("⏳ %d files still pending, scheduling another check...", pendingFiles.count)
-            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+            debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false)
+            { [weak self] _ in
                 self?.processCompletedFiles()
             }
         }

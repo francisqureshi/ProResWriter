@@ -5,10 +5,10 @@
 //  Created by Claude on 25/08/2025.
 //
 
+import CryptoKit
 import Foundation
 import ProResWriterCore
 import SwiftUI
-import CryptoKit
 
 // MARK: - File Metadata
 
@@ -44,7 +44,7 @@ class Project: ObservableObject, Codable, Identifiable {
     @Published var lastPrintDate: Date?
     @Published var printHistory: [PrintRecord] = []
     @Published var ocfCardExpansionState: [String: Bool] = [:]  // OCF filename → isExpanded (default true if not set)
-    
+
     // MARK: - Render Queue System
     @Published var renderQueue: [RenderQueueItem] = []
     @Published var printStatus: [String: PrintStatus] = [:]  // OCF filename → print status
@@ -60,7 +60,7 @@ class Project: ObservableObject, Codable, Identifiable {
             updateWatchFolderMonitoring()
         }
     }
-    private var watchFolderService: SimpleWatchFolder?
+    private var watchFolderService: FileMonitorWatchFolder?
 
     // MARK: - Computed Properties
     var hasLinkedMedia: Bool {
@@ -143,7 +143,8 @@ class Project: ObservableObject, Codable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case name, createdDate, lastModified
         case ocfFiles, segments, linkingResult
-        case blankRushStatus, segmentModificationDates, segmentFileSizes, offlineMediaFiles, offlineFileMetadata, lastPrintDate, printHistory
+        case blankRushStatus, segmentModificationDates, segmentFileSizes, offlineMediaFiles,
+            offlineFileMetadata, lastPrintDate, printHistory
         case renderQueue, printStatus
         case outputDirectory, blankRushDirectory, fileURL
         case watchFolderSettings
@@ -166,22 +167,33 @@ class Project: ObservableObject, Codable, Identifiable {
         segmentModificationDates =
             try container.decodeIfPresent([String: Date].self, forKey: .segmentModificationDates)
             ?? [:]
-        segmentFileSizes = try container.decodeIfPresent([String: Int64].self, forKey: .segmentFileSizes) ?? [:]
-        offlineMediaFiles = try container.decodeIfPresent(Set<String>.self, forKey: .offlineMediaFiles) ?? []
-        offlineFileMetadata = try container.decodeIfPresent([String: OfflineFileMetadata].self, forKey: .offlineFileMetadata) ?? [:]
+        segmentFileSizes =
+            try container.decodeIfPresent([String: Int64].self, forKey: .segmentFileSizes) ?? [:]
+        offlineMediaFiles =
+            try container.decodeIfPresent(Set<String>.self, forKey: .offlineMediaFiles) ?? []
+        offlineFileMetadata =
+            try container.decodeIfPresent(
+                [String: OfflineFileMetadata].self, forKey: .offlineFileMetadata) ?? [:]
         lastPrintDate = try container.decodeIfPresent(Date.self, forKey: .lastPrintDate)
-        printHistory = try container.decodeIfPresent([PrintRecord].self, forKey: .printHistory) ?? []
-        
-        renderQueue = try container.decodeIfPresent([RenderQueueItem].self, forKey: .renderQueue) ?? []
-        printStatus = try container.decodeIfPresent([String: PrintStatus].self, forKey: .printStatus) ?? [:]
+        printHistory =
+            try container.decodeIfPresent([PrintRecord].self, forKey: .printHistory) ?? []
+
+        renderQueue =
+            try container.decodeIfPresent([RenderQueueItem].self, forKey: .renderQueue) ?? []
+        printStatus =
+            try container.decodeIfPresent([String: PrintStatus].self, forKey: .printStatus) ?? [:]
 
         outputDirectory = try container.decode(URL.self, forKey: .outputDirectory)
         blankRushDirectory = try container.decode(URL.self, forKey: .blankRushDirectory)
         fileURL = try container.decodeIfPresent(URL.self, forKey: .fileURL)
 
-        watchFolderSettings = try container.decodeIfPresent(WatchFolderSettings.self, forKey: .watchFolderSettings) ?? WatchFolderSettings()
+        watchFolderSettings =
+            try container.decodeIfPresent(WatchFolderSettings.self, forKey: .watchFolderSettings)
+            ?? WatchFolderSettings()
 
-        ocfCardExpansionState = try container.decodeIfPresent([String: Bool].self, forKey: .ocfCardExpansionState) ?? [:]
+        ocfCardExpansionState =
+            try container.decodeIfPresent([String: Bool].self, forKey: .ocfCardExpansionState)
+            ?? [:]
     }
 
     func encode(to encoder: Encoder) throws {
@@ -202,7 +214,7 @@ class Project: ObservableObject, Codable, Identifiable {
         try container.encode(offlineFileMetadata, forKey: .offlineFileMetadata)
         try container.encodeIfPresent(lastPrintDate, forKey: .lastPrintDate)
         try container.encode(printHistory, forKey: .printHistory)
-        
+
         try container.encode(renderQueue, forKey: .renderQueue)
         try container.encode(printStatus, forKey: .printStatus)
 
@@ -232,7 +244,8 @@ class Project: ObservableObject, Codable, Identifiable {
         for segment in newSegments {
             if let fileSize = getFileSize(for: segment.url) {
                 segmentFileSizes[segment.fileName] = fileSize
-                NSLog("📊 Stored size for segment: %@ (size: %lld bytes)", segment.fileName, fileSize)
+                NSLog(
+                    "📊 Stored size for segment: %@ (size: %lld bytes)", segment.fileName, fileSize)
             }
         }
 
@@ -280,32 +293,34 @@ class Project: ObservableObject, Codable, Identifiable {
         lastPrintDate = record.date
         updateModified()
     }
-    
+
     /// Check for modified segments and automatically update print status to needsReprint
     func checkForModifiedSegmentsAndUpdatePrintStatus() {
         guard let linkingResult = linkingResult else { return }
-        
+
         var statusChanged = false
-        
+
         for parent in linkingResult.parentsWithChildren {
             let ocfFileName = parent.ocf.fileName
-            
+
             // Only check OCFs that have been printed
             guard let currentPrintStatus = printStatus[ocfFileName],
-                  case .printed(let lastPrintDate, let outputURL) = currentPrintStatus else {
+                case .printed(let lastPrintDate, let outputURL) = currentPrintStatus
+            else {
                 continue
             }
-            
+
             // Check if any segments for this OCF have been modified since last print
             var hasModifiedSegments = false
             for child in parent.children {
                 if let fileModDate = getFileModificationDate(for: child.segment.url),
-                   fileModDate > lastPrintDate {
+                    fileModDate > lastPrintDate
+                {
                     hasModifiedSegments = true
                     break
                 }
             }
-            
+
             // If segments have been modified, mark for re-print
             if hasModifiedSegments {
                 printStatus[ocfFileName] = .needsReprint(
@@ -313,15 +328,17 @@ class Project: ObservableObject, Codable, Identifiable {
                     reason: .segmentModified
                 )
                 statusChanged = true
-                NSLog("🔄 Auto-flagged \(ocfFileName) for re-print: segments modified since \(DateFormatter.short.string(from: lastPrintDate))")
+                NSLog(
+                    "🔄 Auto-flagged \(ocfFileName) for re-print: segments modified since \(DateFormatter.short.string(from: lastPrintDate))"
+                )
             }
         }
-        
+
         if statusChanged {
             updateModified()
         }
     }
-    
+
     /// Refresh print status for all OCFs - useful to call when project is loaded or segments are updated
     func refreshPrintStatus() {
         checkForModifiedSegmentsAndUpdatePrintStatus()
@@ -469,7 +486,9 @@ class Project: ObservableObject, Codable, Identifiable {
             let hashString = digest.map { String(format: "%02x", $0) }.joined()
             return hashString
         } catch {
-            NSLog("⚠️ Error calculating hash for %@: %@", url.lastPathComponent, error.localizedDescription)
+            NSLog(
+                "⚠️ Error calculating hash for %@: %@", url.lastPathComponent,
+                error.localizedDescription)
             return nil
         }
     }
@@ -498,7 +517,9 @@ class Project: ObservableObject, Codable, Identifiable {
     // MARK: - Watch Folder Monitoring
 
     private func updateWatchFolderMonitoring() {
-        NSLog("🔄 Watch folder settings changed: enabled=%@", watchFolderSettings.isEnabled ? "true" : "false")
+        NSLog(
+            "🔄 Watch folder settings changed: enabled=%@",
+            watchFolderSettings.isEnabled ? "true" : "false")
 
         if watchFolderSettings.isEnabled {
             startWatchFolderIfNeeded()
@@ -524,7 +545,7 @@ class Project: ObservableObject, Codable, Identifiable {
             NSLog("🎬 VFX folder: %@", vfxPath)
         }
 
-        watchFolderService = SimpleWatchFolder()
+        watchFolderService = FileMonitorWatchFolder()
 
         // Set up callback for when video files are detected
         watchFolderService?.onVideoFilesDetected = { [weak self] videoFiles, isVFX in
@@ -575,12 +596,14 @@ class Project: ObservableObject, Codable, Identifiable {
 
             // Check if file exists and compare size
             if let storedSize = segmentFileSizes[fileName],
-               let currentSize = getFileSize(for: fileURL) {
+                let currentSize = getFileSize(for: fileURL)
+            {
 
                 if currentSize != storedSize {
                     // File size changed while app was closed
-                    NSLog("⚠️ File changed while app was closed: %@ (old: %lld, new: %lld bytes)",
-                          fileName, storedSize, currentSize)
+                    NSLog(
+                        "⚠️ File changed while app was closed: %@ (old: %lld, new: %lld bytes)",
+                        fileName, storedSize, currentSize)
 
                     // Update modification date and size
                     segmentModificationDates[fileName] = Date()
@@ -598,7 +621,8 @@ class Project: ObservableObject, Codable, Identifiable {
                                     } else {
                                         printDate = Date()
                                     }
-                                    printStatus[ocfParent.ocf.fileName] = .needsReprint(lastPrintDate: printDate, reason: .segmentModified)
+                                    printStatus[ocfParent.ocf.fileName] = .needsReprint(
+                                        lastPrintDate: printDate, reason: .segmentModified)
                                 }
                             }
                         }
@@ -662,17 +686,21 @@ class Project: ObservableObject, Codable, Identifiable {
             // Check if this is a returning offline file
             if offlineMediaFiles.contains(fileName) {
                 if let metadata = offlineFileMetadata[fileName],
-                   let currentSize = getFileSize(for: url) {
+                    let currentSize = getFileSize(for: url)
+                {
 
                     if currentSize == metadata.fileSize {
                         // Same size - treat as same file returning
                         returningOfflineFiles.append(url)
-                        NSLog("🔄 Offline file returned unchanged: %@ (size: %lld bytes)", fileName, currentSize)
+                        NSLog(
+                            "🔄 Offline file returned unchanged: %@ (size: %lld bytes)", fileName,
+                            currentSize)
                     } else {
                         // Different size - file has changed
                         changedOfflineFiles.append(url)
-                        NSLog("⚠️ Offline file returned but CHANGED: %@ (old: %lld, new: %lld bytes)",
-                              fileName, metadata.fileSize, currentSize)
+                        NSLog(
+                            "⚠️ Offline file returned but CHANGED: %@ (old: %lld, new: %lld bytes)",
+                            fileName, metadata.fileSize, currentSize)
                     }
                 } else if let currentSize = getFileSize(for: url) {
                     // No metadata - use hash fallback
@@ -680,7 +708,9 @@ class Project: ObservableObject, Codable, Identifiable {
 
                     if let currentHash = calculatePartialHash(for: url) {
                         // Check if we have a stored hash to compare
-                        if let metadata = offlineFileMetadata[fileName], let storedHash = metadata.partialHash {
+                        if let metadata = offlineFileMetadata[fileName],
+                            let storedHash = metadata.partialHash
+                        {
                             if currentHash == storedHash {
                                 // Hash matches - same file
                                 returningOfflineFiles.append(url)
@@ -715,13 +745,15 @@ class Project: ObservableObject, Codable, Identifiable {
             } else if existingFileNames.contains(fileName) {
                 // File already exists and is online - check if it has changed
                 if let storedSize = segmentFileSizes[fileName],
-                   let currentSize = getFileSize(for: url) {
+                    let currentSize = getFileSize(for: url)
+                {
 
                     if currentSize != storedSize {
                         // Size changed - file has been replaced
                         changedOfflineFiles.append(url)
-                        NSLog("⚠️ Online file CHANGED: %@ (old: %lld, new: %lld bytes)",
-                              fileName, storedSize, currentSize)
+                        NSLog(
+                            "⚠️ Online file CHANGED: %@ (old: %lld, new: %lld bytes)",
+                            fileName, storedSize, currentSize)
                     } else {
                         // Size unchanged - ignore (already imported)
                         NSLog("📋 File already imported and unchanged: %@", fileName)
@@ -754,7 +786,8 @@ class Project: ObservableObject, Codable, Identifiable {
             // Update file size metadata with new size
             if let newSize = getFileSize(for: url) {
                 segmentFileSizes[fileName] = newSize
-                NSLog("📊 Updated size for changed file: %@ (new size: %lld bytes)", fileName, newSize)
+                NSLog(
+                    "📊 Updated size for changed file: %@ (new size: %lld bytes)", fileName, newSize)
             }
 
             NSLog("✅ File %@ is back online and marked as modified", fileName)
@@ -771,7 +804,8 @@ class Project: ObservableObject, Codable, Identifiable {
                             } else {
                                 printDate = Date()
                             }
-                            printStatus[ocfParent.ocf.fileName] = .needsReprint(lastPrintDate: printDate, reason: .segmentModified)
+                            printStatus[ocfParent.ocf.fileName] = .needsReprint(
+                                lastPrintDate: printDate, reason: .segmentModified)
                         }
                     }
                 }
@@ -786,7 +820,8 @@ class Project: ObservableObject, Codable, Identifiable {
         // Import truly new files
         guard !newVideoFiles.isEmpty else {
             if returningOfflineFiles.isEmpty && changedOfflineFiles.isEmpty {
-                NSLog("⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
+                NSLog(
+                    "⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
             }
             return
         }
@@ -799,8 +834,9 @@ class Project: ObservableObject, Codable, Identifiable {
 
             await MainActor.run {
                 addSegments(mediaFiles)
-                NSLog("✅ Auto-imported %d new %@ files from watch folder",
-                      mediaFiles.count, isVFX ? "VFX" : "grade")
+                NSLog(
+                    "✅ Auto-imported %d new %@ files from watch folder",
+                    mediaFiles.count, isVFX ? "VFX" : "grade")
             }
         }
     }
@@ -831,7 +867,9 @@ class Project: ObservableObject, Codable, Identifiable {
 
                 NSLog("✅ Analyzed: %@", url.lastPathComponent)
             } catch {
-                NSLog("❌ Failed to analyze watch folder file %@: %@", url.lastPathComponent, error.localizedDescription)
+                NSLog(
+                    "❌ Failed to analyze watch folder file %@: %@", url.lastPathComponent,
+                    error.localizedDescription)
             }
         }
 
@@ -841,7 +879,8 @@ class Project: ObservableObject, Codable, Identifiable {
 
     /// Handle video files deleted from watch folder
     private func handleDeletedVideoFiles(_ fileNames: [String], isVFX: Bool) {
-        NSLog("📤 Marking %d deleted %@ files as offline...", fileNames.count, isVFX ? "VFX" : "grade")
+        NSLog(
+            "📤 Marking %d deleted %@ files as offline...", fileNames.count, isVFX ? "VFX" : "grade")
 
         // Mark segments as offline instead of removing them
         var markedCount = 0
@@ -858,9 +897,12 @@ class Project: ObservableObject, Codable, Identifiable {
                         partialHash: nil  // Hash will be computed on return if needed
                     )
                     offlineFileMetadata[fileName] = metadata
-                    NSLog("📊 Stored metadata for offline file: %@ (size: %lld bytes)", fileName, fileSize)
+                    NSLog(
+                        "📊 Stored metadata for offline file: %@ (size: %lld bytes)", fileName,
+                        fileSize)
                 } else {
-                    NSLog("⚠️ No pre-stored size for %@ - will use hash fallback on return", fileName)
+                    NSLog(
+                        "⚠️ No pre-stored size for %@ - will use hash fallback on return", fileName)
                 }
 
                 markedCount += 1
@@ -883,15 +925,20 @@ class Project: ObservableObject, Codable, Identifiable {
                                 } else {
                                     printDate = Date()
                                 }
-                                printStatus[ocfParent.ocf.fileName] = .needsReprint(lastPrintDate: printDate, reason: .segmentOffline)
-                                NSLog("⚠️ OCF %@ needs reprint due to offline segment", ocfParent.ocf.fileName)
+                                printStatus[ocfParent.ocf.fileName] = .needsReprint(
+                                    lastPrintDate: printDate, reason: .segmentOffline)
+                                NSLog(
+                                    "⚠️ OCF %@ needs reprint due to offline segment",
+                                    ocfParent.ocf.fileName)
                             }
                         }
                     }
                 }
             }
         } else {
-            NSLog("⚠️ No matching files found to mark offline for deleted %@ files", isVFX ? "VFX" : "grade")
+            NSLog(
+                "⚠️ No matching files found to mark offline for deleted %@ files",
+                isVFX ? "VFX" : "grade")
         }
     }
 
@@ -913,7 +960,9 @@ class Project: ObservableObject, Codable, Identifiable {
                 // Update file size for modified segment
                 if let fileSize = getFileSize(for: segment.url) {
                     segmentFileSizes[fileName] = fileSize
-                    NSLog("📊 Updated size for modified segment: %@ (size: %lld bytes)", fileName, fileSize)
+                    NSLog(
+                        "📊 Updated size for modified segment: %@ (size: %lld bytes)", fileName,
+                        fileSize)
                 }
 
                 // Find linked OCF files that use this segment
@@ -922,7 +971,9 @@ class Project: ObservableObject, Codable, Identifiable {
                         for child in ocfParent.children {
                             if child.segment.fileName == fileName {
                                 affectedOCFNames.insert(ocfParent.ocf.fileName)
-                                NSLog("📝 Segment %@ affects OCF: %@", fileName, ocfParent.ocf.fileName)
+                                NSLog(
+                                    "📝 Segment %@ affects OCF: %@", fileName, ocfParent.ocf.fileName
+                                )
                             }
                         }
                     }
@@ -940,8 +991,9 @@ class Project: ObservableObject, Codable, Identifiable {
         }
 
         if !affectedOCFNames.isEmpty {
-            NSLog("✅ Marked %d OCFs as needing re-print due to %d modified %@ files",
-                  affectedOCFNames.count, fileNames.count, isVFX ? "VFX" : "grade")
+            NSLog(
+                "✅ Marked %d OCFs as needing re-print due to %d modified %@ files",
+                affectedOCFNames.count, fileNames.count, isVFX ? "VFX" : "grade")
         }
     }
 
@@ -1010,7 +1062,7 @@ struct RenderQueueItem: Codable, Identifiable {
     let ocfFileName: String
     let addedDate: Date
     var status: RenderQueueStatus
-    
+
     init(ocfFileName: String) {
         self.id = UUID()
         self.ocfFileName = ocfFileName
@@ -1024,7 +1076,7 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
     case rendering = "rendering"
     case completed = "completed"
     case failed = "failed"
-    
+
     var displayName: String {
         switch self {
         case .queued: return "Queued"
@@ -1033,7 +1085,7 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
         case .failed: return "Failed"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .queued: return "clock"
@@ -1042,7 +1094,7 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
         case .failed: return "xmark.circle.fill"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .queued: return AppTheme.queued
@@ -1053,12 +1105,11 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
     }
 }
 
-
 enum PrintStatus: Codable {
     case notPrinted
     case printed(date: Date, outputURL: URL)
     case needsReprint(lastPrintDate: Date, reason: ReprintReason)
-    
+
     var displayName: String {
         switch self {
         case .notPrinted:
@@ -1069,7 +1120,7 @@ enum PrintStatus: Codable {
             return "Needs Re-print (\(reason.displayName))"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .notPrinted: return "minus.circle"
@@ -1077,7 +1128,7 @@ enum PrintStatus: Codable {
         case .needsReprint: return "exclamationmark.circle.fill"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .notPrinted: return AppTheme.notPrinted
