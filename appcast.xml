@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>SourcePrint Updates</title>
+        <link>https://github.com/francisqureshi/ProResWriter</link>
+        <description>Most recent updates to SourcePrint</description>
+        <language>en</language>
+
+        <!-- Sparkle Public Key (for signing): 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI= -->
+
+        <item>
+            <title>Version 0.1.0</title>
+            <description><![CDATA[
+                <h2>SourcePrint v0.1.0 - First Release</h2>
+                <ul>
+                    <li>Production-ready watch folder system</li>
+                    <li>Polished app icon with proper macOS styling</li>
+                    <li>Auto-incrementing build numbers</li>
+                    <li>Automatic update checking with Sparkle</li>
+                </ul>
+            ]]></description>
+            <pubDate>Wed, 23 Oct 2025 14:52:00 +0000</pubDate>
+            <sparkle:version>0.1.0</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.0/SourcePrint-0.1.0.zip"
+                sparkle:edSignature="Nz7UrlohSQpHOHOa4RuTnAkjVgXlC+pqKf04peMkPLGo8JGkLwMWWIiCdkCQVRJEz2wMNZMezX4D38jbddJgBw=="
+                length="7931477"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <!-- Template for future releases - copy and update this item for each new version -->
+        <!--
+        <item>
+            <title>Version 0.2.0</title>
+            <description><![CDATA[
+                <h2>What's New in 0.2.0</h2>
+                <ul>
+                    <li>New feature 1</li>
+                    <li>Bug fix 1</li>
+                </ul>
+            ]]></description>
+            <pubDate>Mon, 23 Oct 2025 12:00:00 +0000</pubDate>
+            <sparkle:version>0.2.0</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.2.0/SourcePrint-0.2.0.zip"
+                sparkle:edSignature="SIGNATURE_WILL_BE_GENERATED"
+                length="16842752"
+                type="application/octet-stream"
+            />
+        </item>
+        -->
+
+    </channel>
+</rss>
