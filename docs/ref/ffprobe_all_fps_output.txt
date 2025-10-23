@@ -1,0 +1,791 @@
+=== A003C014_250512_RPQI.mxf ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mxf, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/23.976/A003C014_250512_RPQI.mxf':
+  Metadata:
+    operational_pattern_ul: 060e2b34.04010101.0d010201.01010900
+    product_uid     : 414c4558-4120-4d69-6e69-204c46000000
+    uid             : 36303945-4630-123d-3131-2d324636462d
+    generation_uid  : 36303945-4630-123e-3131-2d324636462d
+    company_name    : ARRI
+    product_name    : ALEXA Mini LF
+    product_version : SUP 7.02.00
+    modification_date: 2025-05-12T20:26:27.000000Z
+    material_package_umid: 0x060A2B340101010501010D431300000036303945463042362D324636462D3131
+    timecode        : 10:01:51:14
+  Duration: 00:00:04.05, start: 0.000000, bitrate: 810498 kb/s
+  Stream #0:0: Video: prores (4444) (ap4h / 0x68347061), yuv444p12le(bt709/unknown/unknown, progressive), 3840x2160, SAR 1:1 DAR 16:9, 23.98 tbr, 23.98 tbn
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D431300000037303945463042362D324636462D3131
+
+=== Pop Smoke - Demeanor feat_ Dua Lipa (Official Video).mp4 ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/23.976/Pop Smoke - Demeanor feat_ Dua Lipa (Official Video).mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:03:31.28, start: 0.000000, bitrate: 619 kb/s
+  Stream #0:0[0x1](eng): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+      Metadata:
+        handler_name    : ISO Media file produced by Google Inc.
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1280x720 [SAR 1:1 DAR 16:9], 486 kb/s, 23.98 fps, 23.98 tbr, 24k tbn (default)
+      Metadata:
+        handler_name    : ISO Media file produced by Google Inc.
+        vendor_id       : [0][0][0][0]
+
+=== IMG_0962.MOV ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x13b605520] Could not find codec parameters for stream 2 (Audio: none (apac / 0x63617061), 48000 Hz, 4 channels, 399 kb/s): unknown codec
+Consider increasing the value for the 'analyzeduration' (0) and 'probesize' (5000000) options
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/24/IMG_0962.MOV':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 0
+    compatible_brands: qt  
+    creation_time   : 2025-08-27T16:36:43.000000Z
+    com.apple.quicktime.full-frame-rate-playback-intent: 0
+    com.apple.quicktime.make: Apple
+    com.apple.quicktime.model: iPhone 16 Pro Max
+    com.apple.quicktime.software: 18.5
+    com.apple.quicktime.creationdate: 2025-08-27T17:36:43+0100
+  Duration: 00:00:16.17, start: 0.000000, bitrate: 26004 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67), 3840x2160, 25389 kb/s, 24 fps, 24 tbr, 600 tbn (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+        encoder         : HEVC
+      Side data:
+        DOVI configuration record: version: 1.0, profile: 8, level: 6, rpu flag: 1, el flag: 0, bl flag: 1, compatibility id: 4, compression: 0
+        displaymatrix: rotation of 90.00 degrees
+        Ambient Viewing Environment, ambient_illuminance=314.000000, ambient_light_x=0.312700, ambient_light_y=0.329000
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 129 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+  Stream #0:2[0x3](und): Audio: none (apac / 0x63617061), 48000 Hz, 4 channels, 399 kb/s
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+  Stream #0:3[0x4](und): Data: none (mebx / 0x7862656D), 0 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:4[0x5](und): Data: none (mebx / 0x7862656D), 0 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:5[0x6](und): Data: none (mebx / 0x7862656D), 14 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:6[0x7](und): Data: none (mebx / 0x7862656D), 38 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:7[0x8](und): Data: none (mebx / 0x7862656D), 2 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:8[0x9](und): Data: none (mebx / 0x7862656D), 0 kb/s (default)
+      Metadata:
+        creation_time   : 2025-08-27T16:36:43.000000Z
+        handler_name    : Core Media Metadata
+Unsupported codec with id 0 for input stream 2
+Unsupported codec with id 0 for input stream 3
+Unsupported codec with id 0 for input stream 4
+Unsupported codec with id 0 for input stream 5
+Unsupported codec with id 0 for input stream 6
+Unsupported codec with id 0 for input stream 7
+Unsupported codec with id 0 for input stream 8
+
+=== B001C010_250901_R462.mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/25/B001C010_250901_R462.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 537199360
+    compatible_brands: qt  ARRI
+    creation_time   : 2025-09-01T09:50:23.000000Z
+    com.apple.finalcutstudio.media.uuid: 13E9023C-8719-11F0-A5AF-8490000167E4
+    com.arri.camera.CameraId: R462
+    com.arri.camera.CameraIndex: B
+    com.arri.camera.CameraModel: ARRI ALEXA Mini
+    com.arri.camera.CameraSerialNumber: 25402
+    com.arri.camera.ColorGammaSxS: LOG-C
+    com.arri.camera.ExposureIndexAsa: 160
+    com.arri.camera.LookFileBurnedIn: No
+    com.arri.camera.ProductionInfoOperator: 
+    com.arri.camera.NdFilterDensity: 2100
+    com.arri.camera.NdFilterType: 4
+    com.arri.camera.ProductionInfoCinematographer: 
+    com.arri.camera.ProductionInfoDirector: 
+    com.arri.camera.ProductionInfoLocation: 
+    com.arri.camera.ProductionInfoProduction: 
+    com.arri.camera.ProductionInfoUser1: 
+    com.arri.camera.ProductionInfoUser2: 
+    com.arri.camera.ProjectFps: 25000
+    com.arri.camera.ReelName: B001R462
+    com.arri.camera.SensorFps: 3000
+    com.arri.camera.ShutterAngle: 3560
+    com.arri.camera.SoundReel: 
+    com.arri.camera.SupVersion: 6.01.02
+    com.arri.camera.SxsSerialNumber: 192202300600
+    com.arri.camera.UserDate: 20250901
+    com.arri.camera.UserTime: 09h50m23
+    com.arri.camera.WhiteBalanceKelvin: 5600
+    com.arri.camera.WhiteBalanceTintCc: 0
+    com.arri.camera.CameraClipName: B001C010_250901_R462.mov
+    com.arri.camera.Product: 2
+    com.arri.camera.SubProduct: 1
+    com.arri.camera.look.name: ARRI 709.AML
+    com.arri.camera.look.user_lut: 0
+    com.apple.proapps.color.asc-cdl: 
+    com.arri.camera.look.lut3d: 
+    com.arri.camera.look.lut3d_with_cdl: 
+    com.arri.camera.look.video_param_with_target_colorspace: 
+    com.arri.camera.ProductionInfoCompany: 
+    com.arri.camera.SceneName: 
+    com.arri.camera.TakeName: 
+    com.arri.camera.audio.Configuration: 
+    com.arri.camera.LensSerialNumber: 0
+    com.arri.camera.LensType: 
+    com.arri.camera.UnitPreference: Metric
+    com.arri.camera.WbTracking: 0
+    com.arri.camera.ImageOrientation: 0
+    com.arri.camera.ImageSharpness: 0
+    com.arri.camera.ImageDetail: 0
+    com.arri.camera.ImageDenoising: 0
+    com.arri.camera.DynamicMetadataVersion: 65536
+    com.arri.camera.audio.BluetoothEnabled: 0
+    com.arri.camera.sensor.PhotoSites: 1600x900
+    com.arri.camera.PixelAspectRatio: 0.000000
+    com.arri.camera.FramelineFileName1: ARRI 16by9 1.78
+    com.arri.camera.FramelineRect1A.Name: AspectRatio:1.78:1_Scal100
+    com.arri.camera.FramelineRect1A.Left: 0
+    com.arri.camera.FramelineRect1A.Top: 0
+    com.arri.camera.FramelineRect1A.Width: 1920
+    com.arri.camera.FramelineRect1A.Height: 1080
+    com.arri.camera.FramelineRect1A.Type: 1
+    com.arri.camera.UserPixelMasking: 1
+    com.arri.camera.EfIsActive: 0
+    timecode        : 02:27:45:15
+  Duration: 00:00:02.52, start: 0.000000, bitrate: 272962 kb/s
+  Stream #0:0[0x1](eng): Video: prores (4444) (ap4h / 0x68347061), yuv444p12le(bt709, progressive), 1920x1080, 250662 kb/s, SAR 1:1 DAR 16:9, 25 fps, 25 tbr, 25 tbn (default)
+      Metadata:
+        creation_time   : 2025-09-01T09:50:23.000000Z
+        handler_name    : ?Apple Video Media Handler
+        vendor_id       : appl
+        encoder         : Apple ProRes 4444
+  Stream #0:1[0x3](eng): Data: none (tmcd / 0x64636D74), 0 kb/s (default)
+      Metadata:
+        creation_time   : 2025-09-01T09:50:23.000000Z
+        handler_name    : ?Time Code Media Handler
+        reel_name       : B001R462
+        timecode        : 02:27:45:15
+Unsupported codec with id 0 for input stream 1
+
+=== C001_0024.MXF ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mxf, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/25/C001_0024.MXF':
+  Metadata:
+    operational_pattern_ul: 060e2b34.04010101.0d010201.01010900
+    uid             : 08d2640a-c904-1237-ac95-ec5c8428dfbd
+    generation_uid  : 08d26414-c904-1237-aecd-ec5c8428dfbd
+    company_name    : Sony
+    product_name    : Mem 
+    product_version : 2.00
+    product_uid     : cede1104-8280-11de-8a39-08004678031c
+    modification_date: 2025-08-27T12:54:00.000000Z
+    material_package_umid: 0x060A2B340101010501010D431300000099999989140906C7EC5C84FFFE28DFBD
+    timecode        : 13:03:21:24
+  Duration: 00:00:03.48, start: 0.000000, bitrate: 255093 kb/s
+  Stream #0:0: Video: h264 (High 4:2:2 Intra), yuv422p10le(pc, progressive), 4096x2160 [SAR 1:1 DAR 256:135], 25 fps, 25 tbr, 25 tbn
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:1: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:2: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:3: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:4: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:5: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:6: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:7: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:8: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+  Stream #0:9: Data: none
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000009A999989140906C7EC5C84FFFE28DFBD
+        data_type       : vbi_vanc_smpte_436M
+Unsupported codec with id 0 for input stream 9
+
+=== ERDEM - Spring Summer 2022 Show Reel.mp4 ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/25/ERDEM - Spring Summer 2022 Show Reel.mp4':
+  Metadata:
+    major_brand     : mp42
+    minor_version   : 0
+    compatible_brands: mp42mp41
+    creation_time   : 2021-09-20T15:49:20.000000Z
+  Duration: 00:06:11.44, start: 0.000000, bitrate: 10750 kb/s
+  Stream #0:0[0x1](eng): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080, 10428 kb/s, 25 fps, 25 tbr, 25k tbn (default)
+      Metadata:
+        creation_time   : 2021-09-20T15:49:20.000000Z
+        handler_name    : ?Mainconcept Video Media Handler
+        vendor_id       : [0][0][0][0]
+        encoder         : AVC Coding
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 317 kb/s (default)
+      Metadata:
+        creation_time   : 2021-09-20T15:49:20.000000Z
+        handler_name    : #Mainconcept MP4 Sound Media Handler
+        vendor_id       : [0][0][0][0]
+
+=== 2003-08-18 13_41_21.mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/29.97 DF/2003-08-18 13_41_21.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 537199360
+    compatible_brands: qt  
+    creation_time   : 2025-05-20T15:10:24.000000Z
+  Duration: 00:00:01.27, start: 0.000000, bitrate: 95068 kb/s
+  Stream #0:0[0x1](eng): Video: prores (4444) (ap4h / 0x68347061), yuv444p12le(bt709, bottom coded first (swapped)), 720x480, 86916 kb/s, SAR 10:11 DAR 15:11, 29.97 fps, 29.97 tbr, 30k tbn (default)
+      Metadata:
+        creation_time   : 2025-05-20T15:10:24.000000Z
+        handler_name    : Apple Video Media Handler
+        vendor_id       : appl
+        encoder         : Apple ProRes 4444
+        timecode        : 00:15:46;00
+      Side data:
+        Frame cropping: 8/8/0/0
+  Stream #0:1[0x2](eng): Audio: pcm_s16le (sowt / 0x74776F73), 48000 Hz, stereo, s16, 1536 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-20T15:10:24.000000Z
+        handler_name    : Apple Sound Media Handler
+        vendor_id       :     
+        timecode        : 00:15:46;00
+  Stream #0:2[0x3](eng): Data: none (tmcd / 0x64636D74), 0 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-20T15:10:24.000000Z
+        handler_name    : Time Code Media Handler
+        timecode        : 00:15:46;00
+Unsupported codec with id 0 for input stream 2
+
+=== A_0003C243A250924_1108015E_CANON.MP4 ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x15a605320] st: 0 edit list: 1 Missing key frame while searching for timestamp: 1001
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x15a605320] st: 0 edit list 1 Cannot find an index entry before timestamp: 1001.
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/29.97 DF/A_0003C243A250924_1108015E_CANON.MP4':
+  Metadata:
+    major_brand     : XFVC
+    minor_version   : 1
+    compatible_brands: XFVCmp42iso2
+    make            : 
+    make-eng        : 
+    model           : 
+    model-eng       : 
+    creation_time   : 2025-09-24T11:08:02.000000Z
+    timecode        : 02:00:43;26
+  Duration: 00:00:10.24, start: 0.000000, bitrate: 37480 kb/s
+  Stream #0:0[0x1](eng): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080, 35381 kb/s, 29.97 fps, 29.97 tbr, 30k tbn (default)
+      Metadata:
+        creation_time   : 2025-09-24T11:08:02.000000Z
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 253 kb/s (default)
+      Metadata:
+        creation_time   : 2025-09-24T11:08:02.000000Z
+        vendor_id       : [0][0][0][0]
+  Stream #0:2[0x3](eng): Data: none (tmcd / 0x64636D74), 0 kb/s (default)
+      Metadata:
+        creation_time   : 2025-09-24T11:08:02.000000Z
+        timecode        : 02:00:43;26
+  Stream #0:3[0x4](eng): Data: none (cndm / 0x6D646E63), 171 kb/s (default)
+      Metadata:
+        creation_time   : 2025-09-24T11:08:02.000000Z
+Unsupported codec with id 0 for input stream 2
+Unsupported codec with id 0 for input stream 3
+
+=== 2003-08-18 13_41_21.mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/29.97/2003-08-18 13_41_21.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 0
+    compatible_brands: qt  
+    creation_time   : 2025-04-04T20:01:41.000000Z
+    com.apple.quicktime.make: Apple
+    com.apple.quicktime.model: MacBookPro18,2
+    com.apple.quicktime.software: macOS 15.3.2 (24D81)
+    com.apple.quicktime.creationdate: 2025-04-04T12:44:28-0700
+  Duration: 00:00:01.27, start: 0.000000, bitrate: 31865 kb/s
+  Stream #0:0[0x1](und): Video: dvvideo (dvc  / 0x20637664), yuv411p(smpte170m/smpte170m/bt709, bottom coded first (swapped)), 720x480 [SAR 8:9 DAR 4:3], 28771 kb/s, SAR 10:11 DAR 15:11, 29.97 fps, 29.97 tbr, 30k tbn (default)
+      Metadata:
+        creation_time   : 2025-04-04T20:01:41.000000Z
+        handler_name    : Core Media Video
+        vendor_id       : appl
+        encoder         : DV/DVCPRO - NTSC
+        timecode        : 00:15:45;02
+      Side data:
+        Frame cropping: 8/8/0/0
+  Stream #0:1[0x2](und): Data: none (tmcd / 0x64636D74), 0 kb/s
+      Metadata:
+        creation_time   : 2025-04-04T20:01:41.000000Z
+        handler_name    : Core Media Time Code
+        timecode        : 00:15:45;02
+  Stream #0:2[0x3](und): Audio: pcm_s16le (lpcm / 0x6D63706C), 32000 Hz, 4 channels (FL+FR+UNSD+UNSD), s16, 2048 kb/s (default)
+      Metadata:
+        creation_time   : 2025-04-04T20:01:41.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+Unsupported codec with id 0 for input stream 1
+
+=== MADONNA - VOGUE - LIVE AT THE MTV AWARDS 1990 -  REMASTERED  4K - 2160p UHD.mp4 ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/29.97/MADONNA - VOGUE - LIVE AT THE MTV AWARDS 1990 -  REMASTERED  4K - 2160p UHD.mp4':
+  Metadata:
+    major_brand     : mp42
+    minor_version   : 0
+    compatible_brands: isommp42
+    creation_time   : 2024-01-12T20:07:27.000000Z
+  Duration: 00:06:27.96, start: 0.000000, bitrate: 700 kb/s
+  Stream #0:0[0x1](und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 640x360 [SAR 1:1 DAR 16:9], 568 kb/s, 29.97 fps, 29.97 tbr, 30k tbn (default)
+      Metadata:
+        creation_time   : 2024-01-12T20:07:27.000000Z
+        handler_name    : ISO Media file produced by Google Inc. Created on: 01/12/2024.
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+      Metadata:
+        creation_time   : 2024-01-12T20:07:27.000000Z
+        handler_name    : ISO Media file produced by Google Inc. Created on: 01/12/2024.
+        vendor_id       : [0][0][0][0]
+
+=== AMIANGELIKA&1100_RAGE_Music Video_PRORES 422 HQ.mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/30/AMIANGELIKA&1100_RAGE_Music Video_PRORES 422 HQ.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 537199360
+    compatible_brands: qt  
+    creation_time   : 2025-04-05T14:40:48.000000Z
+  Duration: 00:02:19.83, start: 0.000000, bitrate: 820311 kb/s
+  Stream #0:0[0x1](eng): Video: prores (HQ) (apch / 0x68637061), yuv422p10le(bt709, progressive), 3840x2160, 818715 kb/s, SAR 1:1 DAR 16:9, 30 fps, 30 tbr, 30 tbn (default)
+      Metadata:
+        creation_time   : 2025-04-05T14:40:48.000000Z
+        handler_name    : Apple Video Media Handler
+        vendor_id       : appl
+        encoder         : Apple ProRes 422 HQ
+        timecode        : 00:00:00:00
+  Stream #0:1[0x2](eng): Audio: pcm_s16le (sowt / 0x74776F73), 48000 Hz, stereo, s16, 1536 kb/s (default)
+      Metadata:
+        creation_time   : 2025-04-05T14:40:48.000000Z
+        handler_name    : Apple Sound Media Handler
+        vendor_id       :     
+        timecode        : 00:00:00:00
+  Stream #0:2[0x3](eng): Data: none (tmcd / 0x64636D74) (default)
+      Metadata:
+        creation_time   : 2025-04-05T14:40:48.000000Z
+        handler_name    : Time Code Media Handler
+        timecode        : 00:00:00:00
+Unsupported codec with id 0 for input stream 2
+
+=== Chappell Roan.MP4 ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/30/Chappell Roan.MP4':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 0
+    compatible_brands: qt  
+    creation_time   : 2025-05-23T16:27:27.000000Z
+    com.apple.quicktime.creationdate: 2024-07-31T22:12:57-0500
+    com.apple.quicktime.location.ISO6709: +41.9397-087.6535+000.000/
+  Duration: 00:03:40.47, start: 0.000000, bitrate: 3123 kb/s
+  Stream #0:0[0x1](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 185 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-23T16:27:27.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 720x1280, 2921 kb/s, 30 fps, 30 tbr, 600 tbn (default)
+      Metadata:
+        creation_time   : 2025-05-23T16:27:27.000000Z
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+        encoder         : 'avc1'
+  Stream #0:2[0x3](und): Data: none (mebx / 0x7862656D) (default)
+      Metadata:
+        creation_time   : 2025-05-23T16:27:27.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:3[0x4](und): Data: none (mebx / 0x7862656D), 11 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-23T16:27:27.000000Z
+        handler_name    : Core Media Metadata
+Unsupported codec with id 0 for input stream 2
+Unsupported codec with id 0 for input stream 3
+
+=== DAY00_A001_05292103_C002.mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/50/DAY00_A001_05292103_C002.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 0
+    compatible_brands: qt  
+    creation_time   : 2025-05-29T20:03:54.000000Z
+    com.apple.quicktime.full-frame-rate-playback-intent: 1
+    com.apple.proapps.manufacturer: Apple Inc.
+    com.apple.proapps.clipID: A001_05292103_C002
+    com.apple.proapps.reel: 1
+    com.apple.proapps.scene: 1
+    com.apple.proapps.shot: 1
+    com.apple.proapps.isGood: 0
+    com.apple.proapps.logNote: 
+    com.apple.proapps.customgamma: com.apple.rec2020.apple-log
+    com.blackmagic-design.camera.dayNight: Day
+    com.blackmagic-design.camera.environment: Interior
+    com.blackmagic-design.camera.dateRecorded: 2025-05-29T21:03:54+0100
+    com.blackmagic-design.shutterMode: Vitesse
+    com.blackmagic-design.shutterSpeed: 1/611
+    com.blackmagic-design.camera.iso: 26
+    com.blackmagic-design.camera.whiteBalanceKelvin: 5000
+    com.blackmagic-design.camera.whiteBalanceTint: 5
+    com.blackmagic-design.camera.aperture: f2.8
+    com.blackmagic-design.camera.lensType: iPhone 15 Pro 77mm
+    com.blackmagic-design.sensorFPS: 50
+    com.blackmagic-design.camera.projectName: 
+    com.apple.quicktime.title: 
+    com.blackmagic-design.camera.director: 
+    com.apple.quicktime.director: 
+    com.apple.proapps.cameraName: A
+    com.blackmagic-design.camera.cameraOp: 
+    com.apple.quicktime.software: Blackmagic Cam 2.3.000047
+    com.apple.quicktime.model: Apple iPhone 15 Pro 77mm
+    com.apple.quicktime.creationdate: 2025-05-29T21:03:54+0100
+  Duration: 00:00:07.44, start: 0.000000, bitrate: 837965 kb/s
+  Stream #0:0[0x1](und): Video: prores (HQ) (apch / 0x68637061), yuv422p10le(bt2020nc/bt2020/unknown, progressive), 3840x2160, 834419 kb/s, 50 fps, 50 tbr, 1k tbn (default)
+      Metadata:
+        creation_time   : 2025-05-29T20:03:54.000000Z
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+        encoder         : Apple ProRes 422 HQ
+        timecode        : 21:03:54:00
+  Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 183 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-29T20:03:54.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+  Stream #0:2[0x3](und): Data: none (tmcd / 0x64636D74), 1 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-29T20:03:54.000000Z
+        handler_name    : Core Media Time Code
+        timecode        : 21:03:54:00
+Unsupported codec with id 0 for input stream 2
+
+=== A001C001_2505193L_CANON.MXF ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mxf, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/59.940 DF/A001C001_2505193L_CANON.MXF':
+  Metadata:
+    operational_pattern_ul: 060e2b34.04010101.0d010201.01010900
+    uid             : 00dd9e14-0806-4901-802b-9e2412400144
+    generation_uid  : 00dd9e14-0806-4903-802b-9e2412400144
+    company_name    : CANON
+    product_name    : EOS C70
+    product_version : 1.00
+    product_uid     : 060e2b34-0401-010d-0e15-0056454f0800
+    modification_date: 2025-05-19T10:45:34.000000Z
+    material_package_umid: 0x060A2B340101010501010D43130000008D5DFC09140806800000852412400144
+    timecode        : 12:31:46;24
+  Duration: 00:00:04.50, start: 0.000000, bitrate: 259079 kb/s
+  Stream #0:0: Video: h264 (High 4:2:2), yuv422p10le(pc, bt709/unknown/unknown, progressive), 4096x2160, SAR 1:1 DAR 256:135, 59.94 fps, 59.94 tbr, 59.94 tbn
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+  Stream #0:1: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+  Stream #0:2: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+  Stream #0:3: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+  Stream #0:4: Audio: pcm_s24le, 48000 Hz, 1 channels, s32 (24 bit), 1152 kb/s
+      Metadata:
+        file_package_umid: 0x060A2B340101010501010D43130000008D5DFC08140806800000852412400144
+
+=== Chappell Roan Video Jul 31 2024, 11 12 06 PM (1).mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/60/Chappell Roan Video Jul 31 2024, 11 12 06 PM (1).mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 0
+    compatible_brands: qt  
+    creation_time   : 2024-08-01T03:12:07.000000Z
+    com.apple.quicktime.location.accuracy.horizontal: 2000.000000
+    com.apple.quicktime.location.ISO6709: +41.9394-087.6532+175.781/
+    com.apple.quicktime.make: Apple
+    com.apple.quicktime.model: iPhone 15 Pro Max
+    com.apple.quicktime.software: 17.6
+    com.apple.quicktime.creationdate: 2024-07-31T22:12:06-0500
+  Duration: 00:02:18.18, start: 0.000000, bitrate: 75753 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67), 3840x2160, 75470 kb/s, 58.62 fps, 59.94 tbr, 600 tbn (default)
+      Metadata:
+        creation_time   : 2024-08-01T03:12:07.000000Z
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+        encoder         : HEVC
+      Side data:
+        DOVI configuration record: version: 1.0, profile: 8, level: 10, rpu flag: 1, el flag: 0, bl flag: 1, compatibility id: 4, compression: 0
+        displaymatrix: rotation of -90.00 degrees
+        Ambient Viewing Environment, ambient_illuminance=314.000000, ambient_light_x=0.312700, ambient_light_y=0.329000
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 163 kb/s (default)
+      Metadata:
+        creation_time   : 2024-08-01T03:12:07.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+  Stream #0:2[0x3](und): Data: none (mebx / 0x7862656D) (default)
+      Metadata:
+        creation_time   : 2024-08-01T03:12:07.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:3[0x4](und): Data: none (mebx / 0x7862656D), 11 kb/s (default)
+      Metadata:
+        creation_time   : 2024-08-01T03:12:07.000000Z
+        handler_name    : Core Media Metadata
+  Stream #0:4[0x5](und): Data: none (mebx / 0x7862656D), 82 kb/s (default)
+      Metadata:
+        creation_time   : 2024-08-01T03:12:07.000000Z
+        handler_name    : Core Media Metadata
+Unsupported codec with id 0 for input stream 2
+Unsupported codec with id 0 for input stream 3
+Unsupported codec with id 0 for input stream 4
+
+=== DAY02_A001_05310626_C009.mov ===
+ffprobe version 7.1.2 Copyright (c) 2007-2025 the FFmpeg developers
+
+  configuration: --prefix='/opt/homebrew/Cellar/ffmpeg@7/7.1.2' --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.101 / 61. 19.101
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Volumes/WI-64/__POST/__DAVINCI FILES/_TEST_MATERIAL/60/DAY02_A001_05310626_C009.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 0
+    compatible_brands: qt  
+    creation_time   : 2025-05-31T10:26:26.000000Z
+    com.apple.quicktime.full-frame-rate-playback-intent: 1
+    com.apple.proapps.manufacturer: Apple Inc.
+    com.apple.proapps.clipID: A001_05310626_C009
+    com.apple.proapps.reel: 1
+    com.apple.proapps.scene: 1
+    com.apple.proapps.shot: 1
+    com.apple.proapps.isGood: 0
+    com.apple.proapps.logNote: 
+    com.apple.proapps.customgamma: com.apple.rec2020.apple-log
+    com.blackmagic-design.camera.dayNight: Day
+    com.blackmagic-design.camera.environment: Interior
+    com.blackmagic-design.camera.dateRecorded: 2025-05-31T06:26:26-0400
+    com.blackmagic-design.shutterMode: Vitesse
+    com.blackmagic-design.shutterSpeed: 1/314
+    com.blackmagic-design.camera.iso: 76
+    com.blackmagic-design.camera.whiteBalanceKelvin: 5000
+    com.blackmagic-design.camera.whiteBalanceTint: 5
+    com.blackmagic-design.camera.aperture: f1.8
+    com.blackmagic-design.camera.lensType: iPhone 15 Pro 24mm
+    com.blackmagic-design.sensorFPS: 60
+    com.blackmagic-design.camera.projectName: 
+    com.apple.quicktime.title: 
+    com.blackmagic-design.camera.director: 
+    com.apple.quicktime.director: 
+    com.apple.proapps.cameraName: A
+    com.blackmagic-design.camera.cameraOp: 
+    com.apple.quicktime.location.ISO6709: +21.83212-072.33792/
+    com.apple.quicktime.software: Blackmagic Cam 2.3.000047
+    com.apple.quicktime.model: Apple iPhone 15 Pro 24mm
+    com.apple.quicktime.creationdate: 2025-05-31T06:26:26-0400
+  Duration: 00:00:09.45, start: 0.000000, bitrate: 1643467 kb/s
+  Stream #0:0[0x1](und): Video: prores (HQ) (apch / 0x68637061), yuv422p10le(bt2020nc/bt2020/unknown, progressive), 3840x2160, 1639242 kb/s, 59.99 fps, 60 tbr, 1200 tbn (default)
+      Metadata:
+        creation_time   : 2025-05-31T10:26:26.000000Z
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+        encoder         : Apple ProRes 422 HQ
+        timecode        : 06:26:26:00
+      Side data:
+        displaymatrix: rotation of -180.00 degrees
+  Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 185 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-31T10:26:26.000000Z
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+  Stream #0:2[0x3](und): Data: none (tmcd / 0x64636D74), 1 kb/s (default)
+      Metadata:
+        creation_time   : 2025-05-31T10:26:26.000000Z
+        handler_name    : Core Media Time Code
+        timecode        : 06:26:26:00
+Unsupported codec with id 0 for input stream 2
+

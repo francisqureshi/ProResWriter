@@ -5,6 +5,12 @@
 
 set -e  # Exit on error
 
+# Parse arguments
+DRY_RUN=false
+if [[ "$1" == "--dry-run" ]]; then
+    DRY_RUN=true
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -18,6 +24,9 @@ SIGN_UPDATE_TOOL="SourcePrint/build/SourcePackages/artifacts/sparkle/Sparkle/bin
 APPCAST_PATH="appcast.xml"
 
 echo -e "${BLUE}🚀 SourcePrint Release Automation${NC}"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}🔍 DRY RUN MODE - No changes will be made${NC}"
+fi
 echo ""
 
 # Check if app exists
@@ -48,25 +57,35 @@ echo -e "${BLUE}📦 Packaging app...${NC}"
 ZIP_NAME="SourcePrint-$VERSION.zip"
 ZIP_PATH="SourcePrint/build/Build/Products/Release/$ZIP_NAME"
 
-cd SourcePrint/build/Build/Products/Release
-rm -f "$ZIP_NAME"
-ditto -c -k --sequesterRsrc --keepParent SourcePrint.app "$ZIP_NAME"
-cd - > /dev/null
-
-echo -e "${GREEN}✅ Created $ZIP_NAME${NC}"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}Would create: $ZIP_NAME${NC}"
+else
+    cd SourcePrint/build/Build/Products/Release
+    rm -f "$ZIP_NAME"
+    ditto -c -k --sequesterRsrc --keepParent SourcePrint.app "$ZIP_NAME"
+    cd - > /dev/null
+    echo -e "${GREEN}✅ Created $ZIP_NAME${NC}"
+fi
 
 # Sign with Sparkle
 echo ""
 echo -e "${BLUE}🔐 Signing with Sparkle EdDSA...${NC}"
-SIGNATURE_OUTPUT=$("$SIGN_UPDATE_TOOL" "$ZIP_PATH")
-ED_SIGNATURE=$(echo "$SIGNATURE_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)
-LENGTH=$(echo "$SIGNATURE_OUTPUT" | grep -o 'length="[^"]*"' | cut -d'"' -f2)
 
-echo -e "${GREEN}✅ Signature: $ED_SIGNATURE${NC}"
-echo -e "${GREEN}✅ Length: $LENGTH bytes${NC}"
+if [ "$DRY_RUN" = true ]; then
+    ED_SIGNATURE="<would-generate-signature>"
+    LENGTH="<would-calculate-length>"
+    echo -e "${YELLOW}Would sign: $ZIP_NAME${NC}"
+    echo -e "${YELLOW}Would copy to: ~/Desktop/$ZIP_NAME${NC}"
+else
+    SIGNATURE_OUTPUT=$("$SIGN_UPDATE_TOOL" "$ZIP_PATH")
+    ED_SIGNATURE=$(echo "$SIGNATURE_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)
+    LENGTH=$(echo "$SIGNATURE_OUTPUT" | grep -o 'length="[^"]*"' | cut -d'"' -f2)
+    echo -e "${GREEN}✅ Signature: $ED_SIGNATURE${NC}"
+    echo -e "${GREEN}✅ Length: $LENGTH bytes${NC}"
 
-# Copy to Desktop for GitHub release
-cp "$ZIP_PATH" ~/Desktop/
+    # Copy to Desktop for GitHub release
+    cp "$ZIP_PATH" ~/Desktop/
+fi
 
 # Create GitHub release
 echo ""
@@ -79,16 +98,22 @@ $NOTES
 **Build:** $BUILD
 **Release Date:** $(date '+%Y-%m-%d')
 
----
+---"
 
-gh release create "v$VERSION" ~/Desktop/"$ZIP_NAME" \
-    --title "SourcePrint v$VERSION" \
-    --notes "$RELEASE_NOTES" || {
-    echo -e "${YELLOW}⚠️  Release already exists, uploading asset...${NC}"
-    gh release upload "v$VERSION" ~/Desktop/"$ZIP_NAME" --clobber
-}
-
-echo -e "${GREEN}✅ GitHub release created/updated${NC}"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}Would create GitHub release:${NC}"
+    echo -e "${YELLOW}  Tag: v$VERSION${NC}"
+    echo -e "${YELLOW}  Asset: ~/Desktop/$ZIP_NAME${NC}"
+    echo -e "${YELLOW}  Notes: $RELEASE_NOTES${NC}"
+else
+    gh release create "v$VERSION" ~/Desktop/"$ZIP_NAME" \
+        --title "SourcePrint v$VERSION" \
+        --notes "$RELEASE_NOTES" || {
+        echo -e "${YELLOW}⚠️  Release already exists, uploading asset...${NC}"
+        gh release upload "v$VERSION" ~/Desktop/"$ZIP_NAME" --clobber
+    }
+    echo -e "${GREEN}✅ GitHub release created/updated${NC}"
+fi
 
 # Update appcast.xml
 echo ""
@@ -120,36 +145,49 @@ NEW_ITEM="        <item>
 # Check if version already exists in appcast
 if grep -q "<sparkle:version>$BUILD</sparkle:version>" "$APPCAST_PATH"; then
     echo -e "${YELLOW}⚠️  Version $VERSION (Build $BUILD) already exists in appcast${NC}"
-    read -p "Update existing entry? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        # Remove existing entry and add new one
-        # This is a simple approach - in production you'd want more robust XML editing
-        echo -e "${YELLOW}⚠️  Manual appcast update required - entry already exists${NC}"
-        echo "Please update appcast.xml manually or delete the existing entry first"
-        exit 1
-    else
-        echo -e "${BLUE}Skipping appcast update${NC}"
-        exit 0
+    if [ "$DRY_RUN" = false ]; then
+        read -p "Update existing entry? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            # Remove existing entry and add new one
+            # This is a simple approach - in production you'd want more robust XML editing
+            echo -e "${YELLOW}⚠️  Manual appcast update required - entry already exists${NC}"
+            echo "Please update appcast.xml manually or delete the existing entry first"
+            exit 1
+        else
+            echo -e "${BLUE}Skipping appcast update${NC}"
+            exit 0
+        fi
     fi
 else
-    # Insert new item after the public key comment using Perl
-    perl -i -0pe "s|(<!-- Sparkle Public Key.*?\n\n)|\$1$NEW_ITEM|s" "$APPCAST_PATH"
-
-    echo -e "${GREEN}✅ Appcast updated${NC}"
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${YELLOW}Would add to appcast.xml:${NC}"
+        echo "$NEW_ITEM"
+    else
+        # Insert new item after the public key comment using Perl
+        perl -i -0pe "s|(<!-- Sparkle Public Key.*?\n\n)|\$1$NEW_ITEM|s" "$APPCAST_PATH"
+        echo -e "${GREEN}✅ Appcast updated${NC}"
+    fi
 fi
 
 # Commit and push
 echo ""
 echo -e "${BLUE}📤 Committing and pushing to GitHub...${NC}"
 
-git add "$APPCAST_PATH"
-git commit -m "Release v$VERSION (Build $BUILD)
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}Would commit and push:${NC}"
+    echo -e "${YELLOW}  git add $APPCAST_PATH${NC}"
+    echo -e "${YELLOW}  git commit -m \"Release v$VERSION (Build $BUILD)\"${NC}"
+    echo -e "${YELLOW}  git push${NC}"
+else
+    git add "$APPCAST_PATH"
+    git commit -m "Release v$VERSION (Build $BUILD)
 
 $NOTES
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)"
-git push
+    git push
+fi
 
 echo ""
 echo -e "${GREEN}✅✅✅ Release complete! ✅✅✅${NC}"
@@ -159,4 +197,8 @@ echo -e "  Version: ${GREEN}$VERSION${NC}"
 echo -e "  Build: ${GREEN}$BUILD${NC}"
 echo -e "  GitHub: ${GREEN}https://github.com/francisqureshi/ProResWriter/releases/tag/v$VERSION${NC}"
 echo ""
-echo -e "${YELLOW}⏳ Wait ~2 minutes for GitHub CDN to refresh appcast, then users can update!${NC}"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}🔍 DRY RUN COMPLETE - No changes were made${NC}"
+else
+    echo -e "${YELLOW}⏳ Wait ~2 minutes for GitHub CDN to refresh appcast, then users can update!${NC}"
+fi
