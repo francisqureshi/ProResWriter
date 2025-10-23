@@ -14,9 +14,7 @@ xcodebuild -project SourcePrint.xcodeproj \
            -configuration Release \
            build \
            -derivedDataPath ./build \
-           CODE_SIGNING_REQUIRED=NO \
-           CODE_SIGNING_ALLOWED=NO \
-           CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+           CODE_SIGN_IDENTITY="-"
 
 if [ $? -eq 0 ]; then
     echo "✅ SourcePrint build succeeded!"

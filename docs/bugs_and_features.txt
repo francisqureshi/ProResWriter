@@ -4,6 +4,12 @@ NEW FEATURES:
 ACTIVE BUGS:
 - Slow Linking page card clicking....
 
+TODOS:
+- See link FFmpeg via native path or forst SwiftFFmpeg to ffmpeg@7 ? 
+- Clean up the nested functions in BlankIntermediate and distill the process
+  - use mediaInfo Sturct for all the data and dont make weird inline calcuations in blank rush...
+
+Completed:
 
 ✅ RESOLVED BUGS (22/10/2025 Build 19) :
   - No Icon - now with v02 icon! :)

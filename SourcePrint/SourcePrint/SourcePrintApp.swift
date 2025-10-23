@@ -7,6 +7,7 @@
 
 import SwiftUI
 import ProResWriterCore
+import Sparkle
 
 extension Notification.Name {
     static let showNewProject = Notification.Name("showNewProject")
@@ -16,6 +17,12 @@ extension Notification.Name {
 @main
 struct SourcePrintApp: App {
     @StateObject private var projectManager = ProjectManager()
+    private let updaterController: SPUStandardUpdaterController
+
+    init() {
+        // Initialize Sparkle updater
+        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -85,6 +92,12 @@ struct SourcePrintApp: App {
                     NotificationCenter.default.post(name: .toggleSidebar, object: nil)
                 }
                 .keyboardShortcut("s", modifiers: [.command, .option])
+            }
+
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates...") {
+                    updaterController.updater.checkForUpdates()
+                }
             }
         }
     }

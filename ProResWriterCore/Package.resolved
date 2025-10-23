@@ -1,6 +1,15 @@
 {
   "pins" : [
     {
+      "identity" : "filemonitor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aus-der-Technik/FileMonitor.git",
+      "state" : {
+        "revision" : "5adbe8f2383eac5148475ef84977806bbd33e8d7",
+        "version" : "1.2.1"
+      }
+    },
+    {
       "identity" : "swiftffmpeg",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sunlubo/SwiftFFmpeg",
