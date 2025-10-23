@@ -18,13 +18,13 @@
                 </ul>
             ]]></description>
             <pubDate>Wed, 23 Oct 2025 15:05:00 +0000</pubDate>
-            <sparkle:version>32</sparkle:version>
+            <sparkle:version>34</sparkle:version>
             <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.1/SourcePrint-0.1.1.zip"
-                sparkle:edSignature="/A9b1mjuPt1789eHaZ9pm3bNVVczBX/0ZahJCWQFQCwvD27dYXT6E9APsRgKw6AilD7Hqmeq8WkDHs09coyjBQ=="
-                length="7931856"
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.1/SourcePrint-0.1.1-build34.zip"
+                sparkle:edSignature="yDS2teoS4fcTy5jOR0SuyKobKw25Msxj8qPLZs48Fr6OFe94Q8LwIQy80gHcQWi4ZWB3pDEF0fYVcG9w9GtZDA=="
+                length="7932994"
                 type="application/octet-stream"
             />
         </item>
