@@ -17,16 +17,17 @@
                     <li>Production-ready watch folder system</li>
                     <li>Frame-accurate ProRes 4444 workflow</li>
                     <li>Professional timecode support</li>
+                    <li>Adhoc signed (works on macOS Sequoia)</li>
                 </ul>
             ]]></description>
-            <pubDate>Wed, 23 Oct 2025 16:50:00 +0000</pubDate>
-            <sparkle:version>41</sparkle:version>
+            <pubDate>Wed, 23 Oct 2025 17:00:00 +0000</pubDate>
+            <sparkle:version>42</sparkle:version>
             <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
                 url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.3/SourcePrint-0.1.3.zip"
-                sparkle:edSignature="QK50niPi5hX7aSPEP0fZvzoPl2vaIJ6+GG/MFqf2wsc+YfTKfc+aYns5OrGnGh2yB2OWGxeXtGmn6fzJljmjBg=="
-                length="7930720"
+                sparkle:edSignature="esUajaSBVrPDTiMd5y91Egy/RwjsDSuNeoY52AR4pU82IcuQKwmxZE8UCUCHtiIA54ALk7QjRwiKvWsLQExqCQ=="
+                length="7943998"
                 type="application/octet-stream"
             />
         </item>
