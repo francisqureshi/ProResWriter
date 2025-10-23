@@ -3,7 +3,10 @@
 DerivedData/
 SourcePrint/build/
 
-/SourcePrint/build/
+# Release artifacts
+*.zip
+*.tmp
+
 # Xcode user settings
 xcuserdata/
 
@@ -11,8 +14,11 @@ xcuserdata/
 .DS_Store
 
 # Swift Package Manager
-.build/ 
+.build/
+Package.resolved
 
-
+# Generated files
+SourcePrint/SourcePrint/Info.plist
+ProResWriter.xcodeproj/project.pbxproj
 
 /ProResWriter/EXAMPLE Movie Timecode

@@ -134,18 +134,8 @@ if grep -q "<sparkle:version>$BUILD</sparkle:version>" "$APPCAST_PATH"; then
         exit 0
     fi
 else
-    # Insert new item after the public key comment
-    awk -v new="$NEW_ITEM" '
-        /<!-- Sparkle Public Key/ {
-            print;
-            getline;
-            print;
-            print "";
-            print new;
-            next
-        }
-        {print}
-    ' "$APPCAST_PATH" > "$APPCAST_PATH.tmp" && mv "$APPCAST_PATH.tmp" "$APPCAST_PATH"
+    # Insert new item after the public key comment using Perl
+    perl -i -0pe "s|(<!-- Sparkle Public Key.*?\n\n)|\$1$NEW_ITEM|s" "$APPCAST_PATH"
 
     echo -e "${GREEN}✅ Appcast updated${NC}"
 fi
