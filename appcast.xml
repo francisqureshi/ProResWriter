@@ -18,7 +18,7 @@
                 </ul>
             ]]></description>
             <pubDate>Wed, 23 Oct 2025 15:05:00 +0000</pubDate>
-            <sparkle:version>0.1.1</sparkle:version>
+            <sparkle:version>33</sparkle:version>
             <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
@@ -41,7 +41,7 @@
                 </ul>
             ]]></description>
             <pubDate>Wed, 23 Oct 2025 14:52:00 +0000</pubDate>
-            <sparkle:version>0.1.0</sparkle:version>
+            <sparkle:version>29</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
@@ -64,7 +64,7 @@
                 </ul>
             ]]></description>
             <pubDate>Mon, 23 Oct 2025 12:00:00 +0000</pubDate>
-            <sparkle:version>0.2.0</sparkle:version>
+            <sparkle:version>BUILD_NUMBER_HERE</sparkle:version>
             <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
