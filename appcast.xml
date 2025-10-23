@@ -9,6 +9,26 @@
         <!-- Sparkle Public Key (for signing): 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI= -->
 
         <item>
+            <title>Version 0.1.6</title>
+            <description><![CDATA[
+                <h2>SourcePrint v0.1.6</h2>
+                <ul>
+                    <li>Testing bundling FFmpeg.</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 23 Oct 2025 21:33:44 +0000</pubDate>
+            <sparkle:version>54</sparkle:version>
+            <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.6/SourcePrint-0.1.6.zip"
+                sparkle:edSignature="CJCFVDsAYSvctlwmZlKOuurYIeKoZpjLnbuq4enjJ4W6jOw8HR5OyO0lfUXuUMO1kXcdgxARWtmu3LSjohB2CA=="
+                length="15868037"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <item>
             <title>Version 0.1.51</title>
             <description><![CDATA[
                 <h2>SourcePrint v0.1.51</h2>
