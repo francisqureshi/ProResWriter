@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		070433AA2E611A8A007A1F93 /* ProResWriterCore in Frameworks */ = {isa = PBXBuildFile; productRef = 070433A92E611A8A007A1F93 /* ProResWriterCore */; };
+		286BAC452EAA56CF00C051D2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 286BAC442EAA56CF00C051D2 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,9 +34,22 @@
 		0704338E2E610FF1007A1F93 /* SourcePrintUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SourcePrintUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		28F00E692EAA694300A386A8 /* Exceptions for "SourcePrint" folder in "SourcePrint" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 070433722E610FF0007A1F93 /* SourcePrint */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		070433752E610FF0007A1F93 /* SourcePrint */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				28F00E692EAA694300A386A8 /* Exceptions for "SourcePrint" folder in "SourcePrint" target */,
+			);
 			path = SourcePrint;
 			sourceTree = "<group>";
 		};
@@ -57,6 +71,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				070433AA2E611A8A007A1F93 /* ProResWriterCore in Frameworks */,
+				286BAC452EAA56CF00C051D2 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +134,7 @@
 			name = SourcePrint;
 			packageProductDependencies = (
 				070433A92E611A8A007A1F93 /* ProResWriterCore */,
+				286BAC442EAA56CF00C051D2 /* Sparkle */,
 			);
 			productName = SourcePrint;
 			productReference = 070433732E610FF0007A1F93 /* SourcePrint.app */;
@@ -204,6 +220,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				070433A82E611A8A007A1F93 /* XCLocalSwiftPackageReference "../ProResWriterCore" */,
+				286BAC432EAA56CF00C051D2 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 070433742E610FF0007A1F93 /* Products */;
@@ -428,18 +445,19 @@
 				CODE_SIGN_ENTITLEMENTS = SourcePrint/SourcePrint.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_ASSET_PATHS = "\"SourcePrint/Preview Content\"";
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SourcePrint/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -455,18 +473,19 @@
 				CODE_SIGN_ENTITLEMENTS = SourcePrint/SourcePrint.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_ASSET_PATHS = "\"SourcePrint/Preview Content\"";
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SourcePrint/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = postHOUSE.SourcePrint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -479,7 +498,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
@@ -497,7 +516,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
@@ -514,7 +533,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -530,7 +549,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = 5AUBAVQ835;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -590,10 +609,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		286BAC432EAA56CF00C051D2 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		070433A92E611A8A007A1F93 /* ProResWriterCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ProResWriterCore;
+		};
+		286BAC442EAA56CF00C051D2 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 286BAC432EAA56CF00C051D2 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
