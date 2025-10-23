@@ -20,4 +20,9 @@ Package.resolved
 # Generated files
 SourcePrint/SourcePrint/Info.plist
 
+# Security - NEVER commit these!
+*PRIVATE_KEY*
+*private*key*
+*.pem
+
 /ProResWriter/EXAMPLE Movie Timecode
