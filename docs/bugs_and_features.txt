@@ -9,6 +9,11 @@ TODOS:
 - Clean up the nested functions in BlankIntermediate and distill the process
   - use mediaInfo Sturct for all the data and dont make weird inline calcuations in blank rush...
 
+
+Minor Bugs:
+- App icon is still wrong size.. its shrunk for the dock but then is also shrunk everywhere else....
+
+
 Completed:
 
 ✅ RESOLVED BUGS (22/10/2025 Build 19) :
