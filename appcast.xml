@@ -9,6 +9,26 @@
         <!-- Sparkle Public Key (for signing): 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI= -->
 
         <item>
+            <title>Version 0.1.5</title>
+            <description><![CDATA[
+                <h2>SourcePrint v0.1.5</h2>
+                <ul>
+                    <li>0.1.5 Test</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 23 Oct 2025 16:48:18 +0000</pubDate>
+            <sparkle:version>48</sparkle:version>
+            <sparkle:shortVersionString>0.1.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.5/SourcePrint-0.1.5.zip"
+                sparkle:edSignature="hd/O4fgQDw958iwEeO6+yAscRDKucPUWzJ0r50XJg37IKmrBC7dEoI/u7ldmvHJNlnm440MTZEhI0SpofDGGBA=="
+                length="7941198"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <item>
             <title>Version 0.1.4</title>
             <description><![CDATA[
                 <h2>SourcePrint v0.1.4 - Update Test</h2>
