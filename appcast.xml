@@ -9,6 +9,28 @@
         <!-- Sparkle Public Key (for signing): 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI= -->
 
         <item>
+            <title>Version 0.1.2</title>
+            <description><![CDATA[
+                <h2>SourcePrint v0.1.2 - Code Signing Fix</h2>
+                <ul>
+                    <li>Fixed corrupted ad-hoc code signing causing update validation failures</li>
+                    <li>App now unsigned (no Apple code signing)</li>
+                    <li>Only Sparkle EdDSA signature for secure updates</li>
+                </ul>
+            ]]></description>
+            <pubDate>Wed, 23 Oct 2025 16:30:00 +0000</pubDate>
+            <sparkle:version>37</sparkle:version>
+            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.2/SourcePrint-0.1.2.zip"
+                sparkle:edSignature="ogxMFrrKb+XUqj84mYIE9r7pTMLS1VVDPZljrNKOpj6Pk+46aRQlsZkFZf9u9NwcqZctt+sF91mf2QD2pFMiAg=="
+                length="7861300"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <item>
             <title>Version 0.1.1</title>
             <description><![CDATA[
                 <h2>SourcePrint v0.1.1 - Update Test</h2>
