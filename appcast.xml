@@ -41,7 +41,7 @@
                 </ul>
             ]]></description>
             <pubDate>Wed, 23 Oct 2025 14:52:00 +0000</pubDate>
-            <sparkle:version>29</sparkle:version>
+            <sparkle:version>31</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
