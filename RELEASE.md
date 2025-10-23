@@ -22,6 +22,60 @@ Wait ~2 minutes for GitHub CDN to refresh, then users can update!
 
 ---
 
+## Build Prerequisites
+
+**FFmpeg 7.1.2 Setup:**
+
+SourcePrint requires FFmpeg 7 at build time. Install and link it:
+
+```bash
+# Install FFmpeg 7
+brew install ffmpeg@7
+
+# Link it so it's available as 'ffmpeg' (ffmpeg@7 is keg-only by default)
+brew link --force ffmpeg@7
+```
+
+This creates `/opt/homebrew/bin/ffmpeg` → `../Cellar/ffmpeg@7/7.1.2/bin/ffmpeg`
+
+Verify installation:
+```bash
+ffmpeg -version  # Should show version 7.1.2
+```
+
+---
+
+## FFmpeg Bundling
+
+SourcePrint uses FFmpeg 7.1.2 for video processing via SwiftFFmpeg.
+
+**Current Status: Partial Bundling**
+
+The `bundle-ffmpeg.sh` script bundles the 8 core FFmpeg libraries (~19MB) and fixes their `@rpath` references:
+- libavcodec, libavformat, libavutil, libavfilter, libavdevice
+- libswscale, libswresample, libpostproc
+
+**Limitation:** FFmpeg depends on ~23 additional Homebrew libraries (libbluray, aribb24, rubberband, etc.) that are NOT currently bundled. For truly self-contained distribution, we'd need to either:
+1. Bundle all ~50+ transitive dependencies
+2. Build static FFmpeg from source
+3. Distribute with FFmpeg as a system requirement
+
+**For Developers:**
+```bash
+brew install ffmpeg@7
+brew link --force ffmpeg@7
+./build-sourceprint.sh  # Auto-bundles core FFmpeg libs
+```
+
+**For End Users:**
+Users currently need Homebrew + FFmpeg installed:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install ffmpeg@7
+```
+
+---
+
 ## Version Management
 
 Version numbers are managed in Xcode:
@@ -85,6 +139,20 @@ SUPublicEDKey: 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI=
 ### Private Key (in macOS Keychain)
 Account: `ed25519`
 Service: Sparkle EdDSA signing key
+
+**First Time Setup on New Machine:**
+```bash
+# 1. Create temporary key file with your private key
+echo "YOUR_PRIVATE_KEY_HERE" > /tmp/sparkle_key.txt
+
+# 2. Import using Sparkle's generate_keys tool
+SourcePrint/build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -f /tmp/sparkle_key.txt
+
+# 3. Clean up
+rm /tmp/sparkle_key.txt
+```
+
+Note: The private key is stored securely in your password manager/backup location.
 
 ### Feed URL
 ```

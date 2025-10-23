@@ -19,6 +19,11 @@ xcodebuild -project SourcePrint.xcodeproj \
 if [ $? -eq 0 ]; then
     echo "✅ SourcePrint build succeeded!"
     echo "App bundle: ./build/Build/Products/Release/SourcePrint.app"
+
+    # Bundle FFmpeg libraries
+    cd ..
+    echo ""
+    ./bundle-ffmpeg.sh
 else
     echo "❌ SourcePrint build failed!"
     exit 1
