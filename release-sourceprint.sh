@@ -80,7 +80,6 @@ $NOTES
 **Release Date:** $(date '+%Y-%m-%d')
 
 ---
-🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 
 gh release create "v$VERSION" ~/Desktop/"$ZIP_NAME" \
     --title "SourcePrint v$VERSION" \
