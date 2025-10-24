@@ -5,7 +5,7 @@
     <key>SUEnableAutomaticChecks</key>
     <true/>
     <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/francisqureshi/ProResWriter/main/appcast.xml</string>
+    <string>https://raw.githubusercontent.com/francisqureshi/SourcePrint/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI=</string>
 </dict>

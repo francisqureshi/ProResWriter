@@ -5,7 +5,7 @@
 //  Render log and status section for OCF cards
 //
 
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 struct RenderLogSection: View {

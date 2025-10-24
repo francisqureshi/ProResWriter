@@ -1,5 +1,5 @@
 {
-  "originHash" : "8d08b91130786f78b40aae5662c883bb70d20e1207529cf376c1e147d0dae656",
+  "originHash" : "818928efa58f351f5bb09e91f21e382221bffa139a444e39bbdde17dc4e978a6",
   "pins" : [
     {
       "identity" : "filemonitor",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/orchetect/TimecodeKit",
       "state" : {
-        "revision" : "1014b5723a7eaa93eeb2ea2f52dfd9ea6eb6be0d",
-        "version" : "2.3.3"
+        "revision" : "957fdaeda020396d150ee1afc7c5172791cb0ad5",
+        "version" : "2.3.4"
       }
     }
   ],

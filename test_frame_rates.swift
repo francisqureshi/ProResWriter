@@ -1,7 +1,7 @@
 #!/usr/bin/swift
 
 import Foundation
-import ProResWriterCore
+import SourcePrintCore
 
 // Create test MediaFileInfo objects with different frame rates
 let ocf24 = MediaFileInfo(url: URL(fileURLWithPath: "/test24.mov"))

@@ -5,7 +5,7 @@
 //  Row view for unmatched files in linking view
 //
 
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 struct UnmatchedFileRowView: View {

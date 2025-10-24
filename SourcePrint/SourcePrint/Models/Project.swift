@@ -7,7 +7,7 @@
 
 import CryptoKit
 import Foundation
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 // MARK: - File Metadata

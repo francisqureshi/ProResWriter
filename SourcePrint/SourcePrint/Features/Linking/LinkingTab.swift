@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 
 struct LinkingTab: View {
     let project: Project

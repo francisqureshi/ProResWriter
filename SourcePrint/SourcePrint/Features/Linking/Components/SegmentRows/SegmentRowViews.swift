@@ -5,7 +5,7 @@
 //  Segment row components for linking view
 //
 
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 // MARK: - Tree Linked Segment Row

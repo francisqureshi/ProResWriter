@@ -7,7 +7,7 @@
 
 import Foundation
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 
 // MARK: - Hierarchical Data Models for UI
 

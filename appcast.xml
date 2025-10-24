@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
     <channel>
         <title>SourcePrint Updates</title>
-        <link>https://github.com/francisqureshi/ProResWriter</link>
+        <link>https://github.com/francisqureshi/SourcePrint</link>
         <description>Most recent updates to SourcePrint</description>
         <language>en</language>
 
@@ -24,7 +24,7 @@
             <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.7/SourcePrint-0.1.7.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.7/SourcePrint-0.1.7.zip"
                 sparkle:edSignature="nFr59/0yd0+xvSIwtg+JFw3S3+gZmN6K/kgzlhQO/MCILgR/kocvTs1WZtR9ng2dVJBPqPtaGhBQhnHSPJkDDQ=="
                 length="19430788"
                 type="application/octet-stream"
@@ -44,7 +44,7 @@
             <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.6/SourcePrint-0.1.6.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.6/SourcePrint-0.1.6.zip"
                 sparkle:edSignature="CJCFVDsAYSvctlwmZlKOuurYIeKoZpjLnbuq4enjJ4W6jOw8HR5OyO0lfUXuUMO1kXcdgxARWtmu3LSjohB2CA=="
                 length="15868037"
                 type="application/octet-stream"
@@ -64,7 +64,7 @@
             <sparkle:shortVersionString>0.1.51</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.51/SourcePrint-0.1.51.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.51/SourcePrint-0.1.51.zip"
                 sparkle:edSignature="Gr1c7f2yJxCQh8BFKVbMmLCKrJTDCtAH58Q/gzWWW8FlXGwP6VqqNboUoTvyUhgBMDf/tIwkmn/fRswrQeoQAA=="
                 length="7937848"
                 type="application/octet-stream"
@@ -84,7 +84,7 @@
             <sparkle:shortVersionString>0.1.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.5/SourcePrint-0.1.5.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.5/SourcePrint-0.1.5.zip"
                 sparkle:edSignature="hd/O4fgQDw958iwEeO6+yAscRDKucPUWzJ0r50XJg37IKmrBC7dEoI/u7ldmvHJNlnm440MTZEhI0SpofDGGBA=="
                 length="7941198"
                 type="application/octet-stream"
@@ -106,7 +106,7 @@
             <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.4/SourcePrint-0.1.4.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.4/SourcePrint-0.1.4.zip"
                 sparkle:edSignature="HH6JqreoyNqHY63QpdektoFoqQzOcCu0ONgxKA9uFJYS6XSQxFf+RCU5v40u6W42CEtB8E9A23vRccxxCibMBQ=="
                 length="7940774"
                 type="application/octet-stream"
@@ -130,7 +130,7 @@
             <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.3/SourcePrint-0.1.3.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.3/SourcePrint-0.1.3.zip"
                 sparkle:edSignature="36uMeQpF3AdgdiMtPXHbqpm5tXuAAi8r/HVXJFDV9ySSitRjYNELDDseHmvKtyNGLBJTUUZuMF58dKXoE22nDg=="
                 length="7939035"
                 type="application/octet-stream"
@@ -152,7 +152,7 @@
             <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.2/SourcePrint-0.1.2.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.2/SourcePrint-0.1.2.zip"
                 sparkle:edSignature="ogxMFrrKb+XUqj84mYIE9r7pTMLS1VVDPZljrNKOpj6Pk+46aRQlsZkFZf9u9NwcqZctt+sF91mf2QD2pFMiAg=="
                 length="7861300"
                 type="application/octet-stream"
@@ -175,7 +175,7 @@
             <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.2.0/SourcePrint-0.2.0.zip"
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.2.0/SourcePrint-0.2.0.zip"
                 sparkle:edSignature="SIGNATURE_WILL_BE_GENERATED"
                 length="16842752"
                 type="application/octet-stream"

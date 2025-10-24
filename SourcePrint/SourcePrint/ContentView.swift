@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 
 struct ContentView: View {
     @EnvironmentObject var projectManager: ProjectManager

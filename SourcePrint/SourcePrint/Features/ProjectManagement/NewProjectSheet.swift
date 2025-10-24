@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 
 struct NewProjectSheet: View {
     @EnvironmentObject var projectManager: ProjectManager

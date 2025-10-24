@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 import UniformTypeIdentifiers
 
 struct MediaImportTab: View {

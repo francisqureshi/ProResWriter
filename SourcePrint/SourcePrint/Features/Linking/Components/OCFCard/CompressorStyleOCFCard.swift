@@ -5,7 +5,7 @@
 //  Main OCF card component with Apple Compressor styling
 //
 
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 import AVFoundation
 import CoreMedia

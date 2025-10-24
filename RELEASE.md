@@ -156,7 +156,7 @@ Note: The private key is stored securely in your password manager/backup locatio
 
 ### Feed URL
 ```
-https://raw.githubusercontent.com/francisqureshi/ProResWriter/main/appcast.xml
+https://raw.githubusercontent.com/francisqureshi/SourcePrint/main/appcast.xml
 ```
 
 ---

@@ -5,7 +5,7 @@
 //  Professional NLE-style table view for media files with sortable columns
 //
 
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 struct MediaFileTableView: View {

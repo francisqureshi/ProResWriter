@@ -5,7 +5,13 @@ ACTIVE BUGS:
 - Slow Linking page card clicking....
 
 TODOS:
-- See link FFmpeg via native path or forst SwiftFFmpeg to ffmpeg@7 ? 
+- Build and Bundle FFmpeg 7.1.2 Static Library.
+- Deprecate ProResWriterCLI
+- Refactor Repo to SourcePrint
+- Refactor Core to SourcePrintCore
+
+- Move all business Logic to Core
+
 - Clean up the nested functions in BlankIntermediate and distill the process
   - use mediaInfo Sturct for all the data and dont make weird inline calcuations in blank rush...
 

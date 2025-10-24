@@ -7,7 +7,7 @@
 
 import Foundation
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 
 // MARK: - Simplified Project Model for Initial Build
 

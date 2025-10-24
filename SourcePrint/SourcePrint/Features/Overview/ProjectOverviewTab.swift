@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import ProResWriterCore
+import SourcePrintCore
 
 struct ProjectOverviewTab: View {
     @ObservedObject var project: Project

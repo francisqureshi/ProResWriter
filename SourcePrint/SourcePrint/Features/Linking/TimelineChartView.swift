@@ -6,7 +6,7 @@
 //
 
 import Charts
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 struct TimelineChartView: View {

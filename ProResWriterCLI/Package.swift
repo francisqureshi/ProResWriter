@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "ProResWriterCLI",
     platforms: [
-        .macOS(.v14)  // Match ProResWriterCore platform requirements
+        .macOS(.v14)  // Match SourcePrintCore platform requirements
     ],
     products: [
         // CLI executable
@@ -16,8 +16,8 @@ let package = Package(
         ),
     ],
     dependencies: [
-        // Local ProResWriterCore package
-        .package(path: "../ProResWriterCore"),
+        // Local SourcePrintCore package
+        .package(path: "../SourcePrintCore"),
         // Direct dependencies for CLI-specific functionality
         .package(url: "https://github.com/orchetect/TimecodeKit", from: "2.3.3"),
     ],
@@ -26,7 +26,7 @@ let package = Package(
         .executableTarget(
             name: "ProResWriterCLI",
             dependencies: [
-                "ProResWriterCore",
+                "SourcePrintCore",
                 .product(name: "TimecodeKit", package: "TimecodeKit"),
                 .product(name: "TimecodeKitAV", package: "TimecodeKit"),
             ],

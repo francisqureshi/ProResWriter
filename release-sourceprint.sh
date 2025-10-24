@@ -133,7 +133,7 @@ NEW_ITEM="        <item>
             <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url=\"https://github.com/francisqureshi/ProResWriter/releases/download/v$VERSION/SourcePrint-$VERSION.zip\"
+                url=\"https://github.com/francisqureshi/SourcePrint/releases/download/v$VERSION/SourcePrint-$VERSION.zip\"
                 sparkle:edSignature=\"$ED_SIGNATURE\"
                 length=\"$LENGTH\"
                 type=\"application/octet-stream\"
@@ -195,7 +195,7 @@ echo ""
 echo -e "${BLUE}Summary:${NC}"
 echo -e "  Version: ${GREEN}$VERSION${NC}"
 echo -e "  Build: ${GREEN}$BUILD${NC}"
-echo -e "  GitHub: ${GREEN}https://github.com/francisqureshi/ProResWriter/releases/tag/v$VERSION${NC}"
+echo -e "  GitHub: ${GREEN}https://github.com/francisqureshi/SourcePrint/releases/tag/v$VERSION${NC}"
 echo ""
 if [ "$DRY_RUN" = true ]; then
     echo -e "${YELLOW}🔍 DRY RUN COMPLETE - No changes were made${NC}"

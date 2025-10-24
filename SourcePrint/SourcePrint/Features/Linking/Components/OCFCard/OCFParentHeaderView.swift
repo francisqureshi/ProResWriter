@@ -5,7 +5,7 @@
 //  Header view for OCF parent cards
 //
 
-import ProResWriterCore
+import SourcePrintCore
 import SwiftUI
 
 struct OCFParentHeaderView: View {
