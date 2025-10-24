@@ -41,6 +41,8 @@ Legend:
 - **Blank Rush Generation** - Hardware-accelerated ProRes 4444 with timecode burn-in
 - **Professional Standards** - All broadcast frame rates (23.976-120fps, drop/non-drop)
 
+## Download via Releases^
+
 ## Build
 
 ```bash
