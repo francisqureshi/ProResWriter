@@ -5,35 +5,34 @@
 
 set -e
 
-# Check for static FFmpeg build
-STATIC_FFMPEG_DIR="$PWD/ffmpeg-build/install"
-STATIC_DEPS_DIR="$PWD/deps-build/install"
+# Check for static build (FFmpeg + dependencies)
+STATIC_BUILD_DIR="$PWD/static-build/install"
 
-if [ ! -d "$STATIC_FFMPEG_DIR" ]; then
-    echo "❌ Static FFmpeg not found at $STATIC_FFMPEG_DIR"
+if [ ! -d "$STATIC_BUILD_DIR" ]; then
+    echo "❌ Static FFmpeg and dependencies not found at $STATIC_BUILD_DIR"
     echo "Run: ./build-static-deps.sh && ./build-static-ffmpeg.sh"
     exit 1
 fi
 
-if [ ! -d "$STATIC_DEPS_DIR" ]; then
-    echo "❌ Static dependencies not found at $STATIC_DEPS_DIR"
-    echo "Run: ./build-static-deps.sh"
+# Check for Homebrew FFmpeg (needed for SwiftFFmpeg compilation headers)
+HOMEBREW_FFMPEG="/opt/homebrew/opt/ffmpeg@7"
+if [ ! -d "$HOMEBREW_FFMPEG" ]; then
+    echo "❌ Homebrew FFmpeg not found (required for SwiftFFmpeg compilation)"
+    echo "   SwiftFFmpeg needs FFmpeg headers at compile time, even when linking statically"
+    echo "Run: brew install ffmpeg@7"
     exit 1
 fi
 
-# Make pkg-config wrapper executable
+# Use our custom pkg-config wrapper (cleaner than PATH manipulation)
 chmod +x "$PWD/pkg-config-static.sh"
+export PKG_CONFIG="$PWD/pkg-config-static.sh"
 
-# Override pkg-config with our static wrapper
-export PATH="$PWD:$PATH"
-ln -sf pkg-config-static.sh pkg-config 2>/dev/null || true
-
-# Force pkg-config to ONLY use our static FFmpeg
-export PKG_CONFIG_PATH="$STATIC_FFMPEG_DIR/lib/pkgconfig"
-export PKG_CONFIG_LIBDIR="$STATIC_FFMPEG_DIR/lib/pkgconfig"
+# Force pkg-config to ONLY use our static build
+export PKG_CONFIG_PATH="$STATIC_BUILD_DIR/lib/pkgconfig"
+export PKG_CONFIG_LIBDIR="$STATIC_BUILD_DIR/lib/pkgconfig"
 
 echo "🔨 Building SourcePrint with static FFmpeg..."
-echo "   Static libraries: $STATIC_FFMPEG_DIR/lib"
+echo "   Static libraries: $STATIC_BUILD_DIR/lib"
 echo "   pkg-config path: $PKG_CONFIG_PATH"
 echo ""
 
@@ -58,7 +57,7 @@ xcodebuild -project SourcePrint.xcodeproj \
            build \
            -derivedDataPath ./build \
            CODE_SIGN_IDENTITY="-" \
-           OTHER_LDFLAGS='-L'"$STATIC_FFMPEG_DIR"'/lib -L'"$STATIC_DEPS_DIR"'/lib -lavfilter -lpostproc -lavdevice -lfreetype -lharfbuzz -lpng16 -llzma $(inherited)'
+           OTHER_LDFLAGS='-L'"$STATIC_BUILD_DIR"'/lib -lavfilter -lpostproc -lavdevice -lfreetype -lharfbuzz -lpng16 -llzma $(inherited)'
 
 if [ $? -eq 0 ]; then
     echo "✅ SourcePrint build succeeded!"

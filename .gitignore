@@ -2,8 +2,12 @@
 /build/
 DerivedData/
 SourcePrint/build/
-ffmpeg-build/
+static-build/
 ffmpeg-frameworks/
+
+# Legacy build dirs (can be deleted)
+ffmpeg-build/
+deps-build/
 
 # Build scripts
 pkg-config

@@ -15,8 +15,8 @@ NC='\033[0m'
 echo -e "${BLUE}📦 Building static dependencies for FFmpeg${NC}"
 echo ""
 
-BUILD_DIR="$PWD/deps-build"
-INSTALL_PREFIX="$BUILD_DIR/install"
+BUILD_DIR="$PWD/static-build/deps"
+INSTALL_PREFIX="$PWD/static-build/install"
 
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"

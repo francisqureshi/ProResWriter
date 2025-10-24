@@ -19,9 +19,9 @@ echo ""
 # Configuration
 PROJECT_ROOT="$PWD"
 FFMPEG_VERSION="7.1.2"
-BUILD_DIR="$PROJECT_ROOT/ffmpeg-build"
+BUILD_DIR="$PROJECT_ROOT/static-build/ffmpeg"
 SOURCE_DIR="$BUILD_DIR/ffmpeg-${FFMPEG_VERSION}"
-INSTALL_PREFIX="$BUILD_DIR/install"
+INSTALL_PREFIX="$PROJECT_ROOT/static-build/install"
 DOWNLOAD_URL="https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
 
 # Create build directory
@@ -52,7 +52,7 @@ echo ""
 echo -e "${BLUE}🔍 Checking system dependencies...${NC}"
 
 # Check for static dependencies (built via build-static-deps.sh)
-DEPS_DIR="$PROJECT_ROOT/deps-build/install"
+DEPS_DIR="$PROJECT_ROOT/static-build/install"
 
 if [ ! -d "$DEPS_DIR" ]; then
     echo -e "${YELLOW}⚠️  Static dependencies not found at $DEPS_DIR${NC}"
