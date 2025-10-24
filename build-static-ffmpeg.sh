@@ -17,8 +17,9 @@ echo -e "${BLUE}🏗️  Static FFmpeg 7.1.2 Build for SourcePrint${NC}"
 echo ""
 
 # Configuration
+PROJECT_ROOT="$PWD"
 FFMPEG_VERSION="7.1.2"
-BUILD_DIR="$PWD/ffmpeg-build"
+BUILD_DIR="$PROJECT_ROOT/ffmpeg-build"
 SOURCE_DIR="$BUILD_DIR/ffmpeg-${FFMPEG_VERSION}"
 INSTALL_PREFIX="$BUILD_DIR/install"
 DOWNLOAD_URL="https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
@@ -50,14 +51,21 @@ cd "$SOURCE_DIR"
 echo ""
 echo -e "${BLUE}🔍 Checking system dependencies...${NC}"
 
-# Install minimal dependencies via Homebrew (freetype + harfbuzz for drawtext filter)
-echo -e "${YELLOW}📦 Installing build dependencies via Homebrew...${NC}"
-brew list freetype &>/dev/null || brew install freetype
-brew list harfbuzz &>/dev/null || brew install harfbuzz
+# Check for static dependencies (built via build-static-deps.sh)
+DEPS_DIR="$PROJECT_ROOT/deps-build/install"
+
+if [ ! -d "$DEPS_DIR" ]; then
+    echo -e "${YELLOW}⚠️  Static dependencies not found at $DEPS_DIR${NC}"
+    echo -e "${YELLOW}   Run ./build-static-deps.sh first to build freetype, harfbuzz, libpng, liblzma${NC}"
+    exit 1
+fi
+
+# Install build tools from Homebrew
+echo -e "${YELLOW}📦 Checking build tools...${NC}"
 brew list pkg-config &>/dev/null || brew install pkg-config
 brew list nasm &>/dev/null || brew install nasm  # For optimized assembly
 
-echo -e "${GREEN}✅ Dependencies ready${NC}"
+echo -e "${GREEN}✅ Using static dependencies from $DEPS_DIR${NC}"
 
 # Configure FFmpeg for static build
 echo ""
@@ -69,6 +77,9 @@ echo ""
 # Clean previous build if exists
 make distclean 2>/dev/null || true
 
+# Set PKG_CONFIG_PATH to find our static dependencies
+export PKG_CONFIG_PATH="$DEPS_DIR/lib/pkgconfig"
+
 # Configure with static build settings
 ./configure \
     --prefix="$INSTALL_PREFIX" \
@@ -79,6 +90,11 @@ make distclean 2>/dev/null || true
     --enable-videotoolbox \
     --enable-libfreetype \
     --enable-libharfbuzz \
+    --disable-xlib \
+    --disable-libxcb \
+    --disable-libxcb-shm \
+    --disable-libxcb-xfixes \
+    --disable-libxcb-shape \
     --arch=arm64 \
     --cc="clang -arch arm64" \
     --cxx="clang++ -arch arm64" \
@@ -92,8 +108,8 @@ make distclean 2>/dev/null || true
     --disable-podpages \
     --disable-txtpages \
     --enable-pic \
-    --extra-cflags="-I/opt/homebrew/include -O3 -fPIC" \
-    --extra-ldflags="-L/opt/homebrew/lib" \
+    --extra-cflags="-I$DEPS_DIR/include -O3 -fPIC" \
+    --extra-ldflags="-L$DEPS_DIR/lib" \
     --pkg-config-flags="--static" \
     --enable-filters \
     --enable-filter=color \

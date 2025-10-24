@@ -7,10 +7,17 @@ set -e
 
 # Check for static FFmpeg build
 STATIC_FFMPEG_DIR="$PWD/ffmpeg-build/install"
+STATIC_DEPS_DIR="$PWD/deps-build/install"
 
 if [ ! -d "$STATIC_FFMPEG_DIR" ]; then
     echo "❌ Static FFmpeg not found at $STATIC_FFMPEG_DIR"
-    echo "Run: ./build-static-ffmpeg.sh"
+    echo "Run: ./build-static-deps.sh && ./build-static-ffmpeg.sh"
+    exit 1
+fi
+
+if [ ! -d "$STATIC_DEPS_DIR" ]; then
+    echo "❌ Static dependencies not found at $STATIC_DEPS_DIR"
+    echo "Run: ./build-static-deps.sh"
     exit 1
 fi
 
@@ -51,7 +58,7 @@ xcodebuild -project SourcePrint.xcodeproj \
            build \
            -derivedDataPath ./build \
            CODE_SIGN_IDENTITY="-" \
-           OTHER_LDFLAGS='-L'"$STATIC_FFMPEG_DIR"'/lib -lavfilter -lpostproc -lavdevice -L/opt/homebrew/opt/freetype/lib -lfreetype -L/opt/homebrew/opt/harfbuzz/lib -lharfbuzz -L/opt/homebrew/opt/libpng/lib -lpng16 $(inherited)'
+           OTHER_LDFLAGS='-L'"$STATIC_FFMPEG_DIR"'/lib -L'"$STATIC_DEPS_DIR"'/lib -lavfilter -lpostproc -lavdevice -lfreetype -lharfbuzz -lpng16 -llzma $(inherited)'
 
 if [ $? -eq 0 ]; then
     echo "✅ SourcePrint build succeeded!"
