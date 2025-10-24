@@ -1,8 +1,20 @@
 # SourcePrint
 
-A silly solution to a silly problem, a video post-production tool that composites consolidated graded segments back into blanked out source length original camera files (OCF) with frame-accurate timecode positioning.
+A silly solution to a silly problem.
+A video post-production tool that composites consolidated graded segments back into blanked out source length original camera files (OCF) with frame-accurate timecode positioning.
 
 ## How It Works
+
+1. Import your consolidated graded clips from a media managed grade project.
+2. Import your OCF clips, or transcodes of them (ideally ProRes)
+3. Link them in the linking page
+4. Render:
+  - The inital render makes a blank copy of the OCF file, with src TC burnt in as fast as possible, (also as small as possible as the file is 99% empty, its reasonalably small)
+  - Then using Apple VideoToolBox / FFmpeg block level passthrough file maninuplation, SourcePrint "merges" the graded clips with the blanked file, almost instantly.
+
+5. Relink in your NLE to these files avoid major conform hell :)
+
+
 
 Layered composition with frame ownership analysis:
 
