@@ -9,6 +9,29 @@
         <!-- Sparkle Public Key (for signing): 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI= -->
 
         <item>
+            <title>Version 0.1.7</title>
+            <description><![CDATA[
+                <h2>SourcePrint v0.1.7</h2>
+                <ul>
+                    <li>  🏗️ Static FFmpeg 7.1.2 Integration
+  - FFmpeg and all dependencies now compiled directly into SourcePrint
+
+-ƒq</li>
+                </ul>
+            ]]></description>
+            <pubDate>Fri, 24 Oct 2025 14:37:23 +0000</pubDate>
+            <sparkle:version>66</sparkle:version>
+            <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/ProResWriter/releases/download/v0.1.7/SourcePrint-0.1.7.zip"
+                sparkle:edSignature="nFr59/0yd0+xvSIwtg+JFw3S3+gZmN6K/kgzlhQO/MCILgR/kocvTs1WZtR9ng2dVJBPqPtaGhBQhnHSPJkDDQ=="
+                length="19430788"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <item>
             <title>Version 0.1.6</title>
             <description><![CDATA[
                 <h2>SourcePrint v0.1.6</h2>
