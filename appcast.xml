@@ -9,6 +9,26 @@
         <!-- Sparkle Public Key (for signing): 7Gzr9LEfP3ZrSaHS6XqWPjU6x/GtNWzwAUTFfEAr5wI= -->
 
         <item>
+            <title>Version 0.1.8</title>
+            <description><![CDATA[
+                <h2>SourcePrint v0.1.8</h2>
+                <ul>
+                    <li>renamed and cleaned up project files</li>
+                </ul>
+            ]]></description>
+            <pubDate>Fri, 24 Oct 2025 16:29:56 +0000</pubDate>
+            <sparkle:version>74</sparkle:version>
+            <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/francisqureshi/SourcePrint/releases/download/v0.1.8/SourcePrint-0.1.8.zip"
+                sparkle:edSignature="fqtkDqKlPgfMHXndHf3NyiyUYLpuUYN3j4qebmR3T3/LobCv830hUn4RXYCg3oYUO8b2wH8gTFKH2fsADoIaDw=="
+                length="19421545"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <item>
             <title>Version 0.1.7</title>
             <description><![CDATA[
                 <h2>SourcePrint v0.1.7</h2>
