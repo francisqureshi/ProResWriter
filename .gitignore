@@ -1,7 +1,7 @@
 # Build outputs
 /build/
 DerivedData/
-SourcePrint/build/
+macos/build/
 static-build/
 ffmpeg-frameworks/
 
@@ -26,9 +26,8 @@ xcuserdata/
 .build/
 Package.resolved
 
-# Security - NEVER commit these!
+# Keys 
 *PRIVATE_KEY*
 *private*key*
 *.pem
 
-/ProResWriter/EXAMPLE Movie Timecode

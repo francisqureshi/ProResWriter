@@ -10,7 +10,7 @@ STATIC_BUILD_DIR="$PWD/static-build/install"
 
 if [ ! -d "$STATIC_BUILD_DIR" ]; then
     echo "❌ Static FFmpeg and dependencies not found at $STATIC_BUILD_DIR"
-    echo "Run: ./build-static-deps.sh && ./build-static-ffmpeg.sh"
+    echo "Run: ./build-static-deps.sh && ./build-static-ffmpeg.sh" 
     exit 1
 fi
 
@@ -36,7 +36,7 @@ echo "   Static libraries: $STATIC_BUILD_DIR/lib"
 echo "   pkg-config path: $PKG_CONFIG_PATH"
 echo ""
 
-cd SourcePrint
+cd macos
 
 # Clean to remove cached dynamic library references
 echo "Cleaning build cache..."

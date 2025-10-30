@@ -10,15 +10,6 @@ import Foundation
 import SourcePrintCore
 import SwiftUI
 
-// MARK: - File Metadata
-
-struct OfflineFileMetadata: Codable {
-    let fileName: String
-    let fileSize: Int64
-    let offlineDate: Date
-    let partialHash: String?  // Optional hash for fallback comparison
-}
-
 // MARK: - Project Data Model
 
 class Project: ObservableObject, Codable, Identifiable {
@@ -433,62 +424,32 @@ class Project: ObservableObject, Codable, Identifiable {
 
     /// Get file modification date from file system
     private func getFileModificationDate(for url: URL) -> Date? {
-        do {
-            let resourceValues = try url.resourceValues(forKeys: [.contentModificationDateKey])
-            return resourceValues.contentModificationDate
-        } catch {
-            print("⚠️ Could not get modification date for \(url.lastPathComponent): \(error)")
+        switch FileSystemOperations.getModificationDate(for: url) {
+        case .success(let date):
+            return date
+        case .failure(let error):
+            print("⚠️ \(error.localizedDescription)")
             return nil
         }
     }
 
     private func getFileSize(for url: URL) -> Int64? {
-        do {
-            let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
-            return resourceValues.fileSize.map { Int64($0) }
-        } catch {
-            print("⚠️ Could not get file size for \(url.lastPathComponent): \(error)")
+        switch FileSystemOperations.getFileSize(for: url) {
+        case .success(let size):
+            return size
+        case .failure(let error):
+            print("⚠️ \(error.localizedDescription)")
             return nil
         }
     }
 
     /// Calculate partial hash (first 1MB + last 1MB) for file comparison
     private func calculatePartialHash(for url: URL) -> String? {
-        guard let fileHandle = try? FileHandle(forReadingFrom: url) else {
-            NSLog("⚠️ Could not open file for hashing: %@", url.lastPathComponent)
-            return nil
-        }
-        defer { try? fileHandle.close() }
-
-        do {
-            let chunkSize = 1024 * 1024  // 1MB
-            var hasher = SHA256()
-
-            // Get file size
-            let fileSize = try fileHandle.seekToEnd()
-            try fileHandle.seek(toOffset: 0)
-
-            // Hash first chunk (or entire file if smaller)
-            let firstChunkSize = min(UInt64(chunkSize), fileSize)
-            if let firstData = try? fileHandle.read(upToCount: Int(firstChunkSize)) {
-                hasher.update(data: firstData)
-            }
-
-            // Hash last chunk if file is large enough
-            if fileSize > UInt64(chunkSize * 2) {
-                try fileHandle.seek(toOffset: fileSize - UInt64(chunkSize))
-                if let lastData = try? fileHandle.read(upToCount: chunkSize) {
-                    hasher.update(data: lastData)
-                }
-            }
-
-            let digest = hasher.finalize()
-            let hashString = digest.map { String(format: "%02x", $0) }.joined()
-            return hashString
-        } catch {
-            NSLog(
-                "⚠️ Error calculating hash for %@: %@", url.lastPathComponent,
-                error.localizedDescription)
+        switch FileSystemOperations.calculatePartialHash(for: url) {
+        case .success(let hash):
+            return hash
+        case .failure(let error):
+            NSLog("⚠️ %@", error.localizedDescription)
             return nil
         }
     }

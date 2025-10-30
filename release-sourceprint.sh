@@ -19,8 +19,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Paths
-APP_PATH="SourcePrint/build/Build/Products/Release/SourcePrint.app"
-SIGN_UPDATE_TOOL="SourcePrint/build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
+APP_PATH="macos/build/Build/Products/Release/SourcePrint.app"
+SIGN_UPDATE_TOOL="macos/build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
 APPCAST_PATH="appcast.xml"
 
 echo -e "${BLUE}🚀 SourcePrint Release Automation${NC}"
@@ -55,12 +55,12 @@ fi
 echo ""
 echo -e "${BLUE}📦 Packaging app...${NC}"
 ZIP_NAME="SourcePrint-$VERSION.zip"
-ZIP_PATH="SourcePrint/build/Build/Products/Release/$ZIP_NAME"
+ZIP_PATH="macos/build/Build/Products/Release/$ZIP_NAME"
 
 if [ "$DRY_RUN" = true ]; then
     echo -e "${YELLOW}Would create: $ZIP_NAME${NC}"
 else
-    cd SourcePrint/build/Build/Products/Release
+    cd macos/build/Build/Products/Release
     rm -f "$ZIP_NAME"
     ditto -c -k --sequesterRsrc --keepParent SourcePrint.app "$ZIP_NAME"
     cd - > /dev/null

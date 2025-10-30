@@ -182,32 +182,12 @@ struct MediaImportTab: View {
     }
     
     private func getAllVideoFiles(from directoryURL: URL) async -> [URL] {
-        var videoFiles: [URL] = []
-        let videoExtensions = ["mov", "mp4", "m4v", "mxf", "prores"]
-        
-        guard let enumerator = FileManager.default.enumerator(
-            at: directoryURL,
-            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else {
-            return videoFiles
+        do {
+            return try await VideoFileDiscovery.discoverVideoFiles(in: directoryURL)
+        } catch {
+            print("⚠️ Failed to discover video files: \(error)")
+            return []
         }
-        
-        for case let fileURL as URL in enumerator {
-            do {
-                let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
-                if resourceValues.isRegularFile == true {
-                    let fileExtension = fileURL.pathExtension.lowercased()
-                    if videoExtensions.contains(fileExtension) {
-                        videoFiles.append(fileURL)
-                    }
-                }
-            } catch {
-                print("Error processing file \(fileURL): \(error)")
-            }
-        }
-        
-        return videoFiles.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
     
     private func importMediaFiles(urls: [URL], isOCF: Bool) {
