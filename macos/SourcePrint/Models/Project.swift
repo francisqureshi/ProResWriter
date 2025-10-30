@@ -12,7 +12,7 @@ import SwiftUI
 
 // MARK: - Project Data Model
 
-class Project: ObservableObject, Codable, Identifiable {
+class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
 
     // MARK: - Basic Project Info
     let id = UUID()
@@ -51,7 +51,7 @@ class Project: ObservableObject, Codable, Identifiable {
             updateWatchFolderMonitoring()
         }
     }
-    private var watchFolderService: FileMonitorWatchFolder?
+    private var watchFolderService: WatchFolderService?
 
     // MARK: - Computed Properties
     var hasLinkedMedia: Bool {
@@ -477,6 +477,26 @@ class Project: ObservableObject, Codable, Identifiable {
 
     // MARK: - Watch Folder Monitoring
 
+    // MARK: - WatchFolderDelegate
+
+    func watchFolder(_ service: WatchFolderService, didDetectNewFiles files: [URL], isVFX: Bool) {
+        handleDetectedVideoFiles(files, isVFX: isVFX)
+    }
+
+    func watchFolder(_ service: WatchFolderService, didDetectDeletedFiles fileNames: [String], isVFX: Bool) {
+        handleDeletedVideoFiles(fileNames, isVFX: isVFX)
+    }
+
+    func watchFolder(_ service: WatchFolderService, didDetectModifiedFiles fileNames: [String], isVFX: Bool) {
+        handleModifiedVideoFiles(fileNames, isVFX: isVFX)
+    }
+
+    func watchFolder(_ service: WatchFolderService, didEncounterError error: WatchFolderError) {
+        NSLog("⚠️ Watch folder error: %@", error.localizedDescription)
+    }
+
+    // MARK: - Watch Folder Lifecycle
+
     private func updateWatchFolderMonitoring() {
         NSLog(
             "🔄 Watch folder settings changed: enabled=%@",
@@ -506,124 +526,109 @@ class Project: ObservableObject, Codable, Identifiable {
             NSLog("🎬 VFX folder: %@", vfxPath)
         }
 
-        watchFolderService = FileMonitorWatchFolder()
+        watchFolderService = WatchFolderService(gradePath: gradePath, vfxPath: vfxPath)
+        watchFolderService?.delegate = self
 
-        // Set up callback for when video files are detected
-        watchFolderService?.onVideoFilesDetected = { [weak self] videoFiles, isVFX in
-            DispatchQueue.main.async {
-                self?.handleDetectedVideoFiles(videoFiles, isVFX: isVFX)
-            }
-        }
-
-        // Set up callback for when video files are deleted
-        watchFolderService?.onVideoFilesDeleted = { [weak self] fileNames, isVFX in
-            DispatchQueue.main.async {
-                self?.handleDeletedVideoFiles(fileNames, isVFX: isVFX)
-            }
-        }
-
-        // Set up callback for when video files are modified
-        watchFolderService?.onVideoFilesModified = { [weak self] fileNames, isVFX in
-            DispatchQueue.main.async {
-                self?.handleModifiedVideoFiles(fileNames, isVFX: isVFX)
-            }
-        }
-
-        watchFolderService?.startWatching(gradePath: gradePath, vfxPath: vfxPath)
-
-        // Check for files that changed while app was closed
+        // Check for files that changed while app was closed BEFORE starting monitor
+        // This prevents duplicate imports (startup scan vs real-time detection)
         checkForChangedFilesOnStartup(gradePath: gradePath, vfxPath: vfxPath)
     }
 
     /// Check if any already-imported files in watch folders have changed while app was closed
+    /// Also scans for new files added while app was closed
     private func checkForChangedFilesOnStartup(gradePath: String?, vfxPath: String?) {
-        NSLog("🔍 Checking for file changes that occurred while app was closed...")
+        guard let service = watchFolderService else { return }
 
-        var changedCount = 0
+        // 1. Detect changes to known segments (modifications and deletions)
+        let changes = service.detectChangesOnStartup(knownSegments: segments, trackedSizes: segmentFileSizes)
 
-        for segment in segments {
-            let fileName = segment.fileName
-            let fileURL = segment.url
+        // Handle modified files
+        for fileName in changes.modifiedFiles {
+            // Update modification date
+            segmentModificationDates[fileName] = Date()
 
-            // Check if this segment is in a watch folder
-            var isInWatchFolder = false
-            if let gradePath = gradePath, fileURL.path.hasPrefix(gradePath) {
-                isInWatchFolder = true
-            } else if let vfxPath = vfxPath, fileURL.path.hasPrefix(vfxPath) {
-                isInWatchFolder = true
+            // Update size
+            if let sizeChange = changes.sizeChanges[fileName] {
+                segmentFileSizes[fileName] = sizeChange.new
             }
 
-            guard isInWatchFolder else { continue }
-
-            // Check if file exists and compare size
-            if let storedSize = segmentFileSizes[fileName],
-                let currentSize = getFileSize(for: fileURL)
-            {
-
-                if currentSize != storedSize {
-                    // File size changed while app was closed
-                    NSLog(
-                        "⚠️ File changed while app was closed: %@ (old: %lld, new: %lld bytes)",
-                        fileName, storedSize, currentSize)
-
-                    // Update modification date and size
-                    segmentModificationDates[fileName] = Date()
-                    segmentFileSizes[fileName] = currentSize
-
-                    // Mark affected OCFs for re-print
-                    if let linkingResult = linkingResult {
-                        for ocfParent in linkingResult.ocfParents {
-                            for child in ocfParent.children {
-                                if child.segment.fileName == fileName {
-                                    let lastPrint = printStatus[ocfParent.ocf.fileName]
-                                    let printDate: Date
-                                    if case .printed(let date, _) = lastPrint {
-                                        printDate = date
-                                    } else {
-                                        printDate = Date()
-                                    }
-                                    printStatus[ocfParent.ocf.fileName] = .needsReprint(
-                                        lastPrintDate: printDate, reason: .segmentModified)
-                                }
+            // Mark affected OCFs for re-print
+            if let linkingResult = linkingResult {
+                for ocfParent in linkingResult.ocfParents {
+                    for child in ocfParent.children {
+                        if child.segment.fileName == fileName {
+                            let lastPrint = printStatus[ocfParent.ocf.fileName]
+                            let printDate: Date
+                            if case .printed(let date, _) = lastPrint {
+                                printDate = date
+                            } else {
+                                printDate = Date()
                             }
+                            printStatus[ocfParent.ocf.fileName] = .needsReprint(
+                                lastPrintDate: printDate, reason: .segmentModified)
                         }
                     }
-
-                    changedCount += 1
-                }
-            } else if !FileManager.default.fileExists(atPath: fileURL.path) {
-                // File was deleted while app was closed
-                if !offlineMediaFiles.contains(fileName) {
-                    NSLog("⚠️ File deleted while app was closed: %@", fileName)
-                    offlineMediaFiles.insert(fileName)
-
-                    // Store metadata
-                    if let storedSize = segmentFileSizes[fileName] {
-                        let metadata = OfflineFileMetadata(
-                            fileName: fileName,
-                            fileSize: storedSize,
-                            offlineDate: Date(),
-                            partialHash: nil
-                        )
-                        offlineFileMetadata[fileName] = metadata
-                    }
-
-                    changedCount += 1
                 }
             }
         }
 
-        if changedCount > 0 {
-            NSLog("✅ Found %d file(s) that changed while app was closed", changedCount)
+        // Handle deleted files
+        for fileName in changes.deletedFiles {
+            if !offlineMediaFiles.contains(fileName) {
+                offlineMediaFiles.insert(fileName)
+
+                // Store metadata
+                if let storedSize = segmentFileSizes[fileName] {
+                    let metadata = OfflineFileMetadata(
+                        fileName: fileName,
+                        fileSize: storedSize,
+                        offlineDate: Date(),
+                        partialHash: nil
+                    )
+                    offlineFileMetadata[fileName] = metadata
+                }
+            }
+        }
+
+        if changes.hasChanges {
             objectWillChange.send()
-        } else {
-            NSLog("✅ No changes detected in watch folders")
+        }
+
+        // 2. Scan for NEW files added while app was closed
+        // Complete this scan BEFORE starting file monitor to prevent duplicates
+        Task {
+            let newFiles = await service.scanForNewFiles(knownSegments: segments)
+
+            // Auto-import new grade files (WAIT for completion)
+            if !newFiles.gradeFiles.isEmpty && watchFolderSettings.autoImportEnabled {
+                NSLog("🎬 Auto-importing %d new grade files from startup scan...", newFiles.gradeFiles.count)
+                let gradeMediaFiles = await analyzeDetectedFiles(urls: newFiles.gradeFiles, isVFX: false)
+                await MainActor.run {
+                    addSegments(gradeMediaFiles)
+                    NSLog("✅ Startup import complete: %d grade files", gradeMediaFiles.count)
+                }
+            }
+
+            // Auto-import new VFX files (WAIT for completion)
+            if !newFiles.vfxFiles.isEmpty && watchFolderSettings.autoImportEnabled {
+                NSLog("🎬 Auto-importing %d new VFX files from startup scan...", newFiles.vfxFiles.count)
+                let vfxMediaFiles = await analyzeDetectedFiles(urls: newFiles.vfxFiles, isVFX: true)
+                await MainActor.run {
+                    addSegments(vfxMediaFiles)
+                    NSLog("✅ Startup import complete: %d VFX files", vfxMediaFiles.count)
+                }
+            }
+
+            // NOW start the file monitor (after startup import FULLY completes)
+            await MainActor.run {
+                service.startMonitoring()
+                NSLog("✅ Watch folder monitoring active")
+            }
         }
     }
 
     private func stopWatchFolder() {
-        NSLog("🛑 Stopping watch folder monitoring")
-        watchFolderService?.stopWatching()
+        watchFolderService?.stopMonitoring()
         watchFolderService = nil
     }
 
@@ -634,111 +639,28 @@ class Project: ObservableObject, Codable, Identifiable {
             return
         }
 
-        // Check for returning offline files first
-        var returningOfflineFiles: [URL] = []
-        var changedOfflineFiles: [URL] = []
-        var newVideoFiles: [URL] = []
-
-        let existingFileNames = Set(segments.map { $0.fileName })
-
-        for url in videoFiles {
-            let fileName = url.lastPathComponent
-
-            // Check if this is a returning offline file
-            if offlineMediaFiles.contains(fileName) {
-                if let metadata = offlineFileMetadata[fileName],
-                    let currentSize = getFileSize(for: url)
-                {
-
-                    if currentSize == metadata.fileSize {
-                        // Same size - treat as same file returning
-                        returningOfflineFiles.append(url)
-                        NSLog(
-                            "🔄 Offline file returned unchanged: %@ (size: %lld bytes)", fileName,
-                            currentSize)
-                    } else {
-                        // Different size - file has changed
-                        changedOfflineFiles.append(url)
-                        NSLog(
-                            "⚠️ Offline file returned but CHANGED: %@ (old: %lld, new: %lld bytes)",
-                            fileName, metadata.fileSize, currentSize)
-                    }
-                } else if let currentSize = getFileSize(for: url) {
-                    // No metadata - use hash fallback
-                    NSLog("🔐 No metadata for %@ - computing hash for comparison", fileName)
-
-                    if let currentHash = calculatePartialHash(for: url) {
-                        // Check if we have a stored hash to compare
-                        if let metadata = offlineFileMetadata[fileName],
-                            let storedHash = metadata.partialHash
-                        {
-                            if currentHash == storedHash {
-                                // Hash matches - same file
-                                returningOfflineFiles.append(url)
-                                NSLog("🔄 Hash match - file unchanged: %@", fileName)
-                            } else {
-                                // Hash different - file changed
-                                changedOfflineFiles.append(url)
-                                NSLog("⚠️ Hash mismatch - file changed: %@", fileName)
-                            }
-                        } else {
-                            // No stored hash - store for next time and treat as changed
-                            let newMetadata = OfflineFileMetadata(
-                                fileName: fileName,
-                                fileSize: currentSize,
-                                offlineDate: Date(),
-                                partialHash: currentHash
-                            )
-                            offlineFileMetadata[fileName] = newMetadata
-                            changedOfflineFiles.append(url)
-                            NSLog("🔐 Computed and stored hash - treating as changed: %@", fileName)
-                        }
-                    } else {
-                        // Hash computation failed - treat as returning with changes
-                        changedOfflineFiles.append(url)
-                        NSLog("⚠️ Hash computation failed - treating as changed: %@", fileName)
-                    }
-                } else {
-                    // Can't get file size - treat as returning
-                    returningOfflineFiles.append(url)
-                    NSLog("🔄 Offline file returned (no size check possible): %@", fileName)
-                }
-            } else if existingFileNames.contains(fileName) {
-                // File already exists and is online - check if it has changed
-                if let storedSize = segmentFileSizes[fileName],
-                    let currentSize = getFileSize(for: url)
-                {
-
-                    if currentSize != storedSize {
-                        // Size changed - file has been replaced
-                        changedOfflineFiles.append(url)
-                        NSLog(
-                            "⚠️ Online file CHANGED: %@ (old: %lld, new: %lld bytes)",
-                            fileName, storedSize, currentSize)
-                    } else {
-                        // Size unchanged - ignore (already imported)
-                        NSLog("📋 File already imported and unchanged: %@", fileName)
-                    }
-                } else {
-                    // No stored size to compare - ignore
-                    NSLog("📋 File already imported (no size tracking): %@", fileName)
-                }
-            } else {
-                // Truly new file
-                newVideoFiles.append(url)
-            }
-        }
+        // Use FileChangeDetector for classification
+        let classification = FileChangeDetector.classifyFiles(
+            detectedFiles: videoFiles,
+            existingSegments: segments,
+            offlineFiles: offlineMediaFiles,
+            offlineMetadata: offlineFileMetadata,
+            trackedSizes: segmentFileSizes
+        )
 
         // Handle returning offline files (same size - just remove offline status)
-        for url in returningOfflineFiles {
+        for url in classification.returningUnchanged {
             let fileName = url.lastPathComponent
             offlineMediaFiles.remove(fileName)
             offlineFileMetadata.removeValue(forKey: fileName)
             NSLog("✅ File %@ is back online", fileName)
         }
 
-        // Handle changed offline files (different size - treat as modified)
-        for url in changedOfflineFiles {
+        // Combine returning changed files and existing modified files
+        let changedFiles = classification.returningChanged + classification.existingModified
+
+        // Handle changed files (different size - treat as modified)
+        for url in changedFiles {
             let fileName = url.lastPathComponent
             offlineMediaFiles.remove(fileName)
             offlineFileMetadata.removeValue(forKey: fileName)
@@ -779,19 +701,19 @@ class Project: ObservableObject, Codable, Identifiable {
         // User can manually re-run linking if they want to refresh the analysis
 
         // Import truly new files
-        guard !newVideoFiles.isEmpty else {
-            if returningOfflineFiles.isEmpty && changedOfflineFiles.isEmpty {
+        guard !classification.newFiles.isEmpty else {
+            if classification.returningUnchanged.isEmpty && changedFiles.isEmpty {
                 NSLog(
                     "⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
             }
             return
         }
 
-        NSLog("🎬 Auto-importing %d new %@ files...", newVideoFiles.count, isVFX ? "VFX" : "grade")
+        NSLog("🎬 Auto-importing %d new %@ files...", classification.newFiles.count, isVFX ? "VFX" : "grade")
 
         // Import as segments with VFX flag
         Task {
-            let mediaFiles = await analyzeDetectedFiles(urls: newVideoFiles, isVFX: isVFX)
+            let mediaFiles = await analyzeDetectedFiles(urls: classification.newFiles, isVFX: isVFX)
 
             await MainActor.run {
                 addSegments(mediaFiles)
