@@ -19,12 +19,15 @@ docs/architecture_audit/
 ├── phase1/                      # File System Utilities
 │   └── phase1_completion.md     # Phase 1 completion report
 │
-└── phase2/                      # Watch Folder Service
-    ├── phase2_progress.md       # Main progress tracking document
-    ├── phase2_bug_report.md     # Startup detection bug & resolution
-    ├── phase2_bug_duplicate_imports.md  # Duplicate import bug & fix
-    ├── startup_detection_explanation.md  # How startup detection works
-    └── testing_watch_folder.md  # Unit tests & integration test guide
+├── phase2/                      # Watch Folder Service
+│   ├── phase2_progress.md       # Main progress tracking document
+│   ├── phase2_bug_report.md     # Startup detection bug & resolution
+│   ├── phase2_bug_duplicate_imports.md  # Duplicate import bug & fix
+│   ├── startup_detection_explanation.md  # How startup detection works
+│   └── testing_watch_folder.md  # Unit tests & integration test guide
+│
+└── phase3/                      # Render Queue Manager
+    └── phase3_progress.md       # Main progress tracking document
 ```
 
 ---
@@ -75,6 +78,13 @@ Location: `phase2/`
 **Status:** Complete (including bug fixes)
 **Outcome:** 421 lines of production code extracted to core, 119 lines removed from UI
 
+### Phase 3: Render Queue Manager ⏳
+
+Location: `phase3/`
+
+**Status:** Planning
+**Goal:** Extract render queue orchestration and render workflow from UI layer
+
 **Main Document:** `phase2_progress.md`
 - Complete progress tracking
 - Sub-phases 2A-2D breakdown
@@ -112,8 +122,8 @@ Location: `phase2/`
 |-------|--------|-------------|---------------|------------------|
 | Phase 1 | ✅ Complete | ~200 | 53 | FileSystemOperations, VideoFileDiscovery |
 | Phase 2 | ✅ Complete | 421 | 119 | WatchFolderService, FileChangeDetector |
-| Phase 3 | ⏳ Pending | TBD | TBD | OCF Linking Engine |
-| Phase 4 | ⏳ Pending | TBD | TBD | Print Process Abstraction |
+| Phase 3 | 🟡 Planning | TBD | ~600 | RenderQueueManager, RenderService |
+| Phase 4 | ⏳ Pending | TBD | TBD | Project Model Refactoring |
 
 ---
 
@@ -205,31 +215,35 @@ let files = await service.scanForNewFiles(knownSegments: [])
 
 ## Next Steps
 
-### Phase 3: OCF Linking Engine
+### Phase 3: Render Queue Manager
 
-Extract linking logic from `Project.swift`:
-- OCF-segment matching algorithm
-- Timecode validation
-- Consumer camera detection
-- VFX shot handling
-
-**Estimated:**
-- ~500 lines to extract
-- ~200 lines of new core code
-- Medium complexity
-
-### Phase 4: Print Process Abstraction
-
-Create unified interface for print processes:
-- AVFoundation writer
-- SwiftFFmpeg writer
-- Blank rush generation
-- Frame ownership analysis
+Extract render queue orchestration and render workflow:
+- Batch queue state machine
+- Sequential render processing
+- Blank rush + composition workflow
+- Progress tracking and error handling
 
 **Estimated:**
-- ~800 lines to refactor
-- ~300 lines of new core code
-- High complexity (already partially complete)
+- ~600 lines to extract from UI
+- ~400 lines of new core code
+- High complexity
+
+**Key Components:**
+- `RenderQueueManager.swift` - Queue orchestration
+- `RenderService.swift` - Complete render workflow
+- `RenderModels.swift` - Render state models
+
+### Phase 4: Project Model Refactoring
+
+Split Project.swift into model + viewmodel + workflow:
+- Pure data model (Codable, no business logic)
+- SwiftUI reactive wrapper (@ObservableObject)
+- Business operations in ProjectWorkflow
+
+**Estimated:**
+- ~2000 lines to refactor
+- Clean separation of concerns
+- Very high complexity
 
 ---
 
@@ -277,6 +291,9 @@ Create unified interface for print processes:
 - `phase2/startup_detection_explanation.md` - Technical deep dive
 - `phase2/testing_watch_folder.md` - Testing guide
 
+### Phase 3
+- `phase3/phase3_progress.md` - Main tracking document
+
 ---
 
 ## Quick Links
@@ -299,6 +316,7 @@ cd SourcePrintCore && swift test
 **View Progress:**
 - Phase 1: `phase1/phase1_completion.md`
 - Phase 2: `phase2/phase2_progress.md`
+- Phase 3: `phase3/phase3_progress.md`
 
 ---
 
@@ -312,4 +330,4 @@ cd SourcePrintCore && swift test
 ---
 
 **Last Updated:** 2025-10-30
-**Current Phase:** Phase 2 Complete, Ready for Phase 3
+**Current Phase:** Phase 3 Planning Complete
