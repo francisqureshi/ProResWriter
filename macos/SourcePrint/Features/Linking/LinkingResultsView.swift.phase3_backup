@@ -76,11 +76,7 @@ struct LinkingResultsView: View {
 
     // Render queue manager (from SourcePrintCore)
     @StateObject private var renderQueueManager = RenderQueueManager()
-
-    // Computed property to track which OCF is currently rendering
-    private var currentlyRenderingOCF: String? {
-        renderQueueManager.currentItem?.ocfFileName
-    }
+    @State private var currentlyRenderingOCF: String? = nil  // Track which OCF is currently rendering
 
     // Computed properties to separate high/medium confidence from low confidence segments
     var confidentlyLinkedParents: [OCFParent] {
@@ -160,73 +156,279 @@ struct LinkingResultsView: View {
         renderQueueManager.startProcessing()
     }
 
-    private func renderSingle(parent: OCFParent) {
-        NSLog("🎬 Starting single render for: %@", parent.ocf.fileName)
-        renderQueueManager.addToQueue([parent])
-        renderQueueManager.startProcessing()
+    // MARK: - RenderQueueDelegate Implementation
+
+    // These delegate methods are called by RenderQueueManager as renders progress
+    private func processBatchRenderQueue() {
+        // NOTE: This function is now replaced by RenderQueueDelegate
+        // Keeping stub for compatibility during transition
+        guard !renderQueueManager.queue.isEmpty else {
+            totalInBatch = 0
+            NSLog("✅ Batch render queue completed!")
+            return
+        }
+
+        let nextOCFFileName = batchRenderQueue.removeFirst()
+
+        NSLog("📤 Processing batch queue: %@ (%d remaining)", nextOCFFileName, batchRenderQueue.count)
+
+        // Find the parent for this OCF
+        guard let parent = confidentlyLinkedParents.first(where: { $0.ocf.fileName == nextOCFFileName }) else {
+            NSLog("⚠️ Could not find parent for %@, skipping", nextOCFFileName)
+            processBatchRenderQueue()
+            return
+        }
+
+        // Set the currently rendering OCF (prevents other cards from starting)
+        currentlyRenderingOCF = nextOCFFileName
+
+        // Post notification to trigger card's UI and rendering
+        NotificationCenter.default.post(
+            name: .renderOCF,
+            object: nil,
+            userInfo: ["ocfFileName": nextOCFFileName]
+        )
+
+        // Poll until this OCF completes or times out (5 minutes max per OCF)
+        var pollCount = 0
+        let maxPolls = 600 // 5 minutes at 0.5s intervals
+
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            pollCount += 1
+
+            if case .printed = project.printStatus[nextOCFFileName] {
+                timer.invalidate()
+                NSLog("✅ Completed %@ after %d polls, processing next in queue", nextOCFFileName, pollCount)
+
+                // Clear currently rendering flag
+                currentlyRenderingOCF = nil
+
+                // Small delay then process next item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    processBatchRenderQueue()
+                }
+            } else if pollCount >= maxPolls {
+                timer.invalidate()
+                NSLog("⚠️ Timeout waiting for %@ after %d seconds, falling back to direct processing", nextOCFFileName, pollCount / 2)
+
+                // Clear currently rendering flag before fallback
+                currentlyRenderingOCF = nil
+
+                // Fallback to direct processing if card doesn't respond
+                Task {
+                    await processOCFInQueue(parent: parent)
+
+                    // Process next item
+                    await MainActor.run {
+                        processBatchRenderQueue()
+                    }
+                }
+            } else if pollCount % 20 == 0 {
+                // Log status every 10 seconds
+                NSLog("   Still waiting for %@... (status: %@)", nextOCFFileName, String(describing: project.printStatus[nextOCFFileName]))
+            }
+        }
     }
 
-    // Render queue state is observed automatically via @StateObject
-    // SwiftUI will react to changes in renderQueueManager's @Published properties
+    @MainActor
+    private func processOCFInQueue(parent: OCFParent) async {
+        let ocfFileName = parent.ocf.fileName
+        NSLog("🎬 Starting render for %@", ocfFileName)
 
-    // MARK: - Project Status Updates
+        // Check if blank rush exists
+        let blankRushStatus = project.blankRushStatus[ocfFileName] ?? .notCreated
 
-    private func handleRenderCompleted(_ result: RenderResult, projectManager: ProjectManager?) {
-        guard let projectManager = projectManager else { return }
+        var blankRushURL: URL?
 
-        if result.success {
-            // Update blank rush status
-            if let blankRushURL = result.blankRushURL {
-                project.blankRushStatus[result.ocfFileName] = .completed(date: Date(), url: blankRushURL)
+        switch blankRushStatus {
+        case .completed(_, let url):
+            // Verify blank rush file actually exists on disk
+            if FileManager.default.fileExists(atPath: url.path) {
+                NSLog("✅ Using existing blank rush for %@", ocfFileName)
+                blankRushURL = url
+            } else {
+                NSLog("⚠️ Blank rush file missing for %@ - will create", ocfFileName)
+                blankRushURL = await createBlankRushForOCF(parent: parent)
             }
 
-            // Update print status
-            if let outputURL = result.outputURL {
-                project.printStatus[result.ocfFileName] = .printed(date: Date(), outputURL: outputURL)
-            }
+        case .notCreated, .failed:
+            NSLog("📝 Creating blank rush for %@", ocfFileName)
+            blankRushURL = await createBlankRushForOCF(parent: parent)
 
-            // Clear modification dates for printed segments
-            if let parent = confidentlyLinkedParents.first(where: { $0.ocf.fileName == result.ocfFileName }) {
-                for child in parent.children {
-                    project.segmentModificationDates.removeValue(forKey: child.segment.fileName)
+        case .inProgress:
+            // Check if file exists despite .inProgress status
+            let url = project.blankRushDirectory
+                .appendingPathComponent(parent.ocf.fileName)
+                .deletingPathExtension()
+                .appendingPathExtension("mov")
+
+            if FileManager.default.fileExists(atPath: url.path) {
+                NSLog("✅ Using existing blank rush for %@ (was .inProgress)", ocfFileName)
+                blankRushURL = url
+            } else {
+                NSLog("⚠️ Blank rush stuck in .inProgress for %@ - recreating", ocfFileName)
+                project.blankRushStatus[ocfFileName] = .notCreated
+                projectManager.saveProject(project)
+                blankRushURL = await createBlankRushForOCF(parent: parent)
+            }
+        }
+
+        guard let validBlankRushURL = blankRushURL else {
+            NSLog("❌ Failed to get/create blank rush for %@, skipping", ocfFileName)
+            return
+        }
+
+        // Now render
+        await renderOCFInQueue(parent: parent, blankRushURL: validBlankRushURL)
+    }
+
+    @MainActor
+    private func createBlankRushForOCF(parent: OCFParent) async -> URL? {
+        let ocfFileName = parent.ocf.fileName
+
+        // Mark as in progress
+        project.blankRushStatus[ocfFileName] = .inProgress
+        projectManager.saveProject(project)
+
+        // Create single-file linking result for this OCF
+        let singleOCFResult = LinkingResult(
+            ocfParents: [parent],
+            unmatchedSegments: [],
+            unmatchedOCFs: []
+        )
+
+        let blankRushCreator = BlankRushIntermediate(projectDirectory: project.blankRushDirectory.path)
+
+        // Create blank rush
+        let results = await blankRushCreator.createBlankRushes(from: singleOCFResult)
+
+        // Process result
+        if let result = results.first {
+            if result.success {
+                project.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
+                projectManager.saveProject(project)
+                NSLog("✅ Created blank rush for %@", ocfFileName)
+                return result.blankRushURL
+            } else {
+                let errorMessage = result.error ?? "Unknown error"
+                project.blankRushStatus[result.originalOCF.fileName] = .failed(error: errorMessage)
+                projectManager.saveProject(project)
+                NSLog("❌ Failed to create blank rush for %@: %@", ocfFileName, errorMessage)
+                return nil
+            }
+        }
+
+        return nil
+    }
+
+    @MainActor
+    private func renderOCFInQueue(parent: OCFParent, blankRushURL: URL) async {
+        let ocfFileName = parent.ocf.fileName
+        NSLog("🎥 Rendering %@", ocfFileName)
+
+        do {
+            // Generate output filename
+            let baseName = (ocfFileName as NSString).deletingPathExtension
+            let outputFileName = "\(baseName).mov"
+            let outputURL = project.outputDirectory.appendingPathComponent(outputFileName)
+
+            // Create SwiftFFmpeg compositor
+            let compositor = SwiftFFmpegProResCompositor()
+
+            // Convert linked children to FFmpegGradedSegments
+            var ffmpegGradedSegments: [FFmpegGradedSegment] = []
+            for child in parent.children {
+                let segmentInfo = child.segment
+
+                if let segmentTC = segmentInfo.sourceTimecode,
+                   let baseTC = parent.ocf.sourceTimecode,
+                   let segmentFrameRate = segmentInfo.frameRate,
+                   let segmentFrameRateFloat = segmentInfo.frameRateFloat,
+                   let duration = segmentInfo.durationInFrames {
+
+                    let smpte = SMPTE(fps: Double(segmentFrameRateFloat), dropFrame: segmentInfo.isDropFrame ?? false)
+
+                    do {
+                        let segmentFrames = try smpte.getFrames(tc: segmentTC)
+                        let baseFrames = try smpte.getFrames(tc: baseTC)
+                        let relativeFrames = segmentFrames - baseFrames
+
+                        let startTime = CMTime(
+                            value: CMTimeValue(relativeFrames),
+                            timescale: CMTimeScale(segmentFrameRateFloat)
+                        )
+
+                        let segmentDuration = CMTime(
+                            seconds: Double(duration) / Double(segmentFrameRateFloat),
+                            preferredTimescale: CMTimeScale(segmentFrameRateFloat * 1000)
+                        )
+
+                        let ffmpegSegment = FFmpegGradedSegment(
+                            url: segmentInfo.url,
+                            startTime: startTime,
+                            duration: segmentDuration,
+                            sourceStartTime: .zero,
+                            isVFXShot: segmentInfo.isVFXShot ?? false,
+                            sourceTimecode: segmentInfo.sourceTimecode,
+                            frameRate: segmentFrameRateFloat,
+                            frameRateRational: segmentFrameRate,
+                            isDropFrame: segmentInfo.isDropFrame
+                        )
+                        ffmpegGradedSegments.append(ffmpegSegment)
+                    } catch {
+                        NSLog("⚠️ SMPTE calculation failed for %@: %@", segmentInfo.fileName, error.localizedDescription)
+                        continue
+                    }
                 }
             }
 
-            // Add print record
-            let printRecord = PrintRecord(
-                date: Date(),
-                outputURL: result.outputURL ?? project.outputDirectory.appendingPathComponent(result.ocfFileName),
-                segmentCount: result.segmentCount,
-                duration: result.duration,
-                success: true
-            )
-            project.addPrintRecord(printRecord)
+            guard !ffmpegGradedSegments.isEmpty else {
+                NSLog("❌ No valid FFmpeg graded segments for %@", ocfFileName)
+                return
+            }
 
-            NSLog("✅ Updated project status for: \(result.ocfFileName)")
-        } else {
-            // Record failed render
-            let printRecord = PrintRecord(
-                date: Date(),
-                outputURL: project.outputDirectory.appendingPathComponent(result.ocfFileName),
-                segmentCount: result.segmentCount,
-                duration: result.duration,
-                success: false
+            // Setup compositor settings
+            let settings = FFmpegCompositorSettings(
+                outputURL: outputURL,
+                baseVideoURL: blankRushURL,
+                gradedSegments: ffmpegGradedSegments,
+                proResProfile: "4"
             )
-            project.addPrintRecord(printRecord)
 
-            NSLog("❌ Recorded failed render for: \(result.ocfFileName)")
+            // Process composition
+            let compositionStartTime = Date()
+            let result = await withCheckedContinuation { continuation in
+                compositor.completionHandler = { result in
+                    continuation.resume(returning: result)
+                }
+                compositor.composeVideo(with: settings)
+            }
+
+            let compositionDuration = Date().timeIntervalSince(compositionStartTime)
+
+            switch result {
+            case .success(let finalOutputURL):
+                let printRecord = PrintRecord(
+                    date: Date(),
+                    outputURL: finalOutputURL,
+                    segmentCount: ffmpegGradedSegments.count,
+                    duration: compositionDuration,
+                    success: true
+                )
+
+                project.printStatus[ocfFileName] = .printed(date: Date(), outputURL: finalOutputURL)
+                project.printHistory.append(printRecord)
+                projectManager.saveProject(project)
+
+                NSLog("✅ Successfully rendered %@ in %.1fs", ocfFileName, compositionDuration)
+
+            case .failure(let error):
+                NSLog("❌ Failed to render %@: %@", ocfFileName, error.localizedDescription)
+            }
+        } catch {
+            NSLog("❌ Error rendering %@: %@", ocfFileName, error.localizedDescription)
         }
-
-        // Save project
-        projectManager.saveProject(project)
     }
-
-    // NOTE: Old batch render functions removed - now handled by RenderQueueManager
-    // The following functions have been extracted to SourcePrintCore:
-    // - processBatchRenderQueue() -> RenderQueueManager.startProcessing()
-    // - processOCFInQueue() -> Handled by card's RenderService
-    // - createBlankRushForOCF() -> RenderService.generateBlankRush()
-    // - renderOCFInQueue() -> RenderService.composeVideo()
 
     var body: some View {
         Group {
@@ -308,22 +510,6 @@ struct LinkingResultsView: View {
         .onKeyPress(.upArrow) {
             handleUpArrow()
             return .handled
-        }
-        .onAppear {
-            // Configure RenderQueueManager with project directories
-            let configuration = RenderConfiguration(
-                blankRushDirectory: project.blankRushDirectory,
-                outputDirectory: project.outputDirectory,
-                proResProfile: "4"
-            )
-            renderQueueManager.configure(with: configuration)
-        }
-        .onChange(of: renderQueueManager.lastCompletedResult) { _, result in
-            // Update project status when a render completes
-            guard let result = result else { return }
-
-            handleRenderCompleted(result, projectManager: projectManager)
-            NSLog("📊 Queue progress: \(renderQueueManager.completedCount) completed, \(renderQueueManager.failedCount) failed")
         }
     }
 
@@ -513,27 +699,16 @@ struct LinkingResultsView: View {
                     }
 
                     // Batch render progress indicator
-                    if renderQueueManager.isProcessing {
-                        VStack(spacing: 4) {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .controlSize(.small)
+                    if isProcessingBatchQueue {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .controlSize(.small)
 
-                                let status = renderQueueManager.getStatus()
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Batch rendering... (\(status.completedItems)/\(status.totalItems) completed)")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-
-                                    // Show current item progress
-                                    if let currentItem = renderQueueManager.currentItem {
-                                        Text("\(currentItem.ocfFileName): \(currentItem.progress)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary.opacity(0.8))
-                                    }
-                                }
-                            }
+                            let completed = totalInBatch - batchRenderQueue.count
+                            Text("Batch rendering... (\(completed)/\(totalInBatch) completed)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
@@ -569,10 +744,7 @@ struct LinkingResultsView: View {
                                 projectManager: projectManager,
                                 getSelectedParents: getSelectedParents,
                                 allParents: confidentlyLinkedParents,
-                                currentlyRenderingOCF: currentlyRenderingOCF,
-                                onRenderSingle: {
-                                    renderSingle(parent: parent)
-                                }
+                                currentlyRenderingOCF: currentlyRenderingOCF
                             )
                             .contextMenu {
                                 OCFParentContextMenu(

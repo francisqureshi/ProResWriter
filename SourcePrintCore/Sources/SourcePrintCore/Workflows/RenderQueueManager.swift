@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 // MARK: - Render Queue Delegate
 
@@ -25,26 +26,29 @@ public protocol RenderQueueDelegate: AnyObject {
 
 /// Manages sequential processing of render queue items
 @MainActor
-public class RenderQueueManager {
+public class RenderQueueManager: ObservableObject {
 
     // MARK: - Properties
 
     public weak var delegate: RenderQueueDelegate?
 
     /// Current queue of items to process
-    public private(set) var queue: [RenderQueueItem] = []
+    @Published public private(set) var queue: [RenderQueueItem] = []
 
     /// Whether the queue is currently processing
-    public private(set) var isProcessing: Bool = false
+    @Published public private(set) var isProcessing: Bool = false
 
     /// Current item being processed
-    public private(set) var currentItem: RenderQueueItem?
+    @Published public private(set) var currentItem: RenderQueueItem?
 
     /// Total items completed successfully
-    public private(set) var completedCount: Int = 0
+    @Published public private(set) var completedCount: Int = 0
 
     /// Total items that failed
-    public private(set) var failedCount: Int = 0
+    @Published public private(set) var failedCount: Int = 0
+
+    /// Last completed result (for UI observation)
+    @Published public private(set) var lastCompletedResult: RenderResult?
 
     /// Task handle for the current processing loop
     private var processingTask: Task<Void, Never>?
@@ -52,9 +56,21 @@ public class RenderQueueManager {
     /// Maximum time to wait for a single render (in seconds)
     public var timeoutPerItem: TimeInterval = 300 // 5 minutes
 
+    /// Render service for performing actual rendering work
+    private var renderService: RenderService?
+
+    /// Configuration for rendering
+    private var renderConfiguration: RenderConfiguration?
+
     // MARK: - Initialization
 
     public init() {}
+
+    /// Configure with render service
+    public func configure(with configuration: RenderConfiguration) {
+        self.renderConfiguration = configuration
+        self.renderService = RenderService(configuration: configuration)
+    }
 
     // MARK: - Public API
 
@@ -154,12 +170,15 @@ public class RenderQueueManager {
             // Wait for render to complete (with timeout)
             let result = await waitForRenderCompletion(item: item)
 
-            // Update counters
+            // Update counters and publish result
             if result.success {
                 completedCount += 1
             } else {
                 failedCount += 1
             }
+
+            // Publish result for UI observation
+            lastCompletedResult = result
 
             // Notify delegate of completion
             delegate?.queueManager(self, didCompleteItem: result)
@@ -179,52 +198,28 @@ public class RenderQueueManager {
 
     /// Wait for a render to complete (with timeout)
     private func waitForRenderCompletion(item: RenderQueueItem) async -> RenderResult {
-        let startTime = Date()
-        let timeoutDate = startTime.addingTimeInterval(timeoutPerItem)
-
-        // Poll for completion or timeout
-        while Date() < timeoutDate && !Task.isCancelled {
-            // Check if still processing (render service should update item status)
-            if let current = currentItem, current.status.isFinished {
-                // Render completed or failed
-                let duration = Date().timeIntervalSince(startTime)
-
-                return RenderResult(
-                    ocfFileName: item.ocfFileName,
-                    success: current.status == .completed,
-                    outputURL: nil, // Will be set by render service
-                    error: current.status == .failed ? current.progress : nil,
-                    duration: duration,
-                    segmentCount: item.ocfParent.children.count
-                )
-            }
-
-            // Wait a bit before checking again
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        }
-
-        // Timeout or cancellation
-        let duration = Date().timeIntervalSince(startTime)
-
-        if Task.isCancelled {
-            NSLog("⏹️ Render cancelled: \(item.ocfFileName)")
+        guard let service = renderService else {
+            NSLog("❌ RenderService not configured!")
             return RenderResult(
                 ocfFileName: item.ocfFileName,
                 success: false,
-                error: "Render cancelled by user",
-                duration: duration,
+                error: "RenderService not configured",
+                duration: 0,
                 segmentCount: item.ocfParent.children.count
             )
+        }
+
+        // Actually perform the rendering using RenderService
+        let result = await service.renderOCF(parent: item.ocfParent)
+
+        // Update current item status based on result
+        if result.success {
+            updateCurrentItemStatus(.completed, progress: "Render completed")
         } else {
-            NSLog("⏱️ Render timeout: \(item.ocfFileName) (exceeded \(timeoutPerItem)s)")
-            return RenderResult(
-                ocfFileName: item.ocfFileName,
-                success: false,
-                error: "Render timeout (exceeded \(Int(timeoutPerItem))s)",
-                duration: duration,
-                segmentCount: item.ocfParent.children.count
-            )
+            updateCurrentItemStatus(.failed, progress: result.error ?? "Unknown error")
         }
+
+        return result
     }
 
     // MARK: - Status Updates (Called by Render Service)

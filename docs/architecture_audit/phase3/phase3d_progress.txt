@@ -1,0 +1,57 @@
+# Phase 3D Progress Update
+
+## LinkingResultsView.swift Changes ✅
+
+**Lines Before:** 930
+**Lines After:** 743
+**Lines Removed:** 187 lines ✅
+
+### Changes Made:
+
+1. **Replaced batch queue state** (lines 77-81):
+   - Removed: batchRenderQueue, isProcessingBatchQueue, totalInBatch
+   - Added: @StateObject renderQueueManager
+
+2. **Simplified render functions** (lines 135-157):
+   - renderAll() - now 8 lines (was ~20)
+   - renderModified() - now 8 lines (was ~20)
+   - Both now just call: renderQueueManager.addToQueue() + startProcessing()
+
+3. **Removed old batch render implementation** (lines 159-427 deleted):
+   - processBatchRenderQueue() - 79 lines removed
+   - processOCFInQueue() - 49 lines removed  
+   - createBlankRushForOCF() - 37 lines removed
+   - renderOCFInQueue() - 107 lines removed
+   - **Total: 272 lines of logic moved to SourcePrintCore**
+
+4. **Added RenderQueueDelegate handlers** (lines 161-196):
+   - handleRenderQueueStartedItem() - posts notification to trigger card
+   - handleRenderQueueProgress() - logs progress
+   - handleRenderQueueCompleted() - clears rendering flag
+   - handleRenderQueueFinished() - completion handling
+   - handleRenderQueueError() - error handling
+
+5. **Added RenderQueueDelegateHandler** (lines 697-743):
+   - Helper class to bridge struct View with class delegate protocol
+   - 46 lines of boilerplate for delegate conformance
+
+### SourcePrintCore Updates:
+
+1. **RenderQueueManager.swift**:
+   - Added `ObservableObject` conformance
+   - Added `@Published` to queue state properties
+   - Added `import Combine`
+
+## Status
+
+- ✅ LinkingResultsView.swift updated (187 lines removed)
+- ✅ RenderQueueManager updated for SwiftUI integration
+- ⏳ CompressorStyleOCFCard.swift (next)
+- ⏳ GUI testing
+- ⏳ Documentation
+
+## Next Steps
+
+1. Update CompressorStyleOCFCard.swift to use RenderService (~400 lines to remove)
+2. Test GUI rendering workflow
+3. Update phase3_progress.md with completion metrics
