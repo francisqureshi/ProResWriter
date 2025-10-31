@@ -892,6 +892,86 @@ public struct OfflineFileMetadata: Codable {
 
 ---
 
+## Phase 5: Full ViewModel Split
+
+**Duration:** 2-3 weeks
+**Risk:** Very High
+**Priority:** Medium (defer until other priorities addressed)
+
+### Objectives
+
+Complete the Model/ViewModel separation started in Phase 4D by creating a full SwiftUI-reactive wrapper around the Core ProjectModel:
+- Create ProjectViewModel wrapper class in UI layer
+- Update 20-30 view files to use ViewModel pattern
+- Extensive UI testing to ensure reactivity maintained
+- High risk due to deep SwiftUI coupling throughout views
+
+### Key Components
+
+**`ProjectViewModel.swift`** - SwiftUI reactive wrapper
+- Wraps `ProjectModel` from SourcePrintCore
+- Exposes `@Published private(set) var model: ProjectModel`
+- Manages UI-specific state (renderQueue, ocfCardExpansionState, watchFolderSettings)
+- Delegates all operations to Core services (ProjectOperations, AutoImportService, etc.)
+- Implements WatchFolderDelegate and other UI protocols
+
+### Strategy
+
+1. **Create ViewModel Wrapper** (1 week)
+   - ProjectViewModel class wrapping ProjectModel
+   - Delegate all CRUD operations to Core services
+   - Apply service results to wrapped model
+   - Maintain UI-specific @Published properties
+
+2. **Update View Files** (1-2 weeks)
+   - Replace `@ObservedObject var project: Project` with `@ObservedObject var viewModel: ProjectViewModel`
+   - Update property access from `project.name` to `viewModel.model.name`
+   - Update method calls to go through viewModel
+   - Files to update (~20-30 total):
+     - ContentView.swift
+     - LinkingResultsView.swift
+     - MediaImportView.swift
+     - OCFCard.swift, CompressorStyleOCFCard.swift
+     - RenderQueueView.swift
+     - OverviewView.swift
+     - All other view files
+
+3. **Testing & Validation** (3-5 days)
+   - Manual testing of all UI functionality
+   - Project save/load verification
+   - Render queue workflow testing
+   - Watch folder integration testing
+   - Offline file tracking verification
+
+### Complexity
+
+Very High - Requires:
+- Refactoring 20-30 view files with careful SwiftUI binding management
+- Maintaining UI reactivity across all @Published properties
+- Extensive manual testing (no UI unit tests currently)
+- Risk of breaking SwiftUI state updates and bindings
+- Potential performance impact from additional indirection
+
+### Success Criteria
+
+- ✅ ProjectViewModel successfully wraps ProjectModel from Core
+- ✅ All views updated to use ViewModel pattern
+- ✅ UI reactivity maintained (no SwiftUI update regressions)
+- ✅ All functionality works (import, link, render, print, watch folder)
+- ✅ Project save/load works correctly
+- ✅ No performance degradation
+
+### Notes
+
+Phase 5 builds on Phase 4D foundation (ProjectModel already in Core). However, given the high risk and significant time investment required, this phase should be deferred until:
+- Other high-priority features are completed
+- Business case justifies the additional architectural purity
+- Resources are available for extensive testing
+
+**Alternative:** Keep current Project.swift architecture with thin service wrappers (achieved in Phases 4A-4C) and defer full ViewModel split indefinitely. The marginal benefit may not justify the complexity.
+
+---
+
 ## Success Criteria
 
 ### Phase 1

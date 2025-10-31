@@ -224,33 +224,26 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
     }
 
     func addOCFFiles(_ files: [MediaFileInfo]) {
-        ocfFiles.append(contentsOf: files)
-        updateModified()
+        let result = ProjectOperations.addOCFFiles(files, existingOCFs: ocfFiles)
+        applyOperationResult(result)
     }
 
     func addSegments(_ newSegments: [MediaFileInfo]) {
-        segments.append(contentsOf: newSegments)
-
-        // Track file sizes for new segments (but NOT modification dates - those are only for changed files)
-        for segment in newSegments {
-            if case .success(let fileSize) = FileSystemOperations.getFileSize(for: segment.url) {
-                segmentFileSizes[segment.fileName] = fileSize
-                NSLog(
-                    "📊 Stored size for segment: %@ (size: %lld bytes)", segment.fileName, fileSize)
-            }
-        }
-
-        updateModified()
+        let result = ProjectOperations.addSegments(
+            newSegments,
+            existingSegments: segments,
+            existingFileSizes: segmentFileSizes
+        )
+        applyOperationResult(result)
     }
 
     /// Update modification dates for all segments (useful for refresh)
     func refreshSegmentModificationDates() {
-        for segment in segments {
-            if case .success(let modDate) = FileSystemOperations.getModificationDate(for: segment.url) {
-                segmentModificationDates[segment.fileName] = modDate
-            }
-        }
-        updateModified()
+        let result = ProjectOperations.refreshSegmentModificationDates(
+            existingSegments: segments,
+            existingModDates: segmentModificationDates
+        )
+        applyOperationResult(result)
     }
 
     func updateLinkingResult(_ result: LinkingResult) {
@@ -287,42 +280,29 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
 
     /// Check for modified segments and automatically update print status to needsReprint
     func checkForModifiedSegmentsAndUpdatePrintStatus() {
-        guard let linkingResult = linkingResult else { return }
-
-        var statusChanged = false
-
-        for parent in linkingResult.parentsWithChildren {
-            let ocfFileName = parent.ocf.fileName
-
-            // Only check OCFs that have been printed
-            guard let currentPrintStatus = printStatus[ocfFileName],
-                case .printed(let lastPrintDate, let outputURL) = currentPrintStatus
-            else {
-                continue
+        // Convert print status to format expected by service
+        let statusForService = printStatus.mapValues { status -> (Bool, Date?, URL?) in
+            switch status {
+            case .printed(let date, let url):
+                return (true, date, url)
+            case .needsReprint(let date, _):
+                return (true, date, nil)
+            case .notPrinted:
+                return (false, nil, nil)
             }
+        }
 
-            // Check if any segments for this OCF have been modified since last print
-            var hasModifiedSegments = false
-            for child in parent.children {
-                if case .success(let fileModDate) = FileSystemOperations.getModificationDate(for: child.segment.url),
-                    fileModDate > lastPrintDate
-                {
-                    hasModifiedSegments = true
-                    break
-                }
-            }
+        let (needsReprint, statusChanged) = ProjectOperations.checkForModifiedSegments(
+            linkingResult: linkingResult,
+            existingPrintStatus: statusForService
+        )
 
-            // If segments have been modified, mark for re-print
-            if hasModifiedSegments {
-                printStatus[ocfFileName] = .needsReprint(
-                    lastPrintDate: lastPrintDate,
-                    reason: .segmentModified
-                )
-                statusChanged = true
-                NSLog(
-                    "🔄 Auto-flagged \(ocfFileName) for re-print: segments modified since \(DateFormatter.short.string(from: lastPrintDate))"
-                )
-            }
+        // Apply reprint flags
+        for (ocfFileName, lastPrintDate) in needsReprint {
+            printStatus[ocfFileName] = .needsReprint(
+                lastPrintDate: lastPrintDate,
+                reason: .segmentModified
+            )
         }
 
         if statusChanged {
@@ -337,85 +317,116 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
 
     /// Remove OCF files by filename
     func removeOCFFiles(_ fileNames: [String]) {
-        ocfFiles.removeAll { fileNames.contains($0.fileName) }
+        // Convert blank rush status to strings for service
+        let blankRushStatusStrings = blankRushStatus.mapValues { _ in "status" }
 
-        // Also clean up related linking results and blank rush status
-        for fileName in fileNames {
-            blankRushStatus.removeValue(forKey: fileName)
-        }
+        let result = ProjectOperations.removeOCFFiles(
+            fileNames,
+            existingOCFs: ocfFiles,
+            existingBlankRushStatus: blankRushStatusStrings
+        )
 
-        // If linking result exists, invalidate it since OCF files changed
-        if linkingResult != nil {
+        applyOperationResult(result)
+
+        // Invalidate linking if needed
+        if result.shouldInvalidateLinking {
             linkingResult = nil
         }
-
-        updateModified()
     }
 
     /// Remove segments by filename
     func removeSegments(_ fileNames: [String]) {
-        segments.removeAll { fileNames.contains($0.fileName) }
+        let result = ProjectOperations.removeSegments(
+            fileNames,
+            existingSegments: segments,
+            existingModDates: segmentModificationDates,
+            existingFileSizes: segmentFileSizes,
+            existingOfflineFiles: offlineMediaFiles
+        )
 
-        // Clean up segment modification tracking, file sizes, and offline status
-        for fileName in fileNames {
-            segmentModificationDates.removeValue(forKey: fileName)
-            segmentFileSizes.removeValue(forKey: fileName)
-            offlineMediaFiles.remove(fileName)
-        }
+        applyOperationResult(result)
 
-        // If linking result exists, invalidate it since segments changed
-        if linkingResult != nil {
+        // Invalidate linking if needed
+        if result.shouldInvalidateLinking {
             linkingResult = nil
         }
-
-        updateModified()
     }
 
     /// Remove all offline media files from the project
     func removeOfflineMedia() {
-        let offlineFileNames = Array(offlineMediaFiles)
+        // Convert status dictionaries to strings for service
+        let printStatusStrings = printStatus.mapValues { _ in "status" }
+        let blankRushStatusStrings = blankRushStatus.mapValues { _ in "status" }
 
-        NSLog("🗑️ Removing %d offline media files from project", offlineFileNames.count)
+        let result = ProjectOperations.removeOfflineMedia(
+            offlineFiles: offlineMediaFiles,
+            existingOCFs: ocfFiles,
+            existingSegments: segments,
+            existingModDates: segmentModificationDates,
+            existingFileSizes: segmentFileSizes,
+            existingPrintStatus: printStatusStrings,
+            existingBlankRushStatus: blankRushStatusStrings,
+            existingOfflineMetadata: offlineFileMetadata
+        )
 
-        // Remove offline segments
-        segments.removeAll { offlineMediaFiles.contains($0.fileName) }
+        applyOperationResult(result)
 
-        // Remove offline OCFs
-        ocfFiles.removeAll { offlineMediaFiles.contains($0.fileName) }
-
-        // Clean up tracking data
-        for fileName in offlineFileNames {
-            segmentModificationDates.removeValue(forKey: fileName)
-            segmentFileSizes.removeValue(forKey: fileName)
-            printStatus.removeValue(forKey: fileName)
-            blankRushStatus.removeValue(forKey: fileName)
-            offlineFileMetadata.removeValue(forKey: fileName)
-        }
-
-        // Clear offline set
-        offlineMediaFiles.removeAll()
-
-        // Invalidate linking if any files were removed
-        if !offlineFileNames.isEmpty {
+        // Invalidate linking if needed
+        if result.shouldInvalidateLinking {
             linkingResult = nil
         }
-
-        updateModified()
-        NSLog("✅ Removed all offline media files")
     }
 
     /// Toggle VFX status for OCF file
     func toggleOCFVFXStatus(_ fileName: String, isVFX: Bool) {
-        if let index = ocfFiles.firstIndex(where: { $0.fileName == fileName }) {
-            ocfFiles[index].isVFXShot = isVFX
-            updateModified()
-        }
+        let result = ProjectOperations.toggleOCFVFXStatus(
+            fileName,
+            isVFX: isVFX,
+            existingOCFs: ocfFiles
+        )
+        applyOperationResult(result)
     }
 
     /// Toggle VFX status for segment file
     func toggleSegmentVFXStatus(_ fileName: String, isVFX: Bool) {
-        if let index = segments.firstIndex(where: { $0.fileName == fileName }) {
-            segments[index].isVFXShot = isVFX
+        let result = ProjectOperations.toggleSegmentVFXStatus(
+            fileName,
+            isVFX: isVFX,
+            existingSegments: segments
+        )
+        applyOperationResult(result)
+    }
+
+    /// Apply ProjectOperationResult to @Published properties
+    private func applyOperationResult(_ result: ProjectOperationResult) {
+        if let updated = result.ocfFiles {
+            ocfFiles = updated
+        }
+
+        if let updated = result.segments {
+            segments = updated
+        }
+
+        if let updated = result.segmentModificationDates {
+            segmentModificationDates = updated
+        }
+
+        if let updated = result.segmentFileSizes {
+            segmentFileSizes = updated
+        }
+
+        if let updated = result.offlineFiles {
+            offlineMediaFiles = updated
+        }
+
+        if let updated = result.offlineMetadata {
+            offlineFileMetadata = updated
+        }
+
+        // Note: printStatus and blankRushStatus are handled separately in calling methods
+        // because they have complex enum types that the service doesn't know about
+
+        if result.shouldUpdateModified {
             updateModified()
         }
     }
@@ -681,30 +692,7 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
 
 // MARK: - Supporting Types
 
-enum BlankRushStatus: Codable, Equatable {
-    case notCreated
-    case inProgress
-    case completed(date: Date, url: URL)
-    case failed(error: String)
-
-    var statusIcon: String {
-        switch self {
-        case .notCreated: return "⚫️"
-        case .inProgress: return "🟡"
-        case .completed: return "🟢"
-        case .failed: return "🔴"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .notCreated: return "Not Created"
-        case .inProgress: return "In Progress"
-        case .completed(let date, _): return "Completed \(DateFormatter.short.string(from: date))"
-        case .failed(let error): return "Failed: \(error)"
-        }
-    }
-}
+// BlankRushStatus now imported from SourcePrintCore
 
 struct PrintRecord: Codable, Identifiable {
     let id: UUID
@@ -778,28 +766,12 @@ enum RenderQueueStatus: String, Codable, CaseIterable {
     }
 }
 
-enum PrintStatus: Codable {
-    case notPrinted
-    case printed(date: Date, outputURL: URL)
-    case needsReprint(lastPrintDate: Date, reason: ReprintReason)
+// PrintStatus now imported from SourcePrintCore
 
-    var displayName: String {
-        switch self {
-        case .notPrinted:
-            return "Not Printed"
-        case .printed(let date, _):
-            return "Printed \(DateFormatter.short.string(from: date))"
-        case .needsReprint(let lastPrintDate, let reason):
-            return "Needs Re-print (\(reason.displayName))"
-        }
-    }
-
+// UI-specific extensions for PrintStatus
+extension PrintStatus {
     var icon: String {
-        switch self {
-        case .notPrinted: return "minus.circle"
-        case .printed: return "checkmark.circle.fill"
-        case .needsReprint: return "exclamationmark.circle.fill"
-        }
+        return statusIcon  // Use Core's statusIcon property
     }
 
     var color: Color {
@@ -811,21 +783,7 @@ enum PrintStatus: Codable {
     }
 }
 
-enum ReprintReason: String, Codable {
-    case segmentModified = "segment_modified"
-    case segmentOffline = "segment_offline"
-    case manualRequest = "manual_request"
-    case previousFailed = "previous_failed"
-
-    var displayName: String {
-        switch self {
-        case .segmentModified: return "Segment Modified"
-        case .segmentOffline: return "Segment Offline"
-        case .manualRequest: return "Manual Request"
-        case .previousFailed: return "Previous Failed"
-        }
-    }
-}
+// ReprintReason now imported from SourcePrintCore
 
 // MARK: - Extensions
 
