@@ -249,12 +249,13 @@ Project.swift (850 lines - UI Layer)
 
 **Total:** 726 lines of test code
 
-### Documentation (5 total)
+### Documentation (6 total)
 8. `docs/architecture_audit/phase4/phase4_kickoff.md`
 9. `docs/architecture_audit/phase4/phase4a_completion.md`
 10. `docs/architecture_audit/phase4/phase4b_completion.md`
 11. `docs/architecture_audit/phase4/phase4c_completion.md`
-12. `docs/architecture_audit/phase4/phase4d_progress.md`
+12. `docs/architecture_audit/phase4/phase4d_completion.md`
+13. `docs/architecture_audit/refactoring_plan.md` (updated with Phase 5)
 
 ---
 
@@ -266,11 +267,13 @@ Project.swift (850 lines - UI Layer)
 3. Move to other priorities
 4. Revisit ViewModel split later if needed
 
-### Option B: Continue to Full Split
+### Option B: Continue to Full Split (Phase 5)
 1. Create ProjectViewModel (1 week)
 2. Update all views (1-2 weeks)
 3. Extensive testing (3-5 days)
 4. High risk, high effort
+
+**See:** `docs/architecture_audit/phase5/phase5_kickoff.md` for detailed plan
 
 ---
 
