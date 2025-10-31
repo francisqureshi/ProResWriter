@@ -87,7 +87,7 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
                 let segmentFileName = child.segment.fileName
 
                 // Get file modification date
-                if let fileModDate = getFileModificationDate(for: child.segment.url),
+                if case .success(let fileModDate) = FileSystemOperations.getModificationDate(for: child.segment.url),
                     let trackedModDate = segmentModificationDates[segmentFileName]
                 {
 
@@ -110,7 +110,7 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
             for child in parent.children {
                 let segmentFileName = child.segment.fileName
 
-                if let fileModDate = getFileModificationDate(for: child.segment.url),
+                if case .success(let fileModDate) = FileSystemOperations.getModificationDate(for: child.segment.url),
                     let trackedModDate = segmentModificationDates[segmentFileName],
                     fileModDate > trackedModDate
                 {
@@ -233,7 +233,7 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
 
         // Track file sizes for new segments (but NOT modification dates - those are only for changed files)
         for segment in newSegments {
-            if let fileSize = getFileSize(for: segment.url) {
+            if case .success(let fileSize) = FileSystemOperations.getFileSize(for: segment.url) {
                 segmentFileSizes[segment.fileName] = fileSize
                 NSLog(
                     "📊 Stored size for segment: %@ (size: %lld bytes)", segment.fileName, fileSize)
@@ -246,7 +246,7 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
     /// Update modification dates for all segments (useful for refresh)
     func refreshSegmentModificationDates() {
         for segment in segments {
-            if let modDate = getFileModificationDate(for: segment.url) {
+            if case .success(let modDate) = FileSystemOperations.getModificationDate(for: segment.url) {
                 segmentModificationDates[segment.fileName] = modDate
             }
         }
@@ -304,7 +304,7 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
             // Check if any segments for this OCF have been modified since last print
             var hasModifiedSegments = false
             for child in parent.children {
-                if let fileModDate = getFileModificationDate(for: child.segment.url),
+                if case .success(let fileModDate) = FileSystemOperations.getModificationDate(for: child.segment.url),
                     fileModDate > lastPrintDate
                 {
                     hasModifiedSegments = true
@@ -420,59 +420,23 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
         }
     }
 
-    // MARK: - File System Helpers
-
-    /// Get file modification date from file system
-    private func getFileModificationDate(for url: URL) -> Date? {
-        switch FileSystemOperations.getModificationDate(for: url) {
-        case .success(let date):
-            return date
-        case .failure(let error):
-            print("⚠️ \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    private func getFileSize(for url: URL) -> Int64? {
-        switch FileSystemOperations.getFileSize(for: url) {
-        case .success(let size):
-            return size
-        case .failure(let error):
-            print("⚠️ \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Calculate partial hash (first 1MB + last 1MB) for file comparison
-    private func calculatePartialHash(for url: URL) -> String? {
-        switch FileSystemOperations.calculatePartialHash(for: url) {
-        case .success(let hash):
-            return hash
-        case .failure(let error):
-            NSLog("⚠️ %@", error.localizedDescription)
-            return nil
-        }
-    }
-
     /// Scan for existing blank rush files and update status accordingly
     func scanForExistingBlankRushes() {
         guard let linkingResult = linkingResult else { return }
 
-        for parent in linkingResult.parentsWithChildren {
-            // Only check if we don't already have a status or if it's marked as not created
-            if blankRushStatus[parent.ocf.fileName] == nil
-                || blankRushStatus[parent.ocf.fileName] == .notCreated
-            {
-                if blankRushFileExists(for: parent.ocf.fileName) {
-                    let baseName = (parent.ocf.fileName as NSString).deletingPathExtension
-                    let blankRushFileName = "\(baseName)_BlankRush.mov"
-                    let blankRushURL = blankRushDirectory.appendingPathComponent(blankRushFileName)
-                    blankRushStatus[parent.ocf.fileName] = .completed(
-                        date: Date(), url: blankRushURL)
-                    print("🔍 Found existing blank rush: \(blankRushFileName)")
-                }
+        let found = BlankRushScanner.scanForExistingBlankRushes(
+            linkingResult: linkingResult,
+            blankRushDirectory: blankRushDirectory
+        )
+
+        for (ocfFileName, url) in found {
+            // Only update if we don't already have a status or if it's marked as not created
+            if blankRushStatus[ocfFileName] == nil || blankRushStatus[ocfFileName] == .notCreated {
+                blankRushStatus[ocfFileName] = .completed(date: Date(), url: url)
             }
         }
+
+        updateModified()
     }
 
     // MARK: - Watch Folder Monitoring
@@ -480,19 +444,109 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
     // MARK: - WatchFolderDelegate
 
     func watchFolder(_ service: WatchFolderService, didDetectNewFiles files: [URL], isVFX: Bool) {
-        handleDetectedVideoFiles(files, isVFX: isVFX)
+        // Process detected files using AutoImportService
+        let result = AutoImportService.processDetectedFiles(
+            files: files,
+            isVFX: isVFX,
+            existingSegments: segments,
+            offlineFiles: offlineMediaFiles,
+            offlineMetadata: offlineFileMetadata,
+            trackedSizes: segmentFileSizes,
+            linkingResult: linkingResult,
+            autoImportEnabled: watchFolderSettings.autoImportEnabled
+        )
+
+        // Apply state changes
+        applyAutoImportResult(result)
+
+        // Import new files if any
+        if !result.filesToImport.isEmpty {
+            Task {
+                let mediaFiles = await analyzeDetectedFiles(urls: result.filesToImport, isVFX: isVFX)
+                await MainActor.run {
+                    addSegments(mediaFiles)
+                    NSLog(
+                        "✅ Auto-imported %d new %@ files from watch folder",
+                        mediaFiles.count, isVFX ? "VFX" : "grade")
+                }
+            }
+        }
     }
 
     func watchFolder(_ service: WatchFolderService, didDetectDeletedFiles fileNames: [String], isVFX: Bool) {
-        handleDeletedVideoFiles(fileNames, isVFX: isVFX)
+        let result = AutoImportService.processDeletedFiles(
+            fileNames: fileNames,
+            isVFX: isVFX,
+            existingSegments: segments,
+            trackedSizes: segmentFileSizes,
+            linkingResult: linkingResult
+        )
+
+        applyAutoImportResult(result)
     }
 
     func watchFolder(_ service: WatchFolderService, didDetectModifiedFiles fileNames: [String], isVFX: Bool) {
-        handleModifiedVideoFiles(fileNames, isVFX: isVFX)
+        let result = AutoImportService.processModifiedFiles(
+            fileNames: fileNames,
+            isVFX: isVFX,
+            existingSegments: segments,
+            linkingResult: linkingResult
+        )
+
+        applyAutoImportResult(result)
     }
 
     func watchFolder(_ service: WatchFolderService, didEncounterError error: WatchFolderError) {
         NSLog("⚠️ Watch folder error: %@", error.localizedDescription)
+    }
+
+    /// Apply AutoImportResult to @Published properties
+    private func applyAutoImportResult(_ result: AutoImportResult) {
+        // Remove offline status for returning files
+        for fileName in result.offlineFiles {
+            offlineMediaFiles.remove(fileName)
+        }
+
+        // Remove offline metadata
+        for fileName in result.offlineMetadata.keys {
+            offlineFileMetadata.removeValue(forKey: fileName)
+        }
+
+        // Add new offline files
+        for fileName in result.offlineFiles {
+            if !offlineMediaFiles.contains(fileName) {
+                offlineMediaFiles.insert(fileName)
+            }
+        }
+
+        // Add new offline metadata
+        for (fileName, metadata) in result.offlineMetadata where metadata != nil {
+            offlineFileMetadata[fileName] = metadata
+        }
+
+        // Update modification dates
+        for (fileName, date) in result.modificationDates {
+            segmentModificationDates[fileName] = date
+        }
+
+        // Update file sizes
+        for (fileName, size) in result.updatedFileSizes {
+            segmentFileSizes[fileName] = size
+        }
+
+        // Update print status for affected OCFs
+        for (ocfFileName, update) in result.printStatusUpdates {
+            if update.needsReprint {
+                let lastPrintDate = update.lastPrintDate ?? Date()
+                let reason: ReprintReason = update.reason == "segmentOffline" ? .segmentOffline : .segmentModified
+                printStatus[ocfFileName] = .needsReprint(lastPrintDate: lastPrintDate, reason: reason)
+            }
+        }
+
+        // Trigger UI update if changes were made
+        if result.modifiedFiles.count > 0 || result.offlineFiles.count > 0 || !result.printStatusUpdates.isEmpty {
+            objectWillChange.send()
+        }
     }
 
     // MARK: - Watch Folder Lifecycle
@@ -539,65 +593,20 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
     private func checkForChangedFilesOnStartup(gradePath: String?, vfxPath: String?) {
         guard let service = watchFolderService else { return }
 
-        // 1. Detect changes to known segments (modifications and deletions)
-        let changes = service.detectChangesOnStartup(knownSegments: segments, trackedSizes: segmentFileSizes)
-
-        // Handle modified files
-        for fileName in changes.modifiedFiles {
-            // Update modification date
-            segmentModificationDates[fileName] = Date()
-
-            // Update size
-            if let sizeChange = changes.sizeChanges[fileName] {
-                segmentFileSizes[fileName] = sizeChange.new
-            }
-
-            // Mark affected OCFs for re-print
-            if let linkingResult = linkingResult {
-                for ocfParent in linkingResult.ocfParents {
-                    for child in ocfParent.children {
-                        if child.segment.fileName == fileName {
-                            let lastPrint = printStatus[ocfParent.ocf.fileName]
-                            let printDate: Date
-                            if case .printed(let date, _) = lastPrint {
-                                printDate = date
-                            } else {
-                                printDate = Date()
-                            }
-                            printStatus[ocfParent.ocf.fileName] = .needsReprint(
-                                lastPrintDate: printDate, reason: .segmentModified)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Handle deleted files
-        for fileName in changes.deletedFiles {
-            if !offlineMediaFiles.contains(fileName) {
-                offlineMediaFiles.insert(fileName)
-
-                // Store metadata
-                if let storedSize = segmentFileSizes[fileName] {
-                    let metadata = OfflineFileMetadata(
-                        fileName: fileName,
-                        fileSize: storedSize,
-                        offlineDate: Date(),
-                        partialHash: nil
-                    )
-                    offlineFileMetadata[fileName] = metadata
-                }
-            }
-        }
-
-        if changes.hasChanges {
-            objectWillChange.send()
-        }
-
-        // 2. Scan for NEW files added while app was closed
-        // Complete this scan BEFORE starting file monitor to prevent duplicates
+        // Process startup changes using AutoImportService
         Task {
-            let newFiles = await service.scanForNewFiles(knownSegments: segments)
+            let (modificationsResult, newFiles) = await AutoImportService.processStartupChanges(
+                service: service,
+                existingSegments: segments,
+                trackedSizes: segmentFileSizes,
+                linkingResult: linkingResult,
+                autoImportEnabled: watchFolderSettings.autoImportEnabled
+            )
+
+            // Apply modifications on main actor
+            await MainActor.run {
+                applyAutoImportResult(modificationsResult)
+            }
 
             // Auto-import new grade files (WAIT for completion)
             if !newFiles.gradeFiles.isEmpty && watchFolderSettings.autoImportEnabled {
@@ -630,98 +639,6 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
     private func stopWatchFolder() {
         watchFolderService?.stopMonitoring()
         watchFolderService = nil
-    }
-
-    /// Handle video files detected by the watch folder service
-    private func handleDetectedVideoFiles(_ videoFiles: [URL], isVFX: Bool) {
-        guard watchFolderSettings.autoImportEnabled else {
-            NSLog("⚠️ Auto-import disabled, ignoring detected files")
-            return
-        }
-
-        // Use FileChangeDetector for classification
-        let classification = FileChangeDetector.classifyFiles(
-            detectedFiles: videoFiles,
-            existingSegments: segments,
-            offlineFiles: offlineMediaFiles,
-            offlineMetadata: offlineFileMetadata,
-            trackedSizes: segmentFileSizes
-        )
-
-        // Handle returning offline files (same size - just remove offline status)
-        for url in classification.returningUnchanged {
-            let fileName = url.lastPathComponent
-            offlineMediaFiles.remove(fileName)
-            offlineFileMetadata.removeValue(forKey: fileName)
-            NSLog("✅ File %@ is back online", fileName)
-        }
-
-        // Combine returning changed files and existing modified files
-        let changedFiles = classification.returningChanged + classification.existingModified
-
-        // Handle changed files (different size - treat as modified)
-        for url in changedFiles {
-            let fileName = url.lastPathComponent
-            offlineMediaFiles.remove(fileName)
-            offlineFileMetadata.removeValue(forKey: fileName)
-            segmentModificationDates[fileName] = Date()
-
-            // Update file size metadata with new size
-            if let newSize = getFileSize(for: url) {
-                segmentFileSizes[fileName] = newSize
-                NSLog(
-                    "📊 Updated size for changed file: %@ (new size: %lld bytes)", fileName, newSize)
-            }
-
-            NSLog("✅ File %@ is back online and marked as modified", fileName)
-
-            // Mark affected OCFs for re-print
-            if let linkingResult = linkingResult {
-                for ocfParent in linkingResult.ocfParents {
-                    for child in ocfParent.children {
-                        if child.segment.fileName == fileName {
-                            let lastPrint = printStatus[ocfParent.ocf.fileName]
-                            let printDate: Date
-                            if case .printed(let date, _) = lastPrint {
-                                printDate = date
-                            } else {
-                                printDate = Date()
-                            }
-                            printStatus[ocfParent.ocf.fileName] = .needsReprint(
-                                lastPrintDate: printDate, reason: .segmentModified)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Note: We no longer invalidate linking when files change
-        // The "Updated" badge shows which files have changed
-        // The OCF "Needs Re-print" status shows what needs to be re-printed
-        // User can manually re-run linking if they want to refresh the analysis
-
-        // Import truly new files
-        guard !classification.newFiles.isEmpty else {
-            if classification.returningUnchanged.isEmpty && changedFiles.isEmpty {
-                NSLog(
-                    "⚠️ All detected files already imported, ignoring %d file(s)", videoFiles.count)
-            }
-            return
-        }
-
-        NSLog("🎬 Auto-importing %d new %@ files...", classification.newFiles.count, isVFX ? "VFX" : "grade")
-
-        // Import as segments with VFX flag
-        Task {
-            let mediaFiles = await analyzeDetectedFiles(urls: classification.newFiles, isVFX: isVFX)
-
-            await MainActor.run {
-                addSegments(mediaFiles)
-                NSLog(
-                    "✅ Auto-imported %d new %@ files from watch folder",
-                    mediaFiles.count, isVFX ? "VFX" : "grade")
-            }
-        }
     }
 
     /// Analyze detected video files for import
@@ -760,133 +677,6 @@ class Project: ObservableObject, Codable, Identifiable, WatchFolderDelegate {
         return results
     }
 
-    /// Handle video files deleted from watch folder
-    private func handleDeletedVideoFiles(_ fileNames: [String], isVFX: Bool) {
-        NSLog(
-            "📤 Marking %d deleted %@ files as offline...", fileNames.count, isVFX ? "VFX" : "grade")
-
-        // Mark segments as offline instead of removing them
-        var markedCount = 0
-        for fileName in fileNames {
-            if segments.contains(where: { $0.fileName == fileName }) {
-                offlineMediaFiles.insert(fileName)
-
-                // Store metadata using pre-stored file size
-                if let fileSize = segmentFileSizes[fileName] {
-                    let metadata = OfflineFileMetadata(
-                        fileName: fileName,
-                        fileSize: fileSize,
-                        offlineDate: Date(),
-                        partialHash: nil  // Hash will be computed on return if needed
-                    )
-                    offlineFileMetadata[fileName] = metadata
-                    NSLog(
-                        "📊 Stored metadata for offline file: %@ (size: %lld bytes)", fileName,
-                        fileSize)
-                } else {
-                    NSLog(
-                        "⚠️ No pre-stored size for %@ - will use hash fallback on return", fileName)
-                }
-
-                markedCount += 1
-            }
-        }
-
-        if markedCount > 0 {
-            NSLog("✅ Marked %d deleted %@ files as offline", markedCount, isVFX ? "VFX" : "grade")
-
-            // Mark affected OCFs for re-print
-            if let linkingResult = linkingResult {
-                for fileName in fileNames where offlineMediaFiles.contains(fileName) {
-                    for ocfParent in linkingResult.ocfParents {
-                        for child in ocfParent.children {
-                            if child.segment.fileName == fileName {
-                                let lastPrint = printStatus[ocfParent.ocf.fileName]
-                                let printDate: Date
-                                if case .printed(let date, _) = lastPrint {
-                                    printDate = date
-                                } else {
-                                    printDate = Date()
-                                }
-                                printStatus[ocfParent.ocf.fileName] = .needsReprint(
-                                    lastPrintDate: printDate, reason: .segmentOffline)
-                                NSLog(
-                                    "⚠️ OCF %@ needs reprint due to offline segment",
-                                    ocfParent.ocf.fileName)
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            NSLog(
-                "⚠️ No matching files found to mark offline for deleted %@ files",
-                isVFX ? "VFX" : "grade")
-        }
-    }
-
-    /// Handle video files modified in watch folder
-    private func handleModifiedVideoFiles(_ fileNames: [String], isVFX: Bool) {
-        NSLog("📝 Handling %d modified %@ files...", fileNames.count, isVFX ? "VFX" : "grade")
-
-        // Track which OCF parents need re-printing due to modified segments
-        var affectedOCFNames = Set<String>()
-
-        for fileName in fileNames {
-            // Find segment by filename
-            if let segment = segments.first(where: { $0.fileName == fileName }) {
-                NSLog("📝 Found modified segment: %@", fileName)
-
-                // Update the segment's modification date to mark it as changed
-                updateSegmentModificationDate(fileName)
-
-                // Update file size for modified segment
-                if let fileSize = getFileSize(for: segment.url) {
-                    segmentFileSizes[fileName] = fileSize
-                    NSLog(
-                        "📊 Updated size for modified segment: %@ (size: %lld bytes)", fileName,
-                        fileSize)
-                }
-
-                // Find linked OCF files that use this segment
-                if let linkingResult = linkingResult {
-                    for ocfParent in linkingResult.ocfParents {
-                        for child in ocfParent.children {
-                            if child.segment.fileName == fileName {
-                                affectedOCFNames.insert(ocfParent.ocf.fileName)
-                                NSLog(
-                                    "📝 Segment %@ affects OCF: %@", fileName, ocfParent.ocf.fileName
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Mark affected OCFs as needing re-printing
-        for ocfFileName in affectedOCFNames {
-            printStatus[ocfFileName] = .needsReprint(
-                lastPrintDate: Date(),
-                reason: .segmentModified
-            )
-            NSLog("🔄 Marked OCF %@ as needing re-print due to modified segment", ocfFileName)
-        }
-
-        if !affectedOCFNames.isEmpty {
-            NSLog(
-                "✅ Marked %d OCFs as needing re-print due to %d modified %@ files",
-                affectedOCFNames.count, fileNames.count, isVFX ? "VFX" : "grade")
-        }
-    }
-
-    /// Update modification date for a specific segment
-    private func updateSegmentModificationDate(_ fileName: String) {
-        if segments.contains(where: { $0.fileName == fileName }) {
-            segmentModificationDates[fileName] = Date()
-            NSLog("📅 Updated modification date for segment: %@", fileName)
-        }
-    }
 }
 
 // MARK: - Supporting Types
