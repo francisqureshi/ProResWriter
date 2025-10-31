@@ -140,7 +140,7 @@ public class RenderService {
             await self.notifyProgress(
                 ocfFileName: parent.ocf.fileName,
                 status: .generatingBlankRush,
-                message: "Creating blank rush... \(Int(percentage))%"
+                message: "Creating blank rush... \(Int(percentage))% @ \(Int(fps)) fps"
             )
         }
 

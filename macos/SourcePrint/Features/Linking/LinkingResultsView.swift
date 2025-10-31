@@ -570,6 +570,7 @@ struct LinkingResultsView: View {
                                 getSelectedParents: getSelectedParents,
                                 allParents: confidentlyLinkedParents,
                                 currentlyRenderingOCF: currentlyRenderingOCF,
+                                renderProgress: renderQueueManager.currentItem?.ocfFileName == parent.ocf.fileName ? renderQueueManager.currentItem?.progress : nil,
                                 onRenderSingle: {
                                     renderSingle(parent: parent)
                                 }

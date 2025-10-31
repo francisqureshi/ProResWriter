@@ -23,6 +23,7 @@ struct CompressorStyleOCFCard: View {
     let getSelectedParents: () -> [OCFParent]
     let allParents: [OCFParent]
     let currentlyRenderingOCF: String?  // Global lock to prevent concurrent rendering
+    let renderProgress: String?  // Current render progress message
     let onRenderSingle: () -> Void  // Callback to render just this OCF
 
 
@@ -80,6 +81,20 @@ struct CompressorStyleOCFCard: View {
 
     // Render logic moved to RenderService in SourcePrintCore
     // Card now just triggers rendering via notification, actual work done by RenderQueueManager
+
+    /// Extract percentage from progress message like "Creating blank rush... 45% @ 180 fps"
+    private func extractPercentage(from progress: String) -> Double? {
+        // Look for pattern like "45%"
+        let pattern = #"(\d+)%"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: progress, range: NSRange(progress.startIndex..., in: progress)),
+              let percentRange = Range(match.range(at: 1), in: progress) else {
+            return nil
+        }
+
+        let percentString = String(progress[percentRange])
+        return Double(percentString)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -175,6 +190,52 @@ struct CompressorStyleOCFCard: View {
                 handleCardSelection()
             }
 
+            // Render Progress Bar (shown when rendering, whether expanded or collapsed)
+            if isRendering, let progress = renderProgress {
+                VStack(spacing: 4) {
+                    // Extract percentage for determinate progress bar
+                    let percentage = extractPercentage(from: progress)
+
+                    if let percent = percentage {
+                        // Determinate progress bar (0-100%)
+                        ProgressView(value: percent, total: 100.0)
+                            .progressViewStyle(.linear)
+                            .scaleEffect(x: 1, y: 0.5, anchor: .center)
+                    } else {
+                        // Indeterminate progress bar (composition phase)
+                        ProgressView()
+                            .progressViewStyle(.linear)
+                            .scaleEffect(x: 1, y: 0.5, anchor: .center)
+                    }
+
+                    // Split progress message to show FPS on the right
+                    HStack {
+                        if let separatorIndex = progress.range(of: " @ ")?.lowerBound {
+                            // Has FPS info - split it
+                            let statusPart = String(progress[..<separatorIndex])
+                            let fpsPart = String(progress[progress.index(after: separatorIndex)...])
+
+                            Text(statusPart)
+                                .font(.caption2)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text(fpsPart)
+                                .font(.caption2)
+                                .foregroundColor(.primary.opacity(0.85))
+                                .monospacedDigit()
+                        } else {
+                            // No FPS info - just show status
+                            Text(progress)
+                                .font(.caption2)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
+            }
 
             // Card body (expandable content)
             if isExpanded {

@@ -26,7 +26,7 @@ public protocol RenderQueueDelegate: AnyObject {
 
 /// Manages sequential processing of render queue items
 @MainActor
-public class RenderQueueManager: ObservableObject {
+public class RenderQueueManager: ObservableObject, RenderProgressDelegate {
 
     // MARK: - Properties
 
@@ -69,7 +69,9 @@ public class RenderQueueManager: ObservableObject {
     /// Configure with render service
     public func configure(with configuration: RenderConfiguration) {
         self.renderConfiguration = configuration
-        self.renderService = RenderService(configuration: configuration)
+        let service = RenderService(configuration: configuration)
+        service.delegate = self
+        self.renderService = service
     }
 
     // MARK: - Public API
@@ -265,5 +267,13 @@ public class RenderQueueManager: ObservableObject {
         currentItem = item
 
         NSLog("❌ Failed: \(item.ocfFileName) - \(error)")
+    }
+
+    // MARK: - RenderProgressDelegate
+
+    /// Handle progress updates from RenderService
+    public func renderService(_ service: RenderService, didUpdateProgress progress: RenderProgress) {
+        // Update current item with progress details
+        updateCurrentItemStatus(progress.status, progress: progress.message)
     }
 }
