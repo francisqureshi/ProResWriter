@@ -9,28 +9,28 @@ import SourcePrintCore
 import SwiftUI
 
 struct RenderLogSection: View {
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
     let ocfFileName: String
 
     // Filter print history for this specific OCF
-    private var relevantPrintHistory: [PrintRecord] {
+    private var relevantPrintHistory: [SourcePrintCore.PrintRecord] {
         let baseName = (ocfFileName as NSString).deletingPathExtension
-        return project.printHistory.filter { record in
+        return project.model.printHistory.filter { record in
             record.outputURL.lastPathComponent.contains(baseName)
         }.sorted { $0.date > $1.date } // Most recent first
     }
 
-    private var mostRecentPrint: PrintRecord? {
+    private var mostRecentPrint: SourcePrintCore.PrintRecord? {
         relevantPrintHistory.first
     }
 
     private var blankRushStatus: BlankRushStatus {
-        project.blankRushStatus[ocfFileName] ?? .notCreated
+        project.model.blankRushStatus[ocfFileName] ?? .notCreated
     }
 
     // Actual status verified against file system
     private var actualBlankRushStatus: BlankRushStatus {
-        let storedStatus = project.blankRushStatus[ocfFileName] ?? .notCreated
+        let storedStatus = project.model.blankRushStatus[ocfFileName] ?? .notCreated
 
         // Verify file existence for "completed" status
         if case .completed(_, let url) = storedStatus {

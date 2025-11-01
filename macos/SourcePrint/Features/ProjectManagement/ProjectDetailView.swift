@@ -9,7 +9,7 @@ import SwiftUI
 import SourcePrintCore
 
 struct ProjectDetailView: View {
-    let project: Project
+    let project: ProjectViewModel
     @EnvironmentObject var projectManager: ProjectManager
     
     var body: some View {

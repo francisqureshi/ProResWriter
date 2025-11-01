@@ -9,7 +9,7 @@ import SwiftUI
 import SourcePrintCore
 
 struct ProjectOverviewTab: View {
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
     @EnvironmentObject var projectManager: ProjectManager
 
     var body: some View {
@@ -38,15 +38,15 @@ struct ProjectOverviewTab: View {
 }
 
 struct ProjectStatsView: View {
-    let project: Project
+    let project: ProjectViewModel
 
     var body: some View {
         GroupBox("Project Status") {
             HStack {
                 VStack(alignment: .leading) {
-                    Text("Project: \(project.name)")
+                    Text("Project: \(project.model.name)")
                         .font(.headline)
-                    Text("File: \(project.fileURL?.lastPathComponent ?? "Unsaved")")
+                    Text("File: \(project.model.fileURL?.lastPathComponent ?? "Unsaved")")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -58,27 +58,27 @@ struct ProjectStatsView: View {
 }
 
 struct ProjectDirectoriesView: View {
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
 
     var body: some View {
         GroupBox("Project Directories") {
             VStack(alignment: .leading, spacing: 12) {
                 DirectoryRowView(
                     title: "Output Directory",
-                    directory: project.outputDirectory,
+                    directory: project.model.outputDirectory,
                     icon: "folder.badge.gearshape"
                 ) { newDirectory in
-                    project.outputDirectory = newDirectory
+                    project.model.outputDirectory = newDirectory
                 }
 
                 Divider()
 
                 DirectoryRowView(
                     title: "Blank Rush Directory",
-                    directory: project.blankRushDirectory,
+                    directory: project.model.blankRushDirectory,
                     icon: "film.circle"
                 ) { newDirectory in
-                    project.blankRushDirectory = newDirectory
+                    project.model.blankRushDirectory = newDirectory
                 }
             }
             .padding(.vertical, 4)
@@ -144,15 +144,15 @@ struct DirectoryRowView: View {
 }
 
 struct ProjectMetricsView: View {
-    let project: Project
+    let project: ProjectViewModel
 
     var body: some View {
         GroupBox("Project Metrics") {
             HStack(spacing: 40) {
                 VStack(alignment: .leading, spacing: 8) {
-                    MetricRow(label: "OCF Files", value: "\(project.ocfFiles.count)")
-                    MetricRow(label: "Segments", value: "\(project.segments.count)")
-                    if let linkingResult = project.linkingResult {
+                    MetricRow(label: "OCF Files", value: "\(project.model.ocfFiles.count)")
+                    MetricRow(label: "Segments", value: "\(project.model.segments.count)")
+                    if let linkingResult = project.model.linkingResult {
                         MetricRow(label: "Linked Segments", value: "\(linkingResult.totalLinkedSegments)")
                     }
                 }
@@ -160,8 +160,8 @@ struct ProjectMetricsView: View {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    MetricRow(label: "Project Created", value: DateFormatter.short.string(from: project.createdDate))
-                    MetricRow(label: "Last Modified", value: DateFormatter.short.string(from: project.lastModified))
+                    MetricRow(label: "Project Created", value: DateFormatter.short.string(from: project.model.createdDate))
+                    MetricRow(label: "Last Modified", value: DateFormatter.short.string(from: project.model.lastModified))
                 }
 
                 Spacer()

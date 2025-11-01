@@ -53,9 +53,9 @@ struct SourcePrintApp: App {
                             .disabled(true)
                     } else {
                         ForEach(projectManager.recentProjects.indices, id: \.self) { index in
-                            let project = projectManager.recentProjects[index]
-                            Button(project.name) {
-                                projectManager.openRecentProject(project)
+                            let viewModel = projectManager.recentProjects[index]
+                            Button(viewModel.model.name) {
+                                projectManager.openRecentProject(viewModel)
                             }
                         }
                         
@@ -71,16 +71,16 @@ struct SourcePrintApp: App {
                 Divider()
                 
                 Button("Save Project") {
-                    if let currentProject = projectManager.currentProject {
-                        projectManager.saveProject(currentProject)
+                    if let currentViewModel = projectManager.currentProject {
+                        projectManager.saveProject(currentViewModel)
                     }
                 }
                 .keyboardShortcut("s")
                 .disabled(projectManager.currentProject == nil)
-                
+
                 Button("Save Project As...") {
-                    if let currentProject = projectManager.currentProject {
-                        projectManager.saveProjectAs(currentProject)
+                    if let currentViewModel = projectManager.currentProject {
+                        projectManager.saveProjectAs(currentViewModel)
                     }
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])

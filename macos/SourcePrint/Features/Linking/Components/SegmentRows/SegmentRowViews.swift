@@ -13,7 +13,7 @@ import SwiftUI
 struct TreeLinkedSegmentRowView: View {
     let linkedSegment: LinkedSegment
     let isLast: Bool
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
 
     // Check if this is a VFX shot
     private var isVFXShot: Bool {
@@ -22,11 +22,11 @@ struct TreeLinkedSegmentRowView: View {
 
     // Online/offline/updated status
     private var isOffline: Bool {
-        project.offlineMediaFiles.contains(linkedSegment.segment.fileName)
+        project.model.offlineMediaFiles.contains(linkedSegment.segment.fileName)
     }
 
     private var modificationDate: Date? {
-        project.segmentModificationDates[linkedSegment.segment.fileName]
+        project.model.segmentModificationDates[linkedSegment.segment.fileName]
     }
 
     var confidenceColor: Color {

@@ -9,7 +9,7 @@ import SwiftUI
 import SourcePrintCore
 
 struct LinkingTab: View {
-    let project: Project
+    let project: ProjectViewModel
     @EnvironmentObject var projectManager: ProjectManager
     @State private var isLinking = false
     @State private var linkingProgress = ""
@@ -87,7 +87,7 @@ struct LinkingTab: View {
     }
 
     private func generateTimelineVisualizationFromExistingData() {
-        guard let linkingResult = project.linkingResult else { return }
+        guard let linkingResult = project.model.linkingResult else { return }
 
         Task {
             var visualizationResults: [String: TimelineVisualization] = [:]
@@ -111,13 +111,13 @@ struct LinkingTab: View {
     }
 
     private func performLinking() {
-        guard !project.ocfFiles.isEmpty && !project.segments.isEmpty else {
+        guard !project.model.ocfFiles.isEmpty && !project.model.segments.isEmpty else {
             NSLog("⚠️ Cannot link: need both OCF files and segments")
             return
         }
-        
+
         isLinking = true
-        linkingProgress = "Analyzing \(project.segments.count) segments against \(project.ocfFiles.count) OCF files..."
+        linkingProgress = "Analyzing \(project.model.segments.count) segments against \(project.model.ocfFiles.count) OCF files..."
         
         Task {
             await MainActor.run {
@@ -125,7 +125,7 @@ struct LinkingTab: View {
             }
 
             let linker = SegmentOCFLinker()
-            let result = linker.linkSegments(project.segments, withOCFParents: project.ocfFiles)
+            let result = linker.linkSegments(project.model.segments, withOCFParents: project.model.ocfFiles)
 
             await MainActor.run {
                 linkingProgress = "Analyzing frame ownership and overlaps..."
@@ -225,7 +225,7 @@ struct LinkingTab: View {
     }
 
     private func generateBlankRushes() {
-        guard let linkingResult = project.linkingResult else {
+        guard let linkingResult = project.model.linkingResult else {
             NSLog("⚠️ Cannot generate blank rushes: no linking result")
             return
         }
@@ -257,7 +257,7 @@ struct LinkingTab: View {
         currentFileIndex = 0
         
         Task {
-            let blankRushCreator = BlankRushIntermediate(projectDirectory: project.blankRushDirectory.path)
+            let blankRushCreator = BlankRushIntermediate(projectDirectory: project.model.blankRushDirectory.path)
             var allResults: [BlankRushResult] = []
             
             for (index, parent) in ocfsToProcess.enumerated() {
@@ -289,13 +289,13 @@ struct LinkingTab: View {
                 await MainActor.run {
                     progressValue = 100.0
                     currentFPS = 0.0
-                    
+
                     // Update project status for this file
                     if let result = results.first {
                         if result.success {
-                            project.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
+                            project.model.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
                         } else {
-                            project.blankRushStatus[result.originalOCF.fileName] = .failed(error: result.error ?? "Unknown error")
+                            project.model.blankRushStatus[result.originalOCF.fileName] = .failed(error: result.error ?? "Unknown error")
                         }
                         allResults.append(result)
                     }

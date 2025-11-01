@@ -51,7 +51,7 @@ func sortedByTimecode(_ segments: [LinkedSegment]) -> [LinkedSegment] {
 }
 
 struct LinkingResultsView: View {
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
     let timelineVisualizationData: [String: TimelineVisualization]
     @EnvironmentObject var projectManager: ProjectManager
     var onPerformLinking: (() -> Void)? = nil
@@ -59,7 +59,7 @@ struct LinkingResultsView: View {
 
     // Use the project's current linking result instead of a cached copy
     private var linkingResult: LinkingResult? {
-        project.linkingResult
+        project.model.linkingResult
     }
     @State private var selectedLinkedFiles: Set<String> = []
     @State private var selectedUnmatchedFiles: Set<String> = []
@@ -115,14 +115,14 @@ struct LinkingResultsView: View {
     // Batch render computed properties
     var canRenderAll: Bool {
         return confidentlyLinkedParents.contains { parent in
-            !project.offlineMediaFiles.contains(parent.ocf.fileName)
+            !project.model.offlineMediaFiles.contains(parent.ocf.fileName)
         }
     }
 
     var canRenderModified: Bool {
         return confidentlyLinkedParents.contains { parent in
             parent.children.contains { child in
-                project.segmentModificationDates[child.segment.fileName] != nil
+                project.model.segmentModificationDates[child.segment.fileName] != nil
             }
         }
     }
@@ -138,7 +138,7 @@ struct LinkingResultsView: View {
 
     private func renderAll() {
         let ocfsToRender = confidentlyLinkedParents.filter { parent in
-            !project.offlineMediaFiles.contains(parent.ocf.fileName)
+            !project.model.offlineMediaFiles.contains(parent.ocf.fileName)
         }
 
         NSLog("🎬 Starting batch render for %d OCFs", ocfsToRender.count)
@@ -150,7 +150,7 @@ struct LinkingResultsView: View {
     private func renderModified() {
         let modifiedOCFs = confidentlyLinkedParents.filter { parent in
             parent.children.contains { child in
-                project.segmentModificationDates[child.segment.fileName] != nil
+                project.model.segmentModificationDates[child.segment.fileName] != nil
             }
         }
 
@@ -177,25 +177,25 @@ struct LinkingResultsView: View {
         if result.success {
             // Update blank rush status
             if let blankRushURL = result.blankRushURL {
-                project.blankRushStatus[result.ocfFileName] = .completed(date: Date(), url: blankRushURL)
+                project.model.blankRushStatus[result.ocfFileName] = .completed(date: Date(), url: blankRushURL)
             }
 
             // Update print status
             if let outputURL = result.outputURL {
-                project.printStatus[result.ocfFileName] = .printed(date: Date(), outputURL: outputURL)
+                project.model.printStatus[result.ocfFileName] = .printed(date: Date(), outputURL: outputURL)
             }
 
             // Clear modification dates for printed segments
             if let parent = confidentlyLinkedParents.first(where: { $0.ocf.fileName == result.ocfFileName }) {
                 for child in parent.children {
-                    project.segmentModificationDates.removeValue(forKey: child.segment.fileName)
+                    project.model.segmentModificationDates.removeValue(forKey: child.segment.fileName)
                 }
             }
 
             // Add print record
             let printRecord = PrintRecord(
                 date: Date(),
-                outputURL: result.outputURL ?? project.outputDirectory.appendingPathComponent(result.ocfFileName),
+                outputURL: result.outputURL ?? project.model.outputDirectory.appendingPathComponent(result.ocfFileName),
                 segmentCount: result.segmentCount,
                 duration: result.duration,
                 success: true
@@ -207,7 +207,7 @@ struct LinkingResultsView: View {
             // Record failed render
             let printRecord = PrintRecord(
                 date: Date(),
-                outputURL: project.outputDirectory.appendingPathComponent(result.ocfFileName),
+                outputURL: project.model.outputDirectory.appendingPathComponent(result.ocfFileName),
                 segmentCount: result.segmentCount,
                 duration: result.duration,
                 success: false
@@ -245,7 +245,7 @@ struct LinkingResultsView: View {
                                     performLinking()
                                 }
                                 .buttonStyle(CompressorButtonStyle(prominent: true))
-                                .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
+                                .disabled(project.model.ocfFiles.isEmpty || project.model.segments.isEmpty)
                             }
                         }
                     }
@@ -261,17 +261,17 @@ struct LinkingResultsView: View {
                             .font(.title2)
                             .foregroundColor(.secondary)
                         
-                        if project.ocfFiles.isEmpty && project.segments.isEmpty {
+                        if project.model.ocfFiles.isEmpty && project.model.segments.isEmpty {
                             Text("Import OCF files and segments to begin linking")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
-                        } else if project.ocfFiles.isEmpty {
+                        } else if project.model.ocfFiles.isEmpty {
                             Text("Import OCF files to link with segments")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
-                        } else if project.segments.isEmpty {
+                        } else if project.model.segments.isEmpty {
                             Text("Import segments to link with OCF files")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -312,8 +312,8 @@ struct LinkingResultsView: View {
         .onAppear {
             // Configure RenderQueueManager with project directories
             let configuration = RenderConfiguration(
-                blankRushDirectory: project.blankRushDirectory,
-                outputDirectory: project.outputDirectory,
+                blankRushDirectory: project.model.blankRushDirectory,
+                outputDirectory: project.model.outputDirectory,
                 proResProfile: "4"
             )
             renderQueueManager.configure(with: configuration)
@@ -460,7 +460,7 @@ struct LinkingResultsView: View {
                                     performLinking()
                                 }
                                 .buttonStyle(CompressorButtonStyle(prominent: true))
-                                .disabled(project.ocfFiles.isEmpty || project.segments.isEmpty)
+                                .disabled(project.model.ocfFiles.isEmpty || project.model.segments.isEmpty)
                             }
 
                             Button("Render All") {
@@ -542,7 +542,7 @@ struct LinkingResultsView: View {
                     }
 
                     // Status line with linking result summary
-                    if let result = project.linkingResult {
+                    if let result = project.model.linkingResult {
                         HStack {
                             Text(result.summary)
                                 .font(.caption)
@@ -722,11 +722,11 @@ struct LinkingResultsView: View {
         let fileNamesToRemove = currentLinkingResult.unmatchedOCFs.map { $0.fileName }
 
         // Remove from project files
-        project.ocfFiles.removeAll { fileNamesToRemove.contains($0.fileName) }
+        project.model.ocfFiles.removeAll { fileNamesToRemove.contains($0.fileName) }
 
         // Clean up related blank rush status
         for fileName in fileNamesToRemove {
-            project.blankRushStatus.removeValue(forKey: fileName)
+            project.model.blankRushStatus.removeValue(forKey: fileName)
         }
 
         // Update the linking result to remove these from unmatched list (keep all linked data)
@@ -740,7 +740,7 @@ struct LinkingResultsView: View {
             unmatchedOCFs: updatedUnmatchedOCFs  // Remove the files we deleted
         )
 
-        project.linkingResult = updatedLinkingResult
+        project.model.linkingResult = updatedLinkingResult
         project.updateModified()
         projectManager.saveProject(project)
 

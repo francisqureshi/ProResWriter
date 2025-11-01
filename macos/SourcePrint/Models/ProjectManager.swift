@@ -13,11 +13,11 @@ import SourcePrintCore
 // MARK: - Project Manager
 
 class ProjectManager: ObservableObject {
-    
+
     // MARK: - Published Properties
-    @Published var projects: [Project] = []
-    @Published var currentProject: Project?
-    @Published var recentProjects: [Project] = []
+    @Published var projects: [ProjectViewModel] = []
+    @Published var currentProject: ProjectViewModel?
+    @Published var recentProjects: [ProjectViewModel] = []
     
     // MARK: - File Management
     private let documentsDirectory: URL
@@ -44,21 +44,21 @@ class ProjectManager: ObservableObject {
     }
     
     // MARK: - Project Creation
-    func createNewProject(name: String, outputDirectory: URL, blankRushDirectory: URL) -> Project {
-        let project = Project(
+    func createNewProject(name: String, outputDirectory: URL, blankRushDirectory: URL) -> ProjectViewModel {
+        let viewModel = ProjectViewModel(
             name: name,
             outputDirectory: outputDirectory,
             blankRushDirectory: blankRushDirectory
         )
-        
-        projects.append(project)
-        currentProject = project
-        updateRecentProjects(project)
-        
+
+        projects.append(viewModel)
+        currentProject = viewModel
+        updateRecentProjects(viewModel)
+
         // Auto-save new project
-        saveProject(project)
-        
-        return project
+        saveProject(viewModel)
+
+        return viewModel
     }
     
     // MARK: - Project Loading/Saving
@@ -82,53 +82,95 @@ class ProjectManager: ObservableObject {
         }
         
         // Sort recent projects by last modified date
-        recentProjects.sort { $0.lastModified > $1.lastModified }
+        recentProjects.sort { $0.model.lastModified > $1.model.lastModified }
     }
     
-    private func loadProject(from url: URL) -> Project? {
+    private func loadProject(from url: URL) -> ProjectViewModel? {
         do {
             NSLog("📖 Loading project from: \(url.path)")
             let data = try Data(contentsOf: url)
             NSLog("📊 File data size: \(data.count) bytes")
-            
+
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            
-            let project = try decoder.decode(Project.self, from: data)
-            NSLog("✅ Successfully decoded project: \(project.name)")
-            
-            // Update project name to match filename (without extension)
-            let filenameWithoutExtension = url.deletingPathExtension().lastPathComponent
-            if project.name != filenameWithoutExtension {
-                NSLog("📝 Updating project name from '\(project.name)' to '\(filenameWithoutExtension)' (based on filename)")
-                project.name = filenameWithoutExtension
+
+            // Try loading as ProjectViewModel first (new format)
+            if let viewModel = try? decoder.decode(ProjectViewModel.self, from: data) {
+                NSLog("✅ Successfully decoded ProjectViewModel: \(viewModel.model.name)")
+
+                // Update project name to match filename (without extension)
+                let filenameWithoutExtension = url.deletingPathExtension().lastPathComponent
+                if viewModel.model.name != filenameWithoutExtension {
+                    NSLog("📝 Updating project name from '\(viewModel.model.name)' to '\(filenameWithoutExtension)' (based on filename)")
+                    viewModel.model.name = filenameWithoutExtension
+                }
+
+                // Set the file URL
+                viewModel.model.fileURL = url
+
+                // Scan for existing blank rushes after loading
+                viewModel.scanForExistingBlankRushes()
+
+                // Check for modified segments and update print status
+                viewModel.refreshPrintStatus()
+
+                return viewModel
             }
-            
-            // Set the file URL to track where this project was loaded from
-            project.fileURL = url
-            
-            // Scan for existing blank rushes after loading
-            project.scanForExistingBlankRushes()
-            
-            // Check for modified segments and update print status
-            project.refreshPrintStatus()
-            
-            return project
+
+            // Fall back to old Project format for backward compatibility
+            NSLog("⚠️ Trying legacy Project format...")
+            let oldProject = try decoder.decode(Project.self, from: data)
+            NSLog("✅ Successfully decoded legacy Project: \(oldProject.name), migrating to ViewModel")
+
+            // Migrate to ProjectViewModel
+            let model = ProjectModel(
+                id: oldProject.id,
+                name: oldProject.name,
+                createdDate: oldProject.createdDate,
+                lastModified: oldProject.lastModified,
+                ocfFiles: oldProject.ocfFiles,
+                segments: oldProject.segments,
+                linkingResult: oldProject.linkingResult,
+                blankRushStatus: oldProject.blankRushStatus,
+                segmentModificationDates: oldProject.segmentModificationDates,
+                segmentFileSizes: oldProject.segmentFileSizes,
+                offlineMediaFiles: oldProject.offlineMediaFiles,
+                offlineFileMetadata: oldProject.offlineFileMetadata,
+                lastPrintDate: oldProject.lastPrintDate,
+                printHistory: [], // Old PrintRecord format is different, start fresh
+                printStatus: oldProject.printStatus,
+                outputDirectory: oldProject.outputDirectory,
+                blankRushDirectory: oldProject.blankRushDirectory,
+                fileURL: url
+            )
+
+            let viewModel = ProjectViewModel(
+                model: model,
+                renderQueue: oldProject.renderQueue,
+                ocfCardExpansionState: oldProject.ocfCardExpansionState,
+                watchFolderSettings: oldProject.watchFolderSettings
+            )
+
+            NSLog("✅ Migration complete, saving in new format")
+            // Save in new format for next time
+            saveProject(viewModel)
+
+            return viewModel
         } catch {
             NSLog("❌ Failed to load project from \(url.lastPathComponent): \(error)")
             return nil
         }
     }
     
-    func saveProject(_ project: Project) {
+    func saveProject(_ viewModel: ProjectViewModel) {
         // Serialize all project saves on a dedicated queue to prevent concurrent access corruption
         saveQueue.async {
             // Use the original file location if it exists, otherwise use default directory
             let url: URL
-            if let originalFileURL = project.fileURL {
+            if let originalFileURL = viewModel.model.fileURL {
                 // Check if project name has changed - if so, update filename to match
                 let currentFilename = originalFileURL.deletingPathExtension().lastPathComponent
-                let expectedFilename = project.name  // Keep natural filename with spaces
+                let expectedFilename = viewModel.model.name  // Keep natural filename with spaces
 
                 if currentFilename != expectedFilename {
                     // Project name changed - update filename to match
@@ -139,7 +181,7 @@ class ProjectManager: ObservableObject {
                     if originalFileURL.deletingLastPathComponent() == newURL.deletingLastPathComponent() {
                         do {
                             try FileManager.default.moveItem(at: originalFileURL, to: newURL)
-                            project.fileURL = newURL
+                            viewModel.model.fileURL = newURL
                             url = newURL
                             print("📝 Renamed file to match project name: \(newURL.path)")
                         } catch {
@@ -155,9 +197,9 @@ class ProjectManager: ObservableObject {
                 }
             } else {
                 // Create filename from project name, preserving natural spacing
-                let filename = "\(project.name).w2"
+                let filename = "\(viewModel.model.name).w2"
                 url = self.projectsDirectory.appendingPathComponent(filename)
-                project.fileURL = url // Set the file URL for future saves
+                viewModel.model.fileURL = url // Set the file URL for future saves
                 print("💾 Saving to default location: \(url.path)")
             }
 
@@ -166,12 +208,12 @@ class ProjectManager: ObservableObject {
                 encoder.dateEncodingStrategy = .iso8601
                 encoder.outputFormatting = .prettyPrinted
 
-                let data = try encoder.encode(project)
+                let data = try encoder.encode(viewModel)
                 try data.write(to: url)
 
-                print("✅ Saved project: \(project.name)")
+                print("✅ Saved project: \(viewModel.model.name)")
             } catch {
-                print("❌ Failed to save project \(project.name): \(error)")
+                print("❌ Failed to save project \(viewModel.model.name): \(error)")
             }
         }
     }
@@ -183,24 +225,24 @@ class ProjectManager: ObservableObject {
         updateRecentProjects(project)
     }
     
-    func saveProjectAs(_ project: Project) {
+    func saveProjectAs(_ viewModel: ProjectViewModel) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.data]
         panel.canCreateDirectories = true
-        panel.nameFieldStringValue = "\(project.name).w2"
+        panel.nameFieldStringValue = "\(viewModel.model.name).w2"
         panel.title = "Save ProResWriter Project"
         panel.message = "Choose a location to save your project"
-        
+
         let result = panel.runModal()
         if result == .OK, let url = panel.url {
             do {
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 encoder.outputFormatting = .prettyPrinted
-                
-                let data = try encoder.encode(project)
+
+                let data = try encoder.encode(viewModel)
                 try data.write(to: url)
-                
+
                 print("✅ Saved project as: \(url.path)")
             } catch {
                 print("❌ Failed to save project as \(url.path): \(error)")
@@ -209,18 +251,18 @@ class ProjectManager: ObservableObject {
     }
     
     // MARK: - Project Management
-    func openProject(_ project: Project) {
-        NSLog("📂 Opening project: \(project.name)")
-        NSLog("📊 Project has \(project.ocfFiles.count) OCF files and \(project.segments.count) segments")
-        
+    func openProject(_ viewModel: ProjectViewModel) {
+        NSLog("📂 Opening project: \(viewModel.model.name)")
+        NSLog("📊 Project has \(viewModel.model.ocfFiles.count) OCF files and \(viewModel.model.segments.count) segments")
+
         // Set as current project
-        currentProject = project
-        updateRecentProjects(project)
-        
+        currentProject = viewModel
+        updateRecentProjects(viewModel)
+
         // Trigger UI update
         objectWillChange.send()
-        
-        NSLog("✅ Current project set to: \(currentProject?.name ?? "nil")")
+
+        NSLog("✅ Current project set to: \(currentProject?.model.name ?? "nil")")
         NSLog("🔄 UI update triggered")
     }
     
@@ -245,18 +287,18 @@ class ProjectManager: ObservableObject {
             NSLog("📁 Selected file: \(url.path)")
             NSLog("📂 File extension: \(url.pathExtension)")
             
-            if let project = loadProject(from: url) {
-                NSLog("✅ Successfully loaded project: \(project.name)")
-                
+            if let viewModel = loadProject(from: url) {
+                NSLog("✅ Successfully loaded project: \(viewModel.model.name)")
+
                 // Check if already loaded
-                if !projects.contains(where: { $0.name == project.name }) {
-                    projects.append(project)
+                if !projects.contains(where: { $0.model.name == viewModel.model.name }) {
+                    projects.append(viewModel)
                     NSLog("➕ Added project to list")
                 } else {
                     NSLog("ℹ️ Project already in list")
                 }
-                
-                openProject(project)
+
+                openProject(viewModel)
                 NSLog("🎯 Called openProject()")
             } else {
                 NSLog("❌ Failed to load project from file")
@@ -267,54 +309,54 @@ class ProjectManager: ObservableObject {
     }
     
     func closeProject() {
-        if let project = currentProject {
-            saveProject(project)
+        if let viewModel = currentProject {
+            saveProject(viewModel)
         }
         currentProject = nil
     }
     
-    func deleteProject(_ project: Project) {
+    func deleteProject(_ viewModel: ProjectViewModel) {
         // Remove from arrays
-        projects.removeAll { $0.name == project.name }
-        recentProjects.removeAll { $0.name == project.name }
-        
+        projects.removeAll { $0.model.name == viewModel.model.name }
+        recentProjects.removeAll { $0.model.name == viewModel.model.name }
+
         // Close if current
-        if currentProject?.name == project.name {
+        if currentProject?.model.name == viewModel.model.name {
             currentProject = nil
         }
-        
+
         // Delete file - use fileURL if available, otherwise construct from name
         let url: URL
-        if let fileURL = project.fileURL {
+        if let fileURL = viewModel.model.fileURL {
             url = fileURL
         } else {
-            let filename = "\(project.name).w2"
+            let filename = "\(viewModel.model.name).w2"
             url = projectsDirectory.appendingPathComponent(filename)
         }
         try? FileManager.default.removeItem(at: url)
     }
     
-    func openRecentProject(_ project: Project) {
+    func openRecentProject(_ viewModel: ProjectViewModel) {
         // Check if project file still exists
-        guard let fileURL = project.fileURL,
+        guard let fileURL = viewModel.model.fileURL,
               FileManager.default.fileExists(atPath: fileURL.path) else {
             NSLog("❌ Recent project file no longer exists, removing from recent list")
-            removeFromRecentProjects(project)
+            removeFromRecentProjects(viewModel)
             return
         }
-        
+
         // Load and open the project
         if let loadedProject = loadProject(from: fileURL) {
             // Check if already in projects list
-            if !projects.contains(where: { $0.name == loadedProject.name }) {
+            if !projects.contains(where: { $0.model.name == loadedProject.model.name }) {
                 projects.append(loadedProject)
             }
             openProject(loadedProject)
         }
     }
-    
-    private func removeFromRecentProjects(_ project: Project) {
-        recentProjects.removeAll { $0.name == project.name }
+
+    private func removeFromRecentProjects(_ viewModel: ProjectViewModel) {
+        recentProjects.removeAll { $0.model.name == viewModel.model.name }
     }
     
     func clearRecentProjects() {
@@ -322,13 +364,13 @@ class ProjectManager: ObservableObject {
         NSLog("🗑️ Cleared recent projects menu")
     }
     
-    private func updateRecentProjects(_ project: Project) {
+    private func updateRecentProjects(_ viewModel: ProjectViewModel) {
         // Remove if already in recent
-        recentProjects.removeAll { $0.name == project.name }
-        
+        recentProjects.removeAll { $0.model.name == viewModel.model.name }
+
         // Add to front
-        recentProjects.insert(project, at: 0)
-        
+        recentProjects.insert(viewModel, at: 0)
+
         // Keep only 10 most recent
         if recentProjects.count > 10 {
             recentProjects.removeLast()
@@ -336,45 +378,45 @@ class ProjectManager: ObservableObject {
     }
     
     // MARK: - Import Integration
-    func importOCFFiles(for project: Project, from directory: URL) async -> [MediaFileInfo] {
+    func importOCFFiles(for viewModel: ProjectViewModel, from directory: URL) async -> [MediaFileInfo] {
         let importProcess = ImportProcess()
-        
+
         do {
             let files = try await importProcess.importOriginalCameraFiles(from: directory)
-            project.addOCFFiles(files)
-            saveProject(project)
+            viewModel.addOCFFiles(files)
+            saveProject(viewModel)
             return files
         } catch {
             print("❌ Failed to import OCF files: \(error)")
             return []
         }
     }
-    
-    func importSegments(for project: Project, from directory: URL) async -> [MediaFileInfo] {
+
+    func importSegments(for viewModel: ProjectViewModel, from directory: URL) async -> [MediaFileInfo] {
         let importProcess = ImportProcess()
-        
+
         do {
             let files = try await importProcess.importGradedSegments(from: directory)
-            project.addSegments(files)
+            viewModel.addSegments(files)
             // Refresh print status after adding segments
-            project.refreshPrintStatus()
-            saveProject(project)
+            viewModel.refreshPrintStatus()
+            saveProject(viewModel)
             return files
         } catch {
             print("❌ Failed to import segments: \(error)")
             return []
         }
     }
-    
-    func performLinking(for project: Project) {
-        guard !project.ocfFiles.isEmpty && !project.segments.isEmpty else {
+
+    func performLinking(for viewModel: ProjectViewModel) {
+        guard !viewModel.model.ocfFiles.isEmpty && !viewModel.model.segments.isEmpty else {
             print("⚠️ Need both OCF files and segments to perform linking")
             return
         }
 
         // Filter out offline segments before linking
-        let onlineSegments = project.segments.filter { !project.offlineMediaFiles.contains($0.fileName) }
-        let offlineCount = project.segments.count - onlineSegments.count
+        let onlineSegments = viewModel.model.segments.filter { !viewModel.model.offlineMediaFiles.contains($0.fileName) }
+        let offlineCount = viewModel.model.segments.count - onlineSegments.count
 
         if offlineCount > 0 {
             print("⚠️ Skipping \(offlineCount) offline segment(s) during linking")
@@ -386,31 +428,31 @@ class ProjectManager: ObservableObject {
         }
 
         let linker = SegmentOCFLinker()
-        let result = linker.linkSegments(onlineSegments, withOCFParents: project.ocfFiles)
+        let result = linker.linkSegments(onlineSegments, withOCFParents: viewModel.model.ocfFiles)
 
-        project.updateLinkingResult(result)
+        viewModel.updateLinkingResult(result)
         // Refresh print status after linking (in case segment files changed)
-        project.refreshPrintStatus()
-        saveProject(project)
+        viewModel.refreshPrintStatus()
+        saveProject(viewModel)
 
         print("✅ Linking completed: \(result.summary)")
     }
-    
-    func createBlankRushes(for project: Project) async {
-        guard let linkingResult = project.linkingResult else { return }
-        
+
+    func createBlankRushes(for viewModel: ProjectViewModel) async {
+        guard let linkingResult = viewModel.model.linkingResult else { return }
+
         let blankRushIntermediate = BlankRushIntermediate(
-            projectDirectory: project.blankRushDirectory.path
+            projectDirectory: viewModel.model.blankRushDirectory.path
         )
-        
+
         // Update status to in progress for all parents
         for parent in linkingResult.parentsWithChildren {
-            project.updateBlankRushStatus(ocfFileName: parent.ocf.fileName, status: .inProgress)
+            viewModel.updateBlankRushStatus(ocfFileName: parent.ocf.fileName, status: .inProgress)
         }
-        saveProject(project)
-        
+        saveProject(viewModel)
+
         let results = await blankRushIntermediate.createBlankRushes(from: linkingResult)
-        
+
         // Update statuses based on results
         for result in results {
             let status: BlankRushStatus
@@ -419,9 +461,9 @@ class ProjectManager: ObservableObject {
             } else {
                 status = .failed(error: result.error ?? "Unknown error")
             }
-            project.updateBlankRushStatus(ocfFileName: result.originalOCF.fileName, status: status)
+            viewModel.updateBlankRushStatus(ocfFileName: result.originalOCF.fileName, status: status)
         }
-        
-        saveProject(project)
+
+        saveProject(viewModel)
     }
 }

@@ -203,14 +203,18 @@ public struct PrintRecord: Codable, Identifiable {
     public let date: Date
     public let ocfFileName: String
     public let outputURL: URL
+    public let segmentCount: Int
     public let duration: TimeInterval
+    public let success: Bool
 
-    public init(id: UUID = UUID(), date: Date, ocfFileName: String, outputURL: URL, duration: TimeInterval) {
+    public init(id: UUID = UUID(), date: Date, ocfFileName: String, outputURL: URL, segmentCount: Int = 0, duration: TimeInterval, success: Bool = true) {
         self.id = id
         self.date = date
         self.ocfFileName = ocfFileName
         self.outputURL = outputURL
+        self.segmentCount = segmentCount
         self.duration = duration
+        self.success = success
     }
 }
 

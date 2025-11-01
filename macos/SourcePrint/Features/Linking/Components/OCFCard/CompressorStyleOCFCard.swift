@@ -13,7 +13,7 @@ import CoreMedia
 struct CompressorStyleOCFCard: View {
     let parent: OCFParent
     let ocfIndex: Int
-    let project: Project
+    let project: ProjectViewModel
     let timelineVisualizationData: [String: TimelineVisualization]
     @Binding var selectedLinkedFiles: Set<String>
     @Binding var selectedOCFParents: Set<String>
@@ -97,100 +97,57 @@ struct CompressorStyleOCFCard: View {
     }
 
     var body: some View {
+        cardContent
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .onReceive(NotificationCenter.default.publisher(for: .expandSelectedCards)) { _ in
+                if isSelected {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded = true
+                    }
+                    project.ocfCardExpansionState[parent.ocf.fileName] = true
+                    projectManager.saveProject(project)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .collapseSelectedCards)) { _ in
+                if isSelected {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded = false
+                    }
+                    project.ocfCardExpansionState[parent.ocf.fileName] = false
+                    projectManager.saveProject(project)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .collapseAllCards)) { _ in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded = false
+                }
+                project.ocfCardExpansionState[parent.ocf.fileName] = false
+            }
+            .onAppear {
+                isExpanded = project.ocfCardExpansionState[parent.ocf.fileName] ?? true
+            }
+    }
+
+    @ViewBuilder
+    private var cardContent: some View {
         VStack(spacing: 0) {
             // Compressor-style header (title bar)
-            HStack {
-                // OCF filename as main title (clickable)
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                        // Save expansion state to project
-                        project.ocfCardExpansionState[parent.ocf.fileName] = isExpanded
-                        projectManager.saveProject(project)
-                    }
-                }) {
-                    Text(parent.ocf.fileName)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                }
-                .buttonStyle(.plain)
+            OCFCardHeader(
+                fileName: parent.ocf.fileName,
+                isExpanded: $isExpanded,
+                isSelected: isSelected,
+                isRendering: isRendering,
+                project: project,
+                projectManager: projectManager,
+                onExpansionToggle: {
+                    project.ocfCardExpansionState[parent.ocf.fileName] = isExpanded
+                    projectManager.saveProject(project)
+                },
+                onRenderSingle: onRenderSingle,
+                onCardSelection: handleCardSelection
+            )
 
-                    Spacer()
-
-                    // Status indicators (from original header)
-                    HStack(spacing: 8) {
-                        // Print Status
-                        Button(action: {}) {
-                            HStack(spacing: 4) {
-                                if let printStatus = project.printStatus[parent.ocf.fileName] {
-                                    Image(systemName: printStatus.icon)
-                                        .foregroundColor(printStatus.color)
-                                    Text(printStatus.displayName)
-                                        .font(.caption)
-                                        .foregroundColor(printStatus.color)
-                                } else {
-                                    Image(systemName: "circle")
-                                        .foregroundColor(.secondary)
-                                    Text("Not Printed")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-
-                        // Render Button / State Display
-                        if isRendering {
-                            HStack(spacing: 4) {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .scaleEffect(0.8)
-                                Text("Rendering")
-                                    .font(.caption)
-                                    .foregroundColor(.accentColor)
-                            }
-                        } else {
-                            Button(action: {
-                                onRenderSingle()
-                            }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "play.circle.fill")
-                                        .foregroundColor(.accentColor)
-                                    Text("Render")
-                                        .font(.caption)
-                                        .foregroundColor(.accentColor)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        // Chevron indicator with fixed width and larger click area
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isExpanded.toggle()
-                                // Save expansion state to project
-                                project.ocfCardExpansionState[parent.ocf.fileName] = isExpanded
-                                projectManager.saveProject(project)
-                            }
-                        }) {
-                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                                .frame(width: 20, height: 20)
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                    }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
-            .onTapGesture {
-                handleCardSelection()
-            }
-
-            // Render Progress Bar (shown when rendering, whether expanded or collapsed)
+            // Render Progress Bar
             if isRendering, let progress = renderProgress {
                 VStack(spacing: 4) {
                     // Extract percentage for determinate progress bar
@@ -239,93 +196,180 @@ struct CompressorStyleOCFCard: View {
 
             // Card body (expandable content)
             if isExpanded {
-                VStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        // Timeline
-                        if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
-                            TimelineChartView(
-                                visualizationData: timelineData,
-                                ocfFileName: parent.ocf.fileName,
-                                selectedSegmentFileName: selectedLinkedFiles.first
-                            )
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                        }
+                expandableContent
+            }
+        }
+    }
 
-                        // Render Log Section
-                        RenderLogSection(
-                            project: project,
-                            ocfFileName: parent.ocf.fileName
-                        )
+    private var expandableContent: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                // Timeline
+                if let timelineData = timelineVisualizationData[parent.ocf.fileName] {
+                    TimelineChartView(
+                        visualizationData: timelineData,
+                        ocfFileName: parent.ocf.fileName,
+                        selectedSegmentFileName: selectedLinkedFiles.first
+                    )
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                }
 
-                        // Linked segments container - keyboard navigation handled at LinkingResultsView level
-                        VStack(spacing: 0) {
-                            ForEach(Array(sortedByTimecode(parent.children).enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
-                                TreeLinkedSegmentRowView(
-                                    linkedSegment: linkedSegment,
-                                    isLast: linkedSegment.segment.fileName
-                                        == sortedByTimecode(parent.children).last?.segment.fileName,
-                                    project: project
-                                )
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .onTapGesture {
-                                    // Update navigation state
-                                    focusedOCFIndex = ocfIndex
-                                    navigationContext = .segmentList
-                                    selectedLinkedFiles = [linkedSegment.segment.fileName]
-                                    selectedOCFParents = [parent.ocf.fileName]
-                                }
-                                .background(
-                                    selectedLinkedFiles.contains(linkedSegment.segment.fileName)
-                                    ? Color.accentColor.opacity(0.2)
-                                    : Color.clear
-                                )
-                            }
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.appBackgroundTertiary.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                // Render Log Section
+                RenderLogSection(
+                    project: project,
+                    ocfFileName: parent.ocf.fileName
+                )
+
+                // Linked segments
+                segmentsListView
+            }
+            .padding(8)
+            .background(Color.appBackgroundTertiary.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .padding(.top, 0)
+        .padding(.horizontal, 4)
+        .padding(.bottom, 4)
+        .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
+    }
+
+    private var segmentsListView: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(sortedByTimecode(parent.children).enumerated()), id: \.element.segment.fileName) { index, linkedSegment in
+                TreeLinkedSegmentRowView(
+                    linkedSegment: linkedSegment,
+                    isLast: linkedSegment.segment.fileName == sortedByTimecode(parent.children).last?.segment.fileName,
+                    project: project
+                )
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .onTapGesture {
+                    focusedOCFIndex = ocfIndex
+                    navigationContext = .segmentList
+                    selectedLinkedFiles = [linkedSegment.segment.fileName]
+                    selectedOCFParents = [parent.ocf.fileName]
                 }
-                .padding(.top, 0)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 4)
-                .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
+                .background(
+                    selectedLinkedFiles.contains(linkedSegment.segment.fileName)
+                    ? Color.accentColor.opacity(0.2)
+                    : Color.clear
+                )
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .onReceive(NotificationCenter.default.publisher(for: .expandSelectedCards)) { _ in
-            if isSelected {
+    }
+}
+
+// MARK: - OCF Card Header Component
+
+struct OCFCardHeader: View {
+    let fileName: String
+    @Binding var isExpanded: Bool
+    let isSelected: Bool
+    let isRendering: Bool
+    let project: ProjectViewModel
+    let projectManager: ProjectManager
+    let onExpansionToggle: () -> Void
+    let onRenderSingle: () -> Void
+    let onCardSelection: () -> Void
+
+    var body: some View {
+        HStack {
+            // OCF filename as main title (clickable)
+            Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded = true
+                    isExpanded.toggle()
+                    onExpansionToggle()
                 }
-                // Save expansion state to project
-                project.ocfCardExpansionState[parent.ocf.fileName] = true
-                projectManager.saveProject(project)
+            }) {
+                Text(fileName)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            // Status indicators
+            HStack(spacing: 8) {
+                // Print Status
+                printStatusView
+
+                // Render Button / State Display
+                renderButtonView
+
+                // Chevron indicator
+                chevronButton
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .collapseSelectedCards)) { _ in
-            if isSelected {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded = false
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isSelected ? Color.accentColor.opacity(0.3) : Color.appBackgroundSecondary)
+        .onTapGesture {
+            onCardSelection()
+        }
+    }
+
+    private var printStatusView: some View {
+        Button(action: {}) {
+            HStack(spacing: 4) {
+                if let printStatus = project.model.printStatus[fileName] {
+                    Image(systemName: printStatus.icon)
+                        .foregroundColor(printStatus.color)
+                    Text(printStatus.displayName)
+                        .font(.caption)
+                        .foregroundColor(printStatus.color)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundColor(.secondary)
+                    Text("Not Printed")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                // Save expansion state to project
-                project.ocfCardExpansionState[parent.ocf.fileName] = false
-                projectManager.saveProject(project)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .collapseAllCards)) { _ in
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var renderButtonView: some View {
+        if isRendering {
+            HStack(spacing: 4) {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.8)
+                Text("Rendering")
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+            }
+        } else {
+            Button(action: onRenderSingle) {
+                HStack(spacing: 4) {
+                    Image(systemName: "play.circle.fill")
+                        .foregroundColor(.accentColor)
+                    Text("Render")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var chevronButton: some View {
+        Button(action: {
             withAnimation(.easeInOut(duration: 0.2)) {
-                isExpanded = false
+                isExpanded.toggle()
+                onExpansionToggle()
             }
-            // Update state but don't save (batch collapse shouldn't trigger multiple saves)
-            project.ocfCardExpansionState[parent.ocf.fileName] = false
+        }) {
+            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                .foregroundColor(.secondary)
+                .font(.caption)
+                .frame(width: 20, height: 20)
         }
-        // Render notification removed - rendering now controlled by RenderQueueManager in LinkingResultsView
-        .onAppear {
-            // Initialize expansion state from project (default to true if not set)
-            isExpanded = project.ocfCardExpansionState[parent.ocf.fileName] ?? true
-        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 }

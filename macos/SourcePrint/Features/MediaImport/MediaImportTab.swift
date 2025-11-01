@@ -10,7 +10,7 @@ import SourcePrintCore
 import UniformTypeIdentifiers
 
 struct MediaImportTab: View {
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
     @EnvironmentObject var projectManager: ProjectManager
     @State private var importingOCF = false
     @State private var isAnalyzing = false
@@ -36,11 +36,11 @@ struct MediaImportTab: View {
             WatchFolderSection(project: project)
 
             // Offline Media Warning/Action Bar
-            if !project.offlineMediaFiles.isEmpty {
+            if !project.model.offlineMediaFiles.isEmpty {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
-                    Text("\(project.offlineMediaFiles.count) offline media file(s)")
+                    Text("\(project.model.offlineMediaFiles.count) offline media file(s)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
@@ -61,10 +61,10 @@ struct MediaImportTab: View {
             HSplitView {
                 // OCF Files Table
                 MediaFileColumnTableView(
-                    files: project.ocfFiles,
+                    files: project.model.ocfFiles,
                     type: .ocf,
                     selectedFiles: $selectedOCFFiles,
-                    offlineFiles: project.offlineMediaFiles,
+                    offlineFiles: project.model.offlineMediaFiles,
                     modificationDates: [:], // OCFs don't track modification dates
                     onVFXToggle: { fileName, isVFX in
                         project.toggleOCFVFXStatus(fileName, isVFX: isVFX)
@@ -84,11 +84,11 @@ struct MediaImportTab: View {
 
                 // Segments Table
                 MediaFileColumnTableView(
-                    files: project.segments,
+                    files: project.model.segments,
                     type: .segment,
                     selectedFiles: $selectedSegments,
-                    offlineFiles: project.offlineMediaFiles,
-                    modificationDates: project.segmentModificationDates,
+                    offlineFiles: project.model.offlineMediaFiles,
+                    modificationDates: project.model.segmentModificationDates,
                     onVFXToggle: { fileName, isVFX in
                         project.toggleSegmentVFXStatus(fileName, isVFX: isVFX)
                         projectManager.saveProject(project)
@@ -111,7 +111,7 @@ struct MediaImportTab: View {
             isPresented: $showRemoveOfflineConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Remove \(project.offlineMediaFiles.count) Offline Files", role: .destructive) {
+            Button("Remove \(project.model.offlineMediaFiles.count) Offline Files", role: .destructive) {
                 project.removeOfflineMedia()
                 projectManager.saveProject(project)
             }
@@ -326,7 +326,7 @@ struct MediaImportTab: View {
 // MARK: - Watch Folder Section
 
 struct WatchFolderSection: View {
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
 
     var body: some View {
         GroupBox("🔍 Watch Folders") {

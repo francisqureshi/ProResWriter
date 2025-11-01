@@ -11,9 +11,14 @@ import SourcePrintCore
 struct ProjectSidebar: View {
     @EnvironmentObject var projectManager: ProjectManager
     @State private var selection: UUID?
-    
+
     var body: some View {
-        List(selection: $selection) {
+        sidebarList
+    }
+
+    @ViewBuilder
+    private var sidebarList: some View {
+        let list = List(selection: $selection) {
             Section("Projects") {
                 ForEach(projectManager.projects, id: \.id) { project in
                     ProjectRowView(project: project)
@@ -21,43 +26,51 @@ struct ProjectSidebar: View {
                 }
             }
         }
-        .listStyle(SidebarListStyle())
-        .scrollContentBackground(.hidden)
-        .background(AppTheme.backgroundSecondary)
-        .navigationTitle("Projects")
-        .onChange(of: selection) { oldValue, newValue in
-            if let selectedId = newValue,
-               let selectedProject = projectManager.projects.first(where: { $0.id == selectedId }) {
-                print("🎯 Sidebar project selected: \(selectedProject.name)")
-                projectManager.openProject(selectedProject)
-            }
+
+        list
+            .listStyle(SidebarListStyle())
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.backgroundSecondary)
+            .navigationTitle("Projects")
+            .onChange(of: selection, handleSelectionChange)
+            .onAppear(perform: handleAppear)
+            .onChange(of: projectManager.currentProject?.id, handleProjectChange)
+    }
+
+    private func handleSelectionChange(oldValue: UUID?, newValue: UUID?) {
+        if let selectedId = newValue,
+           let selectedProject = projectManager.projects.first(where: { $0.id == selectedId }) {
+            print("🎯 Sidebar project selected: \(selectedProject.model.name)")
+            projectManager.openProject(selectedProject)
         }
-        .onAppear {
-            selection = projectManager.currentProject?.id
-        }
-        .onChange(of: projectManager.currentProject?.id) { oldValue, newValue in
-            selection = newValue
-        }
+    }
+
+    private func handleAppear() {
+        selection = projectManager.currentProject?.id
+    }
+
+    private func handleProjectChange(oldValue: UUID?, newValue: UUID?) {
+        selection = newValue
     }
 }
 
 struct ProjectRowView: View {
-    let project: Project
+    let project: ProjectViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(project.name)
+            Text(project.model.name)
                 .font(.headline)
-            
+
             HStack {
-                Text(DateFormatter.short.string(from: project.lastModified))
+                Text(DateFormatter.short.string(from: project.model.lastModified))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
                 Spacer()
                 
                 if project.hasLinkedMedia {
-                    Label("\(project.linkingResult?.totalLinkedSegments ?? 0)", systemImage: "link")
+                    Label("\(project.model.linkingResult?.totalLinkedSegments ?? 0)", systemImage: "link")
                         .font(.caption)
                         .foregroundColor(AppTheme.accent)
                 }

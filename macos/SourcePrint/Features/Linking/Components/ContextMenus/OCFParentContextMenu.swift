@@ -10,7 +10,7 @@ import SwiftUI
 
 struct OCFParentContextMenu: View {
     let parent: OCFParent
-    @ObservedObject var project: Project
+    @ObservedObject var project: ProjectViewModel
     @ObservedObject var projectManager: ProjectManager
     let selectedParents: [OCFParent]
     let allParents: [OCFParent]
@@ -49,11 +49,11 @@ struct OCFParentContextMenu: View {
     
     private var hasModifiedSegments: Bool {
         // Check if any segments for this OCF have been modified since last print
-        guard let printStatus = project.printStatus[parent.ocf.fileName],
+        guard let printStatus = project.model.printStatus[parent.ocf.fileName],
               case .printed(let lastPrintDate, _) = printStatus else {
             return false
         }
-        
+
         for child in parent.children {
             let segmentFileName = child.segment.fileName
             if let fileModDate = getFileModificationDate(for: child.segment.url),
@@ -64,13 +64,13 @@ struct OCFParentContextMenu: View {
         return false
     }
     
+    @ViewBuilder
     var body: some View {
-        Group {
-            // Add to Render Queue
-            Button(operatingParents.count > 1 ? "Add \(operatingParents.count) Items to Render Queue" : "Add to Render Queue") {
-                addToRenderQueue()
-            }
-            .disabled(eligibleParentsForQueue.isEmpty)
+        // Add to Render Queue
+        Button(operatingParents.count > 1 ? "Add \(operatingParents.count) Items to Render Queue" : "Add to Render Queue") {
+            addToRenderQueue()
+        }
+        .disabled(eligibleParentsForQueue.isEmpty)
             
             if eligibleParentsForQueue.count != operatingParents.count && operatingParents.count > 1 {
                 Text("\(eligibleParentsForQueue.count)/\(operatingParents.count) items eligible")
@@ -92,48 +92,47 @@ struct OCFParentContextMenu: View {
             // Only show print status actions for single item context menus
             if operatingParents.count == 1 {
                 Divider()
-                
+
                 // Print status actions
-                if let printStatus = project.printStatus[parent.ocf.fileName] {
-                switch printStatus {
-                case .printed:
-                    if hasModifiedSegments {
-                        Button("Mark for Re-print (Segments Modified)", systemImage: "exclamationmark.circle") {
-                            project.printStatus[parent.ocf.fileName] = .needsReprint(
-                                lastPrintDate: Date(),
-                                reason: .segmentModified
-                            )
-                            projectManager.saveProject(project)
-                        }
-                    } else {
-                        Button("Force Re-print", systemImage: "arrow.clockwise") {
-                            project.printStatus[parent.ocf.fileName] = .needsReprint(
-                                lastPrintDate: Date(),
-                                reason: .manualRequest
-                            )
-                            projectManager.saveProject(project)
-                        }
-                    }
-                    
-                case .needsReprint:
-                    Button("Clear Re-print Flag", systemImage: "checkmark.circle") {
-                        // Find the last successful print date
-                        if let lastSuccessfulPrint = project.printHistory
-                            .filter({ $0.success && $0.outputURL.lastPathComponent.contains((parent.ocf.fileName as NSString).deletingPathExtension) })
-                            .max(by: { $0.date < $1.date }) {
-                            project.printStatus[parent.ocf.fileName] = .printed(date: lastSuccessfulPrint.date, outputURL: lastSuccessfulPrint.outputURL)
+                if let printStatus = project.model.printStatus[parent.ocf.fileName] {
+                    switch printStatus {
+                    case .printed:
+                        if hasModifiedSegments {
+                            Button("Mark for Re-print (Segments Modified)", systemImage: "exclamationmark.circle") {
+                                project.model.printStatus[parent.ocf.fileName] = .needsReprint(
+                                    lastPrintDate: Date(),
+                                    reason: .segmentModified
+                                )
+                                projectManager.saveProject(project)
+                            }
                         } else {
-                            project.printStatus.removeValue(forKey: parent.ocf.fileName)
+                            Button("Force Re-print", systemImage: "arrow.clockwise") {
+                                project.model.printStatus[parent.ocf.fileName] = .needsReprint(
+                                    lastPrintDate: Date(),
+                                    reason: .manualRequest
+                                )
+                                projectManager.saveProject(project)
+                            }
                         }
-                        projectManager.saveProject(project)
+
+                    case .needsReprint:
+                        Button("Clear Re-print Flag", systemImage: "checkmark.circle") {
+                            // Find the last successful print date
+                            if let lastSuccessfulPrint = project.model.printHistory
+                                .filter({ $0.success && $0.outputURL.lastPathComponent.contains((parent.ocf.fileName as NSString).deletingPathExtension) })
+                                .max(by: { $0.date < $1.date }) {
+                                project.model.printStatus[parent.ocf.fileName] = .printed(date: lastSuccessfulPrint.date, outputURL: lastSuccessfulPrint.outputURL)
+                            } else {
+                                project.model.printStatus.removeValue(forKey: parent.ocf.fileName)
+                            }
+                            projectManager.saveProject(project)
+                        }
+
+                    case .notPrinted:
+                        EmptyView()
                     }
-                    
-                case .notPrinted:
-                    EmptyView()
-                }
                 }
             }
-        }
     }
     
     private func addToRenderQueue() {
@@ -159,7 +158,7 @@ struct OCFParentContextMenu: View {
         NSLog("🔄 Regenerating blank rush for \(parent.ocf.fileName)")
 
         // Mark as in progress
-        project.blankRushStatus[parent.ocf.fileName] = .inProgress
+        project.model.blankRushStatus[parent.ocf.fileName] = .inProgress
         projectManager.saveProject(project)
 
         // Create single-file linking result for this OCF
@@ -170,7 +169,7 @@ struct OCFParentContextMenu: View {
         )
 
         Task {
-            let blankRushCreator = BlankRushIntermediate(projectDirectory: project.blankRushDirectory.path)
+            let blankRushCreator = BlankRushIntermediate(projectDirectory: project.model.blankRushDirectory.path)
 
             // Create blank rush
             let results = await blankRushCreator.createBlankRushes(from: singleOCFResult) { clipName, current, total, fps in
@@ -180,12 +179,12 @@ struct OCFParentContextMenu: View {
             await MainActor.run {
                 if let result = results.first {
                     if result.success {
-                        project.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
+                        project.model.blankRushStatus[result.originalOCF.fileName] = .completed(date: Date(), url: result.blankRushURL)
                         projectManager.saveProject(project)
                         NSLog("✅ Regenerated blank rush for \(parent.ocf.fileName): \(result.blankRushURL.lastPathComponent)")
                     } else {
                         let errorMessage = result.error ?? "Unknown error"
-                        project.blankRushStatus[result.originalOCF.fileName] = .failed(error: errorMessage)
+                        project.model.blankRushStatus[result.originalOCF.fileName] = .failed(error: errorMessage)
                         projectManager.saveProject(project)
                         NSLog("❌ Failed to regenerate blank rush for \(parent.ocf.fileName): \(errorMessage)")
                     }
